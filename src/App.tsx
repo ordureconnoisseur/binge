@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
+import { Reel } from "./components/Reel";
+import { FilterProvider } from "./filter/FilterContext";
+import { FilterBar } from "./filter/FilterBar";
 
 // Stash exposes its API at window.PluginApi when this app is loaded as a
-// plugin asset. When viewing this page in a Vite dev server it won't be
-// there, so the reel falls back to a "not in Stash" placeholder.
+// plugin asset. Inside the iframe-served reel SPA it's NOT available —
+// we use refract detection only to decide whether to apply the bundled
+// fallback token theme.
 declare global {
     interface Window {
         PluginApi?: unknown;
@@ -10,30 +14,33 @@ declare global {
 }
 
 function App() {
-    const [hostInfo, setHostInfo] = useState<string>("detecting host…");
+    const [refractActive, setRefractActive] = useState<boolean>(false);
 
     useEffect(() => {
-        const inStash = typeof window.PluginApi !== "undefined";
-        const refractActive =
-            typeof document !== "undefined" &&
-            document.body.classList.contains("stash-liquid-glass");
-        setHostInfo(
-            inStash
-                ? `running in Stash · refract ${refractActive ? "detected" : "absent"}`
-                : "standalone (no PluginApi)"
-        );
+        // Cross-window detection: refract is loaded in the main Stash SPA,
+        // not in this iframe. Try the parent window when accessible; fall
+        // back to checking our own body (no-op for now, allows local dev).
+        try {
+            const parentBody = window.parent?.document?.body;
+            if (parentBody?.classList.contains("stash-liquid-glass")) {
+                setRefractActive(true);
+                return;
+            }
+        } catch {
+            // Cross-origin parent — ignore, fall through to local check.
+        }
+        if (document.body.classList.contains("stash-liquid-glass")) {
+            setRefractActive(true);
+        }
     }, []);
 
     return (
-        <main className="binge-shell">
-            <header className="binge-header">
-                <h1>binge</h1>
-                <p className="binge-host">{hostInfo}</p>
-            </header>
-            <section className="binge-reel-placeholder">
-                <p>reel player coming next</p>
-            </section>
-        </main>
+        <FilterProvider>
+            <div className={refractActive ? "binge-app refract" : "binge-app"}>
+                <FilterBar />
+                <Reel />
+            </div>
+        </FilterProvider>
     );
 }
 

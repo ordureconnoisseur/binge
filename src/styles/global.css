@@ -1,12 +1,12 @@
-/* Bundled fallback tokens — used only when refract isn't present.
-   Detection logic in src/App.tsx will skip these vars at runtime when
-   `body.stash-liquid-glass` is detected (refract's tokens take over). */
+/* Bundled fallback tokens — used when refract isn't detected. Refract's
+   own tokens cascade in when `body.stash-liquid-glass` is present on the
+   parent (we mirror that into our root class via [App.tsx]). */
 :root {
     --bg-0: #0a0a0a;
     --bg-1: #111;
     --text: rgba(255, 255, 255, 0.92);
     --text-muted: rgba(255, 255, 255, 0.55);
-    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-bg: rgba(0, 0, 0, 0.5);
     --glass-border: rgba(255, 255, 255, 0.12);
     --glass-blur: blur(24px);
     --accent: #f97316;
@@ -26,36 +26,577 @@ body,
     overscroll-behavior: none;
 }
 
-.binge-shell {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+.binge-app {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
 }
 
-.binge-header {
-    padding: 1.25rem 1.5rem;
+/* ── Reel ──────────────────────────────────────────────────────────── */
+.binge-reel {
+    height: 100vh;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+    /* Hide scrollbar — reel is gesture-driven */
+    scrollbar-width: none;
+}
+.binge-reel::-webkit-scrollbar {
+    display: none;
+}
+
+.binge-slide {
+    position: relative;
+    height: 100vh;
+    width: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    background: #000;
+    overflow: hidden;
+}
+
+.binge-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+/* ── Scene overlay (bottom-left) ───────────────────────────────────── */
+.binge-overlay {
+    position: absolute;
+    left: 0;
+    right: 5rem; /* leave room for the action stack */
+    bottom: 0;
+    padding: 1.5rem 1.25rem 2.25rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, transparent 100%);
+    color: var(--text);
+    pointer-events: none;
+}
+
+.binge-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+
+.binge-studio {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* ── Right-side action stack ───────────────────────────────────────── */
+.binge-actions {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 4.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.85rem;
+    pointer-events: auto;
+    z-index: 5;
+}
+
+/* Performer row — Instagram-style stacked avatars + "A and B" name text */
+.binge-performer-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 0.4rem;
+    pointer-events: auto;
+}
+
+.binge-performer-stack {
+    display: flex;
+    align-items: center;
+}
+
+.binge-performer-bubble {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.18s ease;
+    /* Overlap with the previous bubble. First bubble has no overlap (no
+       sibling to its left), subsequent ones nudge into the prior. */
+}
+.binge-performer-bubble + .binge-performer-bubble {
+    margin-left: -10px;
+}
+.binge-performer-bubble:hover,
+.binge-performer-bubble:focus-visible {
+    transform: scale(1.08);
+    z-index: 99 !important; /* lift to top regardless of stack order */
+}
+
+.binge-performer-bubble-img {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: var(--bg-1);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    /* White ring keeps each circle separable when they overlap. */
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95),
+        0 0 0 3px rgba(0, 0, 0, 0.45),
+        0 2px 8px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+}
+
+.binge-performer-bubble-initial {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+}
+
+.binge-performer-overflow {
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95),
+        0 0 0 3px rgba(0, 0, 0, 0.45);
+}
+
+.binge-performer-names {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* Instagram-style icon-only action button (no chrome, no background). The
+   tap target is the icon itself; only the count sits below. */
+.binge-action-button {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    transition: transform 0.18s ease, filter 0.22s ease;
+    /* Drop shadow on the icon ensures contrast against bright video frames. */
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.85));
+}
+.binge-action-button:hover,
+.binge-action-button:focus-visible {
+    transform: scale(1.1);
+    filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.95));
+}
+.binge-action-button:active {
+    transform: scale(0.92);
+}
+.binge-action-button:disabled {
+    cursor: progress;
+    opacity: 0.7;
+}
+.binge-action-button.is-error .binge-heart {
+    color: #ff6b6b;
+}
+
+/* Heart icon: outlined white by default; refract-pink (#f472b6) with glow
+   when O > 0. Color + glow mirror refract's `.favorite-button.favorite`
+   styling so binge feels native to the theme. No continuous animation —
+   the celebration is the one-shot burst (see .binge-heart-burst below). */
+.binge-heart {
+    color: #fff;
+    transition: color 0.2s ease, filter 0.2s ease;
+}
+.binge-action-button.is-active .binge-heart {
+    color: #f472b6;
+    filter:
+        drop-shadow(0 0 6px rgba(244, 114, 182, 0.85))
+        drop-shadow(0 0 14px rgba(244, 114, 182, 0.45));
+}
+
+/* ── Heart burst — particles float up from bottom on every tap ─────── */
+.binge-heart-burst-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 4; /* above video, below overlay text + action stack */
+}
+
+.binge-heart-particle {
+    position: absolute;
+    bottom: -2rem;
+    color: #f472b6;
+    filter:
+        drop-shadow(0 0 6px rgba(244, 114, 182, 0.7))
+        drop-shadow(0 0 12px rgba(244, 114, 182, 0.35));
+    will-change: transform, opacity;
+    animation: binge-heart-rise var(--binge-burst-duration, 2400ms)
+        cubic-bezier(0.25, 0.7, 0.45, 1)
+        var(--binge-burst-delay, 0ms) forwards;
+}
+
+@keyframes binge-heart-rise {
+    0% {
+        transform: translate(0, 0) rotate(var(--binge-burst-rot-start, 0deg))
+            scale(var(--binge-burst-scale-start, 0.6));
+        opacity: 0;
+    }
+    8% {
+        opacity: 1;
+    }
+    70% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(
+                var(--binge-burst-x-end, 0px),
+                calc(-1 * var(--binge-burst-rise, 100vh))
+            )
+            rotate(var(--binge-burst-rot-end, 0deg))
+            scale(var(--binge-burst-scale-end, 1));
+        opacity: 0;
+    }
+}
+
+.binge-action-count {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+
+/* ── Filter chip bar (top, floats over reel) ───────────────────────── */
+.binge-filter-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    padding: 0.75rem 0.85rem;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 100%);
+    pointer-events: none; /* lets the chips be the only click targets */
+}
+
+.binge-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+    pointer-events: auto;
+}
+
+/* Common chip body */
+.binge-filter-chip,
+.binge-filter-add,
+.binge-filter-clear {
+    appearance: none;
+    border: 1px solid var(--glass-border);
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border-bottom: 1px solid var(--glass-border);
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.18s ease;
+    line-height: 1;
+}
+.binge-filter-chip:hover,
+.binge-filter-add:hover,
+.binge-filter-clear:hover {
+    background: rgba(var(--accent-rgb), 0.22);
+    border-color: rgba(var(--accent-rgb), 0.55);
 }
 
-.binge-header h1 {
-    margin: 0;
-    font-size: 1.5rem;
+.binge-filter-chip-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: var(--bg-1);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
+    display: grid;
+    place-items: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex: 0 0 22px;
+}
+.binge-filter-chip-label {
+    max-width: 14ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.binge-filter-chip-x {
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.7;
+    margin-left: 0.1rem;
+}
+
+/* Category tints */
+.binge-filter-chip-tags {
+    border-color: rgba(125, 211, 252, 0.45);
+}
+.binge-filter-chip-studios {
+    border-color: rgba(252, 211, 77, 0.45);
+}
+
+.binge-filter-add {
+    /* Plus pill — accent-tinged for affordance */
+    border-color: rgba(var(--accent-rgb), 0.55);
     color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.12);
+}
+.binge-filter-add[aria-expanded="true"] {
+    background: rgba(var(--accent-rgb), 0.32);
+    color: #fff;
+}
+.binge-filter-add-label {
+    font-weight: 700;
     letter-spacing: 0.02em;
 }
 
-.binge-host {
-    margin: 0.25rem 0 0;
-    font-size: 0.8rem;
-    color: var(--text-muted);
+.binge-filter-clear {
+    margin-left: auto;
+    opacity: 0.75;
+    text-transform: lowercase;
 }
 
-.binge-reel-placeholder {
-    flex: 1;
+/* ── AddChipMenu popover ───────────────────────────────────────────── */
+.binge-chip-menu {
+    margin-top: 0.5rem;
+    width: min(360px, 92vw);
+    background: rgba(20, 20, 24, 0.96);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55),
+        0 0 22px rgba(var(--accent-rgb), 0.18);
+    padding: 0.5rem;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.binge-chip-menu-tabs {
+    display: flex;
+    gap: 0.25rem;
+}
+.binge-chip-menu-tab {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.binge-chip-menu-tab:hover {
+    color: #fff;
+}
+.binge-chip-menu-tab.is-active {
+    color: #fff;
+    background: rgba(var(--accent-rgb), 0.22);
+    border-color: rgba(var(--accent-rgb), 0.55);
+}
+
+.binge-chip-menu-input {
+    appearance: none;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm, 12px);
+    font-size: 0.92rem;
+    outline: none;
+}
+.binge-chip-menu-input:focus {
+    border-color: rgba(var(--accent-rgb), 0.55);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.18);
+}
+
+.binge-chip-menu-results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.binge-chip-menu-status {
+    color: var(--text-muted);
+    padding: 0.6rem 0.5rem;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.binge-chip-menu-row {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: left;
+    border-radius: 8px;
+    transition: background 0.18s ease;
+    width: 100%;
+}
+.binge-chip-menu-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+.binge-chip-menu-row.is-selected,
+.binge-chip-menu-row:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.binge-chip-menu-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--bg-1);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
     display: grid;
     place-items: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    flex: 0 0 32px;
+}
+.binge-chip-menu-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.92rem;
+}
+.binge-chip-menu-tick {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+/* ── Presets menu (variant of chip-menu) ───────────────────────────── */
+.binge-presets-menu .binge-chip-menu-tabs {
+    align-items: center;
+    justify-content: space-between;
+}
+
+.binge-presets-save {
+    cursor: pointer;
+    color: var(--accent);
+    border-color: rgba(var(--accent-rgb), 0.55) !important;
+    background: rgba(var(--accent-rgb), 0.12) !important;
+}
+.binge-presets-save:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.binge-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0;
+}
+.binge-preset-load {
+    flex: 1;
+}
+.binge-preset-count {
     color: var(--text-muted);
+    font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 999px;
+    padding: 0.1rem 0.55rem;
+    margin-left: auto;
+}
+.binge-preset-actions {
+    display: flex;
+    gap: 0.2rem;
+    padding: 0 0.2rem;
+}
+.binge-preset-icon-button {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+.binge-preset-icon-button:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+}
+.binge-preset-delete:hover {
+    color: #ff6b6b;
+}
+.binge-preset-rename {
+    flex: 1;
+    font-size: 0.92rem;
+}
+
+/* ── Loading / error / empty ───────────────────────────────────────── */
+.binge-status {
+    display: grid;
+    place-items: center;
+    height: 100vh;
+    color: var(--text-muted);
+    font-size: 1rem;
+    padding: 2rem;
+    text-align: center;
+}
+.binge-status-error {
+    color: #ff6b6b;
 }
