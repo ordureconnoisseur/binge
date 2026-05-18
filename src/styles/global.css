@@ -1,0 +1,61 @@
+/* Bundled fallback tokens — used only when refract isn't present.
+   Detection logic in src/App.tsx will skip these vars at runtime when
+   `body.stash-liquid-glass` is detected (refract's tokens take over). */
+:root {
+    --bg-0: #0a0a0a;
+    --bg-1: #111;
+    --text: rgba(255, 255, 255, 0.92);
+    --text-muted: rgba(255, 255, 255, 0.55);
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-blur: blur(24px);
+    --accent: #f97316;
+    --accent-rgb: 249, 115, 22;
+    --radius: 16px;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    margin: 0;
+    background: var(--bg-0);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+}
+
+.binge-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.binge-header {
+    padding: 1.25rem 1.5rem;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.binge-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+}
+
+.binge-host {
+    margin: 0.25rem 0 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.binge-reel-placeholder {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    color: var(--text-muted);
+}
