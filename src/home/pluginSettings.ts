@@ -15,6 +15,7 @@ const SHOW_DEBUG_KEY = "binge.showDebug";
 const INCLUDE_STASHDB_KEY = "binge.includeStashDB";
 const INCLUDE_REDDIT_KEY = "binge.includeReddit";
 const AUTO_SCROLL_KEY = "binge.autoScroll";
+const REFRACT_INTEGRATION_KEY = "binge.refractIntegration";
 const BINGE_SERVER_URL_KEY = "binge.bingeServerUrl";
 const LOOKBACK_DAYS_KEY = "binge.lookbackDays";
 // Defaults to the loopback address — what a typical user runs once
@@ -267,6 +268,18 @@ export function readAutoScroll(): boolean {
 }
 export function setAutoScroll(value: boolean): void {
     writeBool(AUTO_SCROLL_KEY, value);
+}
+
+// Refract integration — when on, the app reads refract's accent vars
+// from localStorage and applies them as inline CSS variables so binge
+// follows the user's refract palette. When off (default), binge uses
+// its own bundled tokens. Off by default so users without refract or
+// who prefer binge's native palette get a clean experience.
+export function useRefractIntegration(): boolean {
+    return useStoredBool(REFRACT_INTEGRATION_KEY, false);
+}
+export function setRefractIntegration(value: boolean): void {
+    writeBool(REFRACT_INTEGRATION_KEY, value);
 }
 
 // binge-server URL. Read both as a React hook and via the imperative

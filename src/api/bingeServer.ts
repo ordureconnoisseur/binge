@@ -143,13 +143,15 @@ export async function setBingeServerConfig(
 }
 
 // Strip the host from a Stash-rooted URL (image_path / preview / etc.)
-// returned by binge-server. binge-server queried Stash via the PC's
-// tailscale IP, so paths come back like
-// `http://100.80.203.49:9999/performer/123/image?t=…` — that's a
-// different origin from where binge is loaded (`http://localhost:9999`)
-// so the Stash session cookie doesn't apply and Stash 302s the
-// browser to login. Rewriting to a path-relative URL lets the
-// browser hit Stash on its own origin with cookies attached.
+// returned by binge-server. The daemon queries Stash with whatever
+// STASH_URL it was configured with, so paths can come back fully
+// qualified to a different origin than the browser knows (e.g. the
+// daemon ran with `STASH_URL=http://10.0.0.42:9999` but the browser
+// loaded binge from `http://localhost:9999`). That cross-origin
+// mismatch means the Stash session cookie doesn't apply and Stash
+// 302s the browser to its login page. Rewriting to a path-relative
+// URL lets the browser hit Stash on its own origin with cookies
+// attached.
 const STASH_PATH_PREFIXES = ["/performer/", "/scene/", "/image/", "/files/"];
 export function rewriteStashAssetUrl(url: string | null): string | null {
     if (!url) return url;

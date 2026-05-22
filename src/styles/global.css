@@ -3160,17 +3160,9 @@ body,
     filter: brightness(1.1);
 }
 
-/* Refract palette uses --accent-rgb. When the app detects refract, swap
-   the IG gradient for an accent-tinted radial so the row themes with the
-   rest of the UI instead of clashing. */
-.binge-app.refract .binge-story-ring {
-    background: conic-gradient(
-        from 140deg,
-        rgba(var(--accent-rgb), 1) 0deg,
-        rgba(var(--accent-rgb), 0.5) 180deg,
-        rgba(var(--accent-rgb), 1) 360deg
-    );
-}
+/* Story rings keep Instagram's signature gradient regardless of theme —
+   the ring is a strong visual anchor and the IG colours read more
+   reliably as "has new content" than an accent-tinted variant did. */
 
 .binge-story-avatar {
     box-sizing: border-box;

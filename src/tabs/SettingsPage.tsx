@@ -8,6 +8,7 @@ import {
     setIncludeReddit,
     setIncludeStashDB,
     setLookbackDays,
+    setRefractIntegration,
     setShowDebug,
     setShowGalleries,
     setTranscodeType,
@@ -15,6 +16,7 @@ import {
     useIncludeReddit,
     useIncludeStashDB,
     useLookbackDays,
+    useRefractIntegration,
     useShowDebug,
     useShowGalleries,
     useTranscodeType,
@@ -60,6 +62,7 @@ export function SettingsPage() {
                 <RedditRow />
                 <BingeServerRow />
                 <BingeServerConfigCard />
+                <RefractRow />
                 <DebugRow />
             </div>
         </div>
@@ -503,6 +506,22 @@ function formatRelative(iso: string): string {
     if (hours < 24) return `${hours} h ago`;
     const days = Math.floor(hours / 24);
     return `${days} d ago`;
+}
+
+function RefractRow() {
+    const value = useRefractIntegration();
+    return (
+        <SettingRow
+            title="Follow refract accent"
+            description="If you also use the refract theme, binge's accent colour will match the refract accent you've picked in the Stash settings (orange / cyan / pink / yellow / purple / green / teal). Story rings keep Instagram's signature gradient regardless."
+        >
+            <SwitchToggle
+                checked={value}
+                onChange={(v) => setRefractIntegration(v)}
+                label="Follow refract accent"
+            />
+        </SettingRow>
+    );
 }
 
 function DebugRow() {
