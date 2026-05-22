@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Reel } from "./components/Reel";
 import { FilterProvider, useFilter } from "./filter/FilterContext";
 import { FilterBar } from "./filter/FilterBar";
@@ -16,39 +16,88 @@ import { StoryViewerProvider } from "./home/StoryViewerContext";
 import { StoryViewer } from "./home/StoryViewer";
 import { FilterSheet } from "./filter/FilterSheet";
 import { DebugOverlay } from "./debug/DebugOverlay";
-import { useShowDebug, toggleShowDebug } from "./home/pluginSettings";
+import {
+    toggleShowDebug,
+    useRefractIntegration,
+    useShowDebug,
+} from "./home/pluginSettings";
 import { PluginProvider } from "./plugins/PluginContext";
 
 // Stash exposes its API at window.PluginApi when this app is loaded as a
-// plugin asset. Inside the iframe-served reel SPA it's NOT available —
-// we use refract detection only to decide whether to apply the bundled
-// fallback token theme.
+// plugin asset. Inside the popup-served reel SPA it's NOT available —
+// the popup opens with `noopener,noreferrer` so we can't reach back into
+// the Stash SPA's DOM directly. Refract detection therefore goes via
+// localStorage, which IS shared (same-origin):
+//
+// Refract publishes its currently-resolved accent variables to
+// localStorage on every accent change (see refract.js
+// `broadcastAccentToPlugins()`) under these keys:
+//
+//     mv.theme.accent      → hex (#f97316)
+//     mv.theme.accentBright → hex
+//     mv.theme.accentTint  → hex
+//     mv.theme.accentRgb   → "r, g, b" comma triple
+//
+// (The "mv.theme.*" prefix is for legacy reasons — the contract was
+// first established for the multiview player; refract broadcasts to
+// any same-origin plugin that wants in.)
+//
+// If those keys exist, refract is loaded — we flag refractActive +
+// inject the values onto our root element as inline CSS variables so
+// the bundled rgba(var(--accent-rgb), …) rules pick up refract's
+// colour instead of binge's orange fallback.
 declare global {
     interface Window {
         PluginApi?: unknown;
     }
 }
 
-function App() {
-    const [refractActive, setRefractActive] = useState<boolean>(false);
+interface RefractTheme {
+    accent: string;       // hex like "#f97316"
+    accentBright: string; // hex
+    accentTint: string;   // hex
+    accentRgb: string;    // "r, g, b"
+}
 
+function readRefractTheme(): RefractTheme | null {
+    try {
+        const accent = localStorage.getItem("mv.theme.accent");
+        const accentRgb = localStorage.getItem("mv.theme.accentRgb");
+        if (!accent || !accentRgb) return null;
+        return {
+            accent,
+            accentBright: localStorage.getItem("mv.theme.accentBright") || accent,
+            accentTint: localStorage.getItem("mv.theme.accentTint") || accent,
+            accentRgb,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function App() {
+    const refractEnabled = useRefractIntegration();
+    const [refractTheme, setRefractTheme] = useState<RefractTheme | null>(
+        () => readRefractTheme()
+    );
+
+    // Re-read on `storage` events so a user changing refract's accent
+    // in the Stash settings panel updates the open binge tab live.
     useEffect(() => {
-        // Cross-window detection: refract is loaded in the main Stash SPA,
-        // not in this iframe. Try the parent window when accessible; fall
-        // back to checking our own body (no-op for now, allows local dev).
-        try {
-            const parentBody = window.parent?.document?.body;
-            if (parentBody?.classList.contains("stash-liquid-glass")) {
-                setRefractActive(true);
-                return;
-            }
-        } catch {
-            // Cross-origin parent — ignore, fall through to local check.
-        }
-        if (document.body.classList.contains("stash-liquid-glass")) {
-            setRefractActive(true);
-        }
+        const onStorage = (e: StorageEvent) => {
+            if (!e.key || !e.key.startsWith("mv.theme.")) return;
+            setRefractTheme(readRefractTheme());
+        };
+        window.addEventListener("storage", onStorage);
+        return () => window.removeEventListener("storage", onStorage);
     }, []);
+
+    // The class + inline vars only flow when the user has explicitly
+    // opted in via Settings. Default is OFF so binge ships with a
+    // consistent native palette regardless of whether refract is
+    // installed.
+    const refractActive = refractEnabled && refractTheme !== null;
+    const activeTheme = refractActive ? refractTheme : null;
 
     // Global \ hotkey toggles the debug overlay. Ignored when the user
     // is typing into an input — we don't want a stray backslash in a
@@ -84,6 +133,24 @@ function App() {
                                     refractActive
                                         ? "binge-app refract"
                                         : "binge-app"
+                                }
+                                // Inline overrides for refract's accent
+                                // tokens — flows through every existing
+                                // rgba(var(--accent-rgb), …) rule in
+                                // global.css without needing to rewrite
+                                // any of them.
+                                style={
+                                    activeTheme
+                                        ? ({
+                                              "--accent": activeTheme.accent,
+                                              "--accent-bright":
+                                                  activeTheme.accentBright,
+                                              "--accent-tint":
+                                                  activeTheme.accentTint,
+                                              "--accent-rgb":
+                                                  activeTheme.accentRgb,
+                                          } as React.CSSProperties)
+                                        : undefined
                                 }
                             >
                                 <TopHeader />
