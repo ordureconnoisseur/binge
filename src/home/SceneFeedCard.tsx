@@ -601,6 +601,16 @@ function HashtagRow({
                     +{hidden} more
                 </button>
             )}
+            {expanded && tags.length > INITIAL && (
+                <button
+                    type="button"
+                    className="binge-feed-card-hashtag-more"
+                    onClick={() => setExpanded(false)}
+                    aria-label="Show fewer tags"
+                >
+                    less
+                </button>
+            )}
         </div>
     );
 }
