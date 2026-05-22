@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BingeScene } from "../api/queries";
 import { ActionStack } from "./ActionStack";
 import { PerformerRow } from "./PerformerRow";
@@ -279,7 +279,8 @@ export function SceneSlide({
                 setOCount(next);
                 reportOCount(next);
             })
-            .catch(() => {
+            .catch((err) => {
+                console.error("[binge] sceneIncrementO failed", err);
                 setOCount(previous);
                 reportOCount(previous);
                 setOError(true);
@@ -304,7 +305,8 @@ export function SceneSlide({
                 setOCount(next);
                 reportOCount(next);
             })
-            .catch(() => {
+            .catch((err) => {
+                console.error("[binge] sceneDecrementO failed", err);
                 setOCount(previous);
                 reportOCount(previous);
                 setOError(true);
@@ -515,8 +517,16 @@ export function SceneSlide({
         }, DOUBLE_TAP_WINDOW_MS);
     };
 
-    const displayTitle =
-        scene.title || scene.performers.map((p) => p.name).join(", ") || `Scene ${scene.id}`;
+    // Title is recomputed on every render today; memoise so scrubbing
+    // through neighbouring slides doesn't re-join the performer name
+    // list 60 times per second.
+    const displayTitle = useMemo(
+        () =>
+            scene.title ||
+            scene.performers.map((p) => p.name).join(", ") ||
+            `Scene ${scene.id}`,
+        [scene.id, scene.title, scene.performers]
+    );
     const detailsLine = scene.details?.trim() || "";
 
     // Stash's authoritative duration. Falls back to video.duration inside

@@ -6,6 +6,7 @@ import { TabBar } from "./tabs/TabBar";
 import { BingeLogo } from "./components/BingeLogo";
 import { TabProvider, useTab } from "./tabs/TabContext";
 import { Home } from "./tabs/Home";
+import { Following } from "./tabs/Following";
 import { Explore } from "./tabs/Explore";
 import { SavedPage } from "./tabs/SavedPage";
 import { SettingsPage } from "./tabs/SettingsPage";
@@ -291,7 +292,9 @@ function HomeBurger() {
 }
 
 // Active tab content. The reel only fetches based on whatever filter
-// context Following/Explore taps have set; there's no per-tab filter UI.
+// context the For You / Explore entry points have set; there's no
+// per-tab filter UI. (Following is a performer grid, not a reel
+// trigger.)
 // Tabs are kept mounted via display:none toggling rather than
 // conditional rendering, so swapping back to a tab doesn't refire its
 // useEffects, refetch data, rebuild virtualizers, or re-mount
@@ -315,6 +318,14 @@ function TabContent() {
                 }
             >
                 <Home />
+            </div>
+            <div
+                className={
+                    "binge-tab-pane" +
+                    (tab === "following" ? " is-active" : " is-hidden")
+                }
+            >
+                <Following />
             </div>
             <div
                 className={

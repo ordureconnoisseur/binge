@@ -275,13 +275,12 @@ export function useFeed(): FeedHookResult {
                         b.effectiveAt.localeCompare(a.effectiveAt)
                     )
                     .slice(0, cap);
-                const galleryList = galleryItems
-                    .slice()
-                    .sort((a, b) =>
-                        b.effectiveAt.localeCompare(a.effectiveAt)
-                    );
+                // galleryList intentionally NOT pre-sorted — the
+                // merged sort below re-orders the whole list anyway,
+                // and galleryItems is small enough that the cap step
+                // (which the scene side does) doesn't apply here.
 
-                const all: FeedItem[] = [...sceneList, ...galleryList].sort(
+                const all: FeedItem[] = [...sceneList, ...galleryItems].sort(
                     (a, b) => b.effectiveAt.localeCompare(a.effectiveAt)
                 );
 

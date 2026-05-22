@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+
+// 0-5 stars per criterion. Module-scoped so it isn't allocated per row.
+const STAR_VALUES = [1, 2, 3, 4, 5] as const;
+
 import { createPortal } from "react-dom";
 import { useSheetClose } from "../hooks/useSheetClose";
 import { loadRatingConfig } from "../rating/config";
@@ -337,7 +341,6 @@ function CriterionRow({
 }) {
     const [hover, setHover] = useState<number | null>(null);
     const filledThrough = hover ?? score ?? 0;
-    const stars = useMemo(() => [1, 2, 3, 4, 5], []);
     return (
         <div
             className={
@@ -361,7 +364,7 @@ function CriterionRow({
                 className="binge-rating-modal-row-stars"
                 onMouseLeave={() => setHover(null)}
             >
-                {stars.map((s) => (
+                {STAR_VALUES.map((s) => (
                     <button
                         type="button"
                         key={s}

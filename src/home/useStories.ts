@@ -149,12 +149,6 @@ export function useStories(): StoriesResult {
                     getScenesByDate(sinceIsoDate),
                 ]);
                 if (!alive) return;
-                console.debug(
-                    "[binge:useStories] recentRows=" +
-                        recentRows.length +
-                        " dateRows=" +
-                        dateRows.length
-                );
 
                 // Merge + dedupe by (sceneId, performerId): a scene
                 // matching both queries should contribute one row per
@@ -229,36 +223,44 @@ export function useStories(): StoriesResult {
                 // the head of the progress strip); StashDB scenes
                 // follow as the "discovery tail".
                 const stories: Story[] = [];
+                const byEffectiveDesc = (
+                    a: { effectiveAt: string },
+                    b: { effectiveAt: string }
+                ) => b.effectiveAt.localeCompare(a.effectiveAt);
                 for (const bucket of byPerformer.values()) {
-                    const lib = bucket.library
-                        .slice()
-                        .sort((a, b) =>
-                            b.effectiveAt.localeCompare(a.effectiveAt)
-                        );
-                    const sdb = bucket.stashdb
-                        .slice()
-                        .sort((a, b) =>
-                            b.effectiveAt.localeCompare(a.effectiveAt)
-                        );
-                    const red = bucket.reddit
-                        .slice()
-                        .sort((a, b) =>
-                            b.effectiveAt.localeCompare(a.effectiveAt)
-                        );
-                    const sceneList = [...lib, ...sdb, ...red];
+                    // We own these arrays — sort in place rather than
+                    // allocating per-source copies. Library scenes
+                    // come first within a performer (playable items
+                    // sit at the head of the progress strip), then
+                    // StashDB releases, then Reddit posts.
+                    bucket.library.sort(byEffectiveDesc);
+                    bucket.stashdb.sort(byEffectiveDesc);
+                    bucket.reddit.sort(byEffectiveDesc);
+                    const sceneList = [
+                        ...bucket.library,
+                        ...bucket.stashdb,
+                        ...bucket.reddit,
+                    ];
                     if (sceneList.length === 0) continue;
-                    // Row-order key uses the most-recent across BOTH
+                    // Row-order key uses the most-recent across ALL
                     // sources so a performer with a fresh StashDB
                     // release surfaces even if their library scenes
-                    // are older.
-                    const latestEffectiveAt =
-                        sceneList
-                            .map((s) => s.effectiveAt)
-                            .reduce(
-                                (max, t) =>
-                                    t.localeCompare(max) > 0 ? t : max,
-                                sceneList[0].effectiveAt
-                            );
+                    // are older. Each sub-array is sorted desc, so
+                    // the head of each is the candidate — no need to
+                    // scan the whole list.
+                    let latestEffectiveAt = sceneList[0].effectiveAt;
+                    if (
+                        bucket.stashdb[0] &&
+                        bucket.stashdb[0].effectiveAt > latestEffectiveAt
+                    ) {
+                        latestEffectiveAt = bucket.stashdb[0].effectiveAt;
+                    }
+                    if (
+                        bucket.reddit[0] &&
+                        bucket.reddit[0].effectiveAt > latestEffectiveAt
+                    ) {
+                        latestEffectiveAt = bucket.reddit[0].effectiveAt;
+                    }
                     stories.push({
                         ...bucket.story,
                         scenes: sceneList,
@@ -267,13 +269,6 @@ export function useStories(): StoriesResult {
                 }
                 stories.sort((a, b) =>
                     b.latestEffectiveAt.localeCompare(a.latestEffectiveAt)
-                );
-                console.debug(
-                    "[binge:useStories] performers=" +
-                        stories.length +
-                        " (cap=" +
-                        MAX_STORIES +
-                        ")"
                 );
                 setState({
                     kind: "ready",
