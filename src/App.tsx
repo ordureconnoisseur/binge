@@ -1,7 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Reel } from "./components/Reel";
-import { FilterProvider } from "./filter/FilterContext";
+import { FilterProvider, useFilter } from "./filter/FilterContext";
 import { FilterBar } from "./filter/FilterBar";
+import { TabBar } from "./tabs/TabBar";
+import { BingeLogo } from "./components/BingeLogo";
+import { TabProvider, useTab } from "./tabs/TabContext";
+import { Home } from "./tabs/Home";
+import { Explore } from "./tabs/Explore";
+import { SavedPage } from "./tabs/SavedPage";
+import { SettingsPage } from "./tabs/SettingsPage";
+import { PerformerProfileProvider } from "./performer/PerformerProfileContext";
+import { PerformerProfile } from "./performer/PerformerProfile";
+import { StoryViewerProvider } from "./home/StoryViewerContext";
+import { StoryViewer } from "./home/StoryViewer";
+import { FilterSheet } from "./filter/FilterSheet";
+import { DebugOverlay } from "./debug/DebugOverlay";
+import { useShowDebug, toggleShowDebug } from "./home/pluginSettings";
+import { PluginProvider } from "./plugins/PluginContext";
 
 // Stash exposes its API at window.PluginApi when this app is loaded as a
 // plugin asset. Inside the iframe-served reel SPA it's NOT available —
@@ -34,14 +49,328 @@ function App() {
         }
     }, []);
 
+    // Global \ hotkey toggles the debug overlay. Ignored when the user
+    // is typing into an input — we don't want a stray backslash in a
+    // filter search box to flash the overlay.
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== "\\") return;
+            const t = e.target;
+            if (t instanceof HTMLElement) {
+                if (
+                    t.tagName === "INPUT" ||
+                    t.tagName === "TEXTAREA" ||
+                    t.isContentEditable
+                ) {
+                    return;
+                }
+            }
+            e.preventDefault();
+            toggleShowDebug();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, []);
+
     return (
-        <FilterProvider>
-            <div className={refractActive ? "binge-app refract" : "binge-app"}>
-                <FilterBar />
-                <Reel />
-            </div>
-        </FilterProvider>
+        <PluginProvider>
+            <FilterProvider>
+                <TabProvider>
+                    <PerformerProfileProvider>
+                        <StoryViewerProvider>
+                            <div
+                                className={
+                                    refractActive
+                                        ? "binge-app refract"
+                                        : "binge-app"
+                                }
+                            >
+                                <TopHeader />
+                                <TabContent />
+                            </div>
+                            <PerformerProfile />
+                            <StoryViewer />
+                            <DebugMaybe />
+                            <FilterAutoClear />
+                        </StoryViewerProvider>
+                    </PerformerProfileProvider>
+                </TabProvider>
+            </FilterProvider>
+        </PluginProvider>
     );
+}
+
+// Single top strip: shared gradient backdrop for both the tab nav and any
+// active filter chips. Visibility (auto-hide on scroll-down) is driven by
+// TabContext.tabBarVisible — both layers fade together so we never get a
+// half-hidden header. When the active tab is "home", a burger menu also
+// floats at the right edge of the tab-nav row — entry point to the
+// Saved and Settings pages.
+//
+// Hidden tabs (saved / settings) have their own back-button header and
+// don't want a competing nav on top — skip the TopHeader entirely on
+// those routes.
+function TopHeader() {
+    const { tab, tabBarVisible } = useTab();
+    if (tab === "saved" || tab === "settings") return null;
+    return (
+        <header
+            className={
+                "binge-top-header" + (tabBarVisible ? "" : " is-hidden")
+            }
+        >
+            <BingeLogo className="binge-header-brand" title="binge" />
+            <TabBar />
+            <FilterBar />
+            {tab === "home" && <HomeBurger />}
+            {tab === "foryou" && <ForYouFilterBtn />}
+        </header>
+    );
+}
+
+// Filter-preferences icon for the For You reel — opens a bottom sheet
+// listing saved presets, active chips, and a "save current" form.
+function ForYouFilterBtn() {
+    const [open, setOpen] = useState(false);
+    return (
+        <div className="binge-home-burger">
+            <button
+                type="button"
+                className="binge-home-burger-btn"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen(true);
+                }}
+                aria-label="Open filter"
+                aria-haspopup="dialog"
+                title="Filter"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    width="22"
+                    height="22"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                >
+                    <line x1="4" y1="6" x2="14" y2="6" />
+                    <line x1="18" y1="6" x2="20" y2="6" />
+                    <circle cx="16" cy="6" r="2" />
+                    <line x1="4" y1="12" x2="8" y2="12" />
+                    <line x1="12" y1="12" x2="20" y2="12" />
+                    <circle cx="10" cy="12" r="2" />
+                    <line x1="4" y1="18" x2="16" y2="18" />
+                    <line x1="20" y1="18" x2="20" y2="18" />
+                    <circle cx="18" cy="18" r="2" />
+                </svg>
+            </button>
+            {open && <FilterSheet onClose={() => setOpen(false)} />}
+        </div>
+    );
+}
+
+// Burger menu — rendered as a TopHeader overlay so it lives on the
+// tab-nav row regardless of page scroll position. State is local
+// (open/closed); outside-click dismisses.
+function HomeBurger() {
+    const { setTab } = useTab();
+    const [open, setOpen] = useState(false);
+    useEffect(() => {
+        if (!open) return;
+        const onClick = () => setOpen(false);
+        const id = window.requestAnimationFrame(() => {
+            window.addEventListener("click", onClick);
+        });
+        return () => {
+            window.cancelAnimationFrame(id);
+            window.removeEventListener("click", onClick);
+        };
+    }, [open]);
+    return (
+        <div className="binge-home-burger">
+            <button
+                type="button"
+                className="binge-home-burger-btn"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen((v) => !v);
+                }}
+                aria-label="Open menu"
+                aria-haspopup="menu"
+                aria-expanded={open}
+                title="Menu"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    width="22"
+                    height="22"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                >
+                    <line x1="4" y1="7" x2="20" y2="7" />
+                    <line x1="4" y1="12" x2="20" y2="12" />
+                    <line x1="4" y1="17" x2="20" y2="17" />
+                </svg>
+            </button>
+            {open && (
+                <div
+                    className="binge-home-menu"
+                    role="menu"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        className="binge-home-menu-item"
+                        onClick={() => {
+                            setOpen(false);
+                            setTab("saved");
+                        }}
+                        role="menuitem"
+                    >
+                        <span className="binge-home-menu-icon">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                width="18"
+                                height="18"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+                            </svg>
+                        </span>
+                        <span className="binge-home-menu-label">Saved</span>
+                    </button>
+                    <button
+                        type="button"
+                        className="binge-home-menu-item"
+                        onClick={() => {
+                            setOpen(false);
+                            setTab("settings");
+                        }}
+                        role="menuitem"
+                    >
+                        <span className="binge-home-menu-icon">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                width="18"
+                                height="18"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                <circle cx="12" cy="12" r="3" />
+                                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 008.91 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+                            </svg>
+                        </span>
+                        <span className="binge-home-menu-label">
+                            Settings
+                        </span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Active tab content. The reel only fetches based on whatever filter
+// context Following/Explore taps have set; there's no per-tab filter UI.
+// Tabs are kept mounted via display:none toggling rather than
+// conditional rendering, so swapping back to a tab doesn't refire its
+// useEffects, refetch data, rebuild virtualizers, or re-mount
+// <video>/IO machinery. Each tab's data fetches happen ONCE per
+// session — the perf footprint is otherwise dominated by those.
+//
+// The Reel is the exception: it's heavy by nature and its content
+// depends on entry-driven state (reelMode, pin, sortSeed, sceneFilter)
+// that's meant to RESET on each entry. Letting it unmount/remount is
+// correct here.
+function TabContent() {
+    const { tab, reelMode } = useTab();
+    const reelVisible =
+        tab === "foryou" || (tab === "explore" && reelMode === "chained");
+    return (
+        <>
+            <div
+                className={
+                    "binge-tab-pane" +
+                    (tab === "home" ? " is-active" : " is-hidden")
+                }
+            >
+                <Home />
+            </div>
+            <div
+                className={
+                    "binge-tab-pane" +
+                    (tab === "explore" && reelMode === "random"
+                        ? " is-active"
+                        : " is-hidden")
+                }
+            >
+                <Explore />
+            </div>
+            {tab === "saved" && (
+                <div className="binge-tab-pane is-active">
+                    <SavedPage />
+                </div>
+            )}
+            {tab === "settings" && (
+                <div className="binge-tab-pane is-active">
+                    <SettingsPage />
+                </div>
+            )}
+            {reelVisible && (
+                <div className="binge-tab-pane is-active">
+                    <Reel />
+                </div>
+            )}
+        </>
+    );
+}
+
+// Gates the debug overlay on the plugin-settings toggle. Wrapping it in
+// a tiny component (rather than inlining in App) means the hook is
+// scoped here and the overlay's polling interval only spins up when
+// the user has actually turned it on.
+function DebugMaybe() {
+    const enabled = useShowDebug();
+    if (!enabled) return null;
+    return <DebugOverlay />;
+}
+
+// Auto-clear the filter chips when the user leaves the For You tab.
+// Filter state is global, but the chips are conceptually scoped to
+// the reel — re-entering For You from elsewhere should land on a
+// clean random feed, not whatever filter the user had set last time.
+// Lives inside both providers (Filter + Tab) so it can read/clear.
+function FilterAutoClear() {
+    const { tab } = useTab();
+    const { clear } = useFilter();
+    const prevTabRef = useRef(tab);
+    useEffect(() => {
+        if (prevTabRef.current === "foryou" && tab !== "foryou") {
+            clear();
+        }
+        prevTabRef.current = tab;
+    }, [tab, clear]);
+    return null;
 }
 
 export default App;

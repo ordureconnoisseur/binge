@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import type { BingeScene } from "../api/queries";
-import { useFilter } from "../filter/FilterContext";
+import { PerformerSheet } from "./PerformerSheet";
+import { usePerformerProfile } from "../performer/PerformerProfileContext";
 
 interface PerformerRowProps {
     performers: BingeScene["performers"];
@@ -7,16 +9,34 @@ interface PerformerRowProps {
 
 // Instagram-style stacked small avatars + "Name1 and Name2" text label.
 // Tapping an avatar adds that performer to the active filter chip set.
+// The Follow button displays the primary (first) performer's favorite
+// state and opens a bottom sheet listing every performer in the scene
+// with individual Follow/Following pills (Instagram "Collaborators" UI).
 export function PerformerRow({ performers }: PerformerRowProps) {
-    const { add } = useFilter();
+    const { openProfile } = usePerformerProfile();
+    const primary = performers[0];
+    // Mirror the primary's favorite state for the inline button. Updated
+    // optimistically from the sheet via onFavoriteChange.
+    const [primaryFav, setPrimaryFav] = useState<boolean>(
+        primary?.favorite ?? false
+    );
+    const [sheetOpen, setSheetOpen] = useState(false);
+
+    useEffect(() => {
+        setPrimaryFav(primary?.favorite ?? false);
+    }, [primary?.id, primary?.favorite]);
+
     if (performers.length === 0) return null;
 
+    // Tapping a bubble opens that performer's profile page (Instagram-style).
+    // Filter mutation only happens if the user then picks a scene card inside
+    // the profile, or hits Follow → manually navigates to their reel.
     const handleClick = (performer: BingeScene["performers"][number]) => {
-        add("performers", {
-            id: performer.id,
-            name: performer.name,
-            image_path: performer.image_path,
-        });
+        openProfile(performer.id);
+    };
+
+    const handleSheetFavoriteChange = (id: string, value: boolean) => {
+        if (id === primary?.id) setPrimaryFav(value);
     };
 
     // Cap at 4 visible to keep the row tidy; show "+N" if more
@@ -62,7 +82,33 @@ export function PerformerRow({ performers }: PerformerRowProps) {
                     </span>
                 )}
             </div>
-            <span className="binge-performer-names">{nameSummary}</span>
+            <button
+                type="button"
+                className="binge-performer-names"
+                onClick={() => primary && openProfile(primary.id)}
+                aria-label={`Open ${primary?.name ?? "performer"} profile`}
+            >
+                {nameSummary}
+            </button>
+            <button
+                type="button"
+                className={
+                    "binge-follow-btn" + (primaryFav ? " is-following" : "")
+                }
+                onClick={() => setSheetOpen(true)}
+                title="Manage follows"
+                aria-haspopup="dialog"
+                aria-expanded={sheetOpen}
+            >
+                {primaryFav ? "Following" : "Follow"}
+            </button>
+            {sheetOpen && (
+                <PerformerSheet
+                    performers={performers}
+                    onClose={() => setSheetOpen(false)}
+                    onFavoriteChange={handleSheetFavoriteChange}
+                />
+            )}
         </div>
     );
 }

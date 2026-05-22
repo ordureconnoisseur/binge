@@ -1,0 +1,79 @@
+import {
+    findRecentScenes,
+    findScenesByDate,
+    findRecentGalleries,
+    findGalleriesByDate,
+    type RecentSceneRow,
+    type RecentGalleryRow,
+} from "../api/queries";
+
+// Tiny in-memory cache so multiple Home widgets sharing the same data
+// (stories row, feed) get one network fetch instead of N. TTL is short
+// — recent scenes don't change second-to-second but the user might add
+// a scene and want to see it surface promptly.
+const TTL_MS = 30_000;
+
+// One slot per resource. The cache key includes `sinceIso` because
+// callers compute their own "now - 30d" — without it, a slow caller
+// would reuse a stale window after a midnight rollover.
+interface Slot<T> {
+    promise: Promise<T> | null;
+    key: string | null;
+    expiresAt: number;
+}
+
+function get<T>(slot: Slot<T>, key: string, fetcher: () => Promise<T>): Promise<T> {
+    const now = Date.now();
+    if (slot.key === key && slot.promise && now < slot.expiresAt) {
+        return slot.promise;
+    }
+    slot.key = key;
+    slot.promise = fetcher();
+    slot.expiresAt = now + TTL_MS;
+    return slot.promise;
+}
+
+const scenesByCreatedSlot: Slot<RecentSceneRow[]> = emptySlot();
+const scenesByDateSlot: Slot<RecentSceneRow[]> = emptySlot();
+const galleriesByCreatedSlot: Slot<RecentGalleryRow[]> = emptySlot();
+const galleriesByDateSlot: Slot<RecentGalleryRow[]> = emptySlot();
+
+function emptySlot<T>(): Slot<T> {
+    return { promise: null, key: null, expiresAt: 0 };
+}
+
+export function getRecentScenes(sinceIso: string): Promise<RecentSceneRow[]> {
+    return get(scenesByCreatedSlot, sinceIso, () =>
+        findRecentScenes(sinceIso)
+    );
+}
+export function getScenesByDate(
+    sinceDate: string
+): Promise<RecentSceneRow[]> {
+    return get(scenesByDateSlot, sinceDate, () => findScenesByDate(sinceDate));
+}
+export function getRecentGalleries(
+    sinceIso: string
+): Promise<RecentGalleryRow[]> {
+    return get(galleriesByCreatedSlot, sinceIso, () =>
+        findRecentGalleries(sinceIso)
+    );
+}
+export function getGalleriesByDate(
+    sinceDate: string
+): Promise<RecentGalleryRow[]> {
+    return get(galleriesByDateSlot, sinceDate, () =>
+        findGalleriesByDate(sinceDate)
+    );
+}
+
+// Drop the cache. Not used in v0 — exposed so future code can wire it
+// without re-touching this file. Clears all four slots.
+export function invalidateRecentScenes(): void {
+    Object.assign(scenesByCreatedSlot, emptySlot());
+    Object.assign(scenesByDateSlot, emptySlot());
+}
+export function invalidateRecentGalleries(): void {
+    Object.assign(galleriesByCreatedSlot, emptySlot());
+    Object.assign(galleriesByDateSlot, emptySlot());
+}
