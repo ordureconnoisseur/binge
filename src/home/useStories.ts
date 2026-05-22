@@ -121,12 +121,19 @@ export function useStories(): StoriesResult {
     // Bumped by refresh() to force the effect below to re-run after
     // all in-memory/localStorage caches have been invalidated.
     const [refreshTick, setRefreshTick] = useState(0);
+    // Explicit refreshing flag — derived-from-state.kind was wrong
+    // because the effect never reverts to "loading" on refresh; it
+    // just replaces the data when the new fetch completes. Without
+    // this the refresh button gave no visual feedback when the new
+    // data was identical to the old.
+    const [refreshing, setRefreshing] = useState(false);
 
     const refresh = useCallback(() => {
         invalidateRecentScenes();
         invalidateRecentGalleries();
         invalidateStashDBCache();
         invalidateRedditCaches();
+        setRefreshing(true);
         setRefreshTick((n) => n + 1);
     }, []);
 
@@ -280,6 +287,8 @@ export function useStories(): StoriesResult {
                     kind: "error",
                     message: err instanceof Error ? err.message : String(err),
                 });
+            } finally {
+                if (alive) setRefreshing(false);
             }
         })();
 
@@ -291,7 +300,7 @@ export function useStories(): StoriesResult {
     return {
         state,
         refresh,
-        refreshing: state.kind === "loading" && refreshTick > 0,
+        refreshing,
     };
 }
 

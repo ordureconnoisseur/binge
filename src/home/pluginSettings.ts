@@ -17,7 +17,10 @@ const INCLUDE_REDDIT_KEY = "binge.includeReddit";
 const AUTO_SCROLL_KEY = "binge.autoScroll";
 const BINGE_SERVER_URL_KEY = "binge.bingeServerUrl";
 const LOOKBACK_DAYS_KEY = "binge.lookbackDays";
-const DEFAULT_BINGE_SERVER_URL = "https://binge-bypass.tailf01ca.ts.net";
+// Defaults to the loopback address — what a typical user runs once
+// binge-server is installed on the same machine as Stash. Users with
+// a remote daemon (the original mini deploy) override via Settings.
+const DEFAULT_BINGE_SERVER_URL = "http://localhost:7878";
 // Stream-type key matches src/config.ts (legacy reader still used in
 // imperative call sites like SceneSlide). Kept in sync via the same
 // localStorage entry.

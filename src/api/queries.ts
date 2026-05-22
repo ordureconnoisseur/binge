@@ -1172,3 +1172,23 @@ export async function findImagesByGallery(
     });
     return data.findImages.images;
 }
+
+// Fetch the Stash instance's API key. Same-origin clients have access
+// to `configuration.general.apiKey` via the user's auth cookie, so
+// binge can read it without the user copy-pasting. Used to pre-fill
+// binge-server's stashApiKey config on first run.
+const CONFIGURATION_API_KEY = /* GraphQL */ `
+    query ConfigurationApiKey {
+        configuration {
+            general {
+                apiKey
+            }
+        }
+    }
+`;
+export async function fetchStashApiKey(): Promise<string> {
+    const data = await gql<{
+        configuration: { general: { apiKey: string } };
+    }>(CONFIGURATION_API_KEY);
+    return data.configuration.general.apiKey ?? "";
+}

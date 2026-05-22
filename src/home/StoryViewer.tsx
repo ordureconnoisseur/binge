@@ -8,7 +8,10 @@ import { useFilter } from "../filter/FilterContext";
 import { useTab } from "../tabs/TabContext";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
 import { timeAgo } from "./timeAgo";
-import { rewriteRedgifsMediaUrl } from "../api/bingeServer";
+import {
+    rewriteRedditMediaUrl,
+    rewriteRedgifsMediaUrl,
+} from "../api/bingeServer";
 import type { StoryScene } from "./useStories";
 
 type RedditStoryScene = Extract<StoryScene, { source: "reddit" }>;
@@ -558,11 +561,17 @@ function RedditCardBody({
     };
 
     if (scene.kind === "image") {
+        // Proxy Reddit-hosted images through binge-server for the same
+        // referrer / firewall reasons we proxy redgifs videos. The
+        // helper passes through unchanged for non-Reddit URLs.
+        const rawImg = scene.mediaUrl ?? scene.thumbUrl;
+        const imgSrc = rewriteRedditMediaUrl(rawImg) ?? undefined;
         return (
             <img
                 className="binge-story-viewer-image"
                 key={scene.id}
-                src={scene.mediaUrl ?? scene.thumbUrl ?? undefined}
+                src={imgSrc}
+                referrerPolicy="no-referrer"
                 alt={scene.title ?? "Reddit image"}
             />
         );
@@ -574,7 +583,7 @@ function RedditCardBody({
                     ref={setVideoRef}
                     className="binge-story-viewer-video"
                     key={scene.id}
-                    poster={scene.thumbUrl ?? undefined}
+                    poster={rewriteRedditMediaUrl(scene.thumbUrl) ?? undefined}
                     playsInline
                     muted={muted}
                     onEnded={onEnded}
@@ -621,13 +630,14 @@ function RedditCardBody({
         );
     }
     // link
+    const linkThumb = rewriteRedditMediaUrl(scene.thumbUrl);
     return (
         <div
             className="binge-story-viewer-link"
             key={scene.id}
             style={
-                scene.thumbUrl
-                    ? { backgroundImage: `url(${scene.thumbUrl})` }
+                linkThumb
+                    ? { backgroundImage: `url(${linkThumb})` }
                     : undefined
             }
         >
