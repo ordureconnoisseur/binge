@@ -12,6 +12,7 @@ import {
     sceneIncrementO,
     setSceneRating,
 } from "../api/mutations";
+import { recordTagInteractions } from "../api/interactedTags";
 import {
     getCollections,
     getCollectionTagIds,
@@ -270,6 +271,12 @@ export function SceneSlide({
         if (oBusyRef.current) return;
         oBusyRef.current = true;
         setOError(false);
+        // Optimistically record the scene's tags into the recency ring
+        // even before the mutation succeeds — the like-burst already
+        // gives the user a "you did the thing" signal and the ring is
+        // cheap localStorage; rolling back on failure is fine but
+        // overkill.
+        recordTagInteractions(scene.tags);
         const previous = oCount;
         const optimistic = previous + 1;
         setOCount(optimistic);
@@ -347,6 +354,11 @@ export function SceneSlide({
         const next = !currently;
         setInCollections((prev) => ({ ...prev, [tagName]: next }));
         onCollectionChange?.(scene.id, tagName, next);
+        // Saving signals strong intent — feed it into the recency ring
+        // so the user's favourite-collection tag preferences surface on
+        // Explore as chip shortcuts. Only on saves (not removes) so
+        // un-bookmarking doesn't pollute taste data.
+        if (next) recordTagInteractions(scene.tags);
         setSceneInCollection(
             scene.id,
             scene.tags.map((t) => t.id),
@@ -677,7 +689,7 @@ function PlayGlyph() {
             fill="currentColor"
             aria-hidden="true"
         >
-            <path d="M8 5v14l11-7z" />
+            <path d="M9 7L18 12L9 17Z" />
         </svg>
     );
 }

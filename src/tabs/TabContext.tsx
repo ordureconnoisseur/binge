@@ -15,7 +15,8 @@ export type Tab =
     | "following"
     | "explore"
     | "saved"
-    | "settings";
+    | "settings"
+    | "menu";
 
 // "random" — the existing reel behaviour: random sort + scene_filter chips.
 // "chained" — recommendation chain seeded by an Explore-tile tap. The reel
@@ -57,6 +58,7 @@ const HASH_TABS: ReadonlySet<Tab> = new Set<Tab>([
     "explore",
     "saved",
     "settings",
+    "menu",
 ]);
 
 function readTabFromHash(): Tab | null {

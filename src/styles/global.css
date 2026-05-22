@@ -215,7 +215,9 @@ body,
     width: 52%;
     height: 52%;
     filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
-    transform: translateX(2px); /* optical center for the play triangle */
+    /* Triangle path is already centroid-centred (vertices 9,7 /
+       18,12 / 9,17 → centroid at viewBox 12,12); no optical shift
+       needed here. */
 }
 
 /* Mute toggle — small glass pill. Positioned by parent overlay (no fixed
@@ -2590,6 +2592,11 @@ body,
     align-items: center;
     gap: 0.5rem;
     transition: transform 0.2s ease;
+    /* Stretch to the full grid-cell width — the button's parent <li>
+       is the grid item, not the button itself, so without this the
+       shrink-to-content button sat against the left edge of each
+       cell and the avatar/name appeared left-aligned in the row. */
+    width: 100%;
 }
 .binge-follow-card:hover,
 .binge-follow-card:focus-visible {
@@ -2684,6 +2691,155 @@ body,
 /* Wraps the grid + sentinels. Hangs off the .binge-tab-scroll parent
    directly (no .binge-tab-inner wrapper) so tiles can extend
    edge-to-edge without the page padding the other tabs use. */
+/* Explore page header — search bar + chip strip. NOT sticky: it
+   sits at the top of the page, below the floating TopHeader (4rem
+   top padding pushes it clear of the tabs), and scrolls away with
+   the rest of the content. Re-accessing the search means scrolling
+   back up. */
+.binge-explore-header {
+    padding: 4rem 0.6rem 0.45rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+.binge-explore-search-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.binge-explore-search-icon {
+    position: absolute;
+    left: 0.7rem;
+    color: rgba(255, 255, 255, 0.45);
+    pointer-events: none;
+    display: inline-flex;
+}
+.binge-explore-search {
+    flex: 1 1 auto;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 0.55rem 0.9rem 0.55rem 2.1rem;
+    color: #fff;
+    font-size: 0.92rem;
+    line-height: 1.2;
+}
+.binge-explore-search:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.18);
+    outline-offset: 1px;
+}
+.binge-explore-search::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Tag chip row — IG Explore style. Horizontal scroll, no scrollbar,
+   active chip filled. The first chip is always "For you" (no filter);
+   the rest are the user's most-interacted tags. */
+/* Chip-row wrapper: [chevron] [scroller] [chevron]. The chevrons
+   live in dedicated gutters so they never overlap the chips
+   underneath — gap stays reserved even when the chevron is hidden,
+   so chip positions don't jump when scrolling reaches an edge. */
+.binge-explore-chips-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.binge-explore-chips {
+    /* Single-row strip. With MAX_CHIPS=25 the row is wider than any
+       reasonable viewport, so it always fills edge-to-edge. */
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Smooth the visual cutoff at the edges so chips fade into the
+       chevron gutters instead of clipping abruptly. */
+    mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        #000 0.5rem,
+        #000 calc(100% - 0.5rem),
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        #000 0.5rem,
+        #000 calc(100% - 0.5rem),
+        transparent 100%
+    );
+}
+.binge-explore-chips::-webkit-scrollbar {
+    display: none;
+}
+.binge-explore-chips-chevron {
+    appearance: none;
+    flex: 0 0 auto;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, opacity 0.15s ease,
+        visibility 0.15s ease;
+}
+.binge-explore-chips-chevron:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+.binge-explore-chips-chevron.is-hidden {
+    /* Collapse entirely — flex gap goes with it, so the chips snap
+       cleanly to the strip edge when there's nothing to scroll into.
+       A one-time chip shift when the user first scrolls past the
+       threshold is fine; it lives at a clear interaction moment, not
+       during passive viewing. */
+    display: none;
+}
+/* Touch devices don't need the chevrons — swiping is the native
+   affordance. Hide entirely + reclaim the gutter. */
+@media (hover: none) and (pointer: coarse) {
+    .binge-explore-chips-chevron {
+        display: none;
+    }
+}
+.binge-explore-chip {
+    appearance: none;
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.82rem;
+    line-height: 1.1;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease,
+        color 0.15s ease;
+}
+.binge-explore-chip:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+.binge-explore-chip.is-active {
+    background: rgba(255, 255, 255, 0.92);
+    color: #0a0a0a;
+    border-color: rgba(255, 255, 255, 0.92);
+    font-weight: 600;
+}
+.binge-app.refract .binge-explore-chip.is-active {
+    background: rgba(var(--accent-rgb), 1);
+    border-color: rgba(var(--accent-rgb), 1);
+    color: #0a0a0a;
+}
+
 .binge-explore-grid-wrap {
     padding-top: 0.25rem;
 }
@@ -3759,7 +3915,7 @@ body,
 .binge-feed-card-play-glyph svg {
     width: 28px;
     height: 28px;
-    transform: translateX(2px); /* optical centring of the play wedge */
+    /* Triangle path is centroid-centred — no shift needed. */
 }
 
 .binge-feed-card-mute {
@@ -4689,7 +4845,8 @@ body,
     width: 22px;
     height: 22px;
 }
-.binge-profile-back:hover {
+.binge-profile-back:hover,
+.binge-profile-more:hover {
     background: rgba(255, 255, 255, 0.08);
 }
 .binge-profile-more:disabled {
@@ -5440,4 +5597,184 @@ body,
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* ── "More" page list (bottom-nav burger slot) ────────────────────── */
+.binge-menu-list {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.binge-menu-row {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    color: #fff;
+    width: 100%;
+    padding: 0.95rem 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.binge-menu-row:hover,
+.binge-menu-row:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    outline: none;
+}
+.binge-menu-row-icon {
+    color: rgba(255, 255, 255, 0.85);
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+.binge-menu-row-text {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.binge-menu-row-title {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: #fff;
+}
+.binge-menu-row-desc {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.55);
+    line-height: 1.35;
+}
+.binge-menu-row-chev {
+    color: rgba(255, 255, 255, 0.45);
+    flex: 0 0 auto;
+    display: inline-flex;
+}
+
+/* ── Mobile bottom nav + responsive overrides ─────────────────────────
+   Active at viewport ≤720px. Same breakpoint as useIsMobile() so the
+   React-side hide-TopHeader switch and the CSS-side padding shifts
+   flip together; no middle zone where one is mobile but the other
+   isn't. */
+
+.binge-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    height: 3.5rem;
+    display: flex;
+    align-items: stretch;
+    background: rgba(10, 10, 10, 0.92);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    /* iOS safe area — phones with home-bar gestures push the nav up
+       so it doesn't sit under the indicator. */
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    /* Auto-hide animation — same easing + duration as the TopHeader's
+       hide so chrome at top and bottom feel like a single layer. */
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.binge-bottom-nav.is-hidden {
+    opacity: 0;
+    /* Slide DOWN out of view, matching the scroll-down gesture. */
+    transform: translateY(100%);
+    pointer-events: none;
+}
+.binge-bottom-nav-item {
+    appearance: none;
+    background: transparent;
+    border: none;
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    /* 48px min target keeps the nav passable on a11y for small
+       phones where 3.5rem comes in below that. */
+    min-height: 48px;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+.binge-bottom-nav-item.is-active {
+    color: #fff;
+}
+.binge-bottom-nav-item:active {
+    transform: scale(0.92);
+}
+.binge-app.refract .binge-bottom-nav-item.is-active {
+    color: rgba(var(--accent-rgb), 1);
+}
+
+/* Mobile-only floating burger + filter gear. Stacks vertically in
+   the top-right corner when the TopHeader is hidden, so neither
+   collides with the action stack (which lives bottom-right) or
+   the top of the reel content. */
+.binge-mobile-floating {
+    position: fixed;
+    top: 0.6rem;
+    right: 0.6rem;
+    z-index: 31;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    pointer-events: none;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.binge-mobile-floating.is-hidden {
+    opacity: 0;
+    /* Slide UP out of view, matching the TopHeader's hide direction
+       (they live in the same top region conceptually). */
+    transform: translateY(-6px);
+    pointer-events: none;
+}
+.binge-mobile-floating > * {
+    /* The .binge-home-burger wrapper inside HomeBurger / ForYouFilterBtn
+       already has position: absolute; we re-anchor here. */
+    position: static !important;
+    pointer-events: auto;
+}
+
+@media (max-width: 720px) {
+    /* No TopHeader, so the 4rem top padding becomes wasted space.
+       Tighten everything to a 1rem breathing margin instead. */
+    .binge-tab-inner {
+        padding: 1rem 1rem 5rem;
+    }
+    .binge-tab-title {
+        margin-top: 0;
+    }
+    /* Explore's inline header had `padding: 4rem 0.6rem 0.45rem`
+       because it had to clear the floating TopHeader. On mobile
+       that clearance is irrelevant; drop to a comfortable inset. */
+    .binge-explore-header {
+        padding: 1rem 0.6rem 0.45rem;
+    }
+    /* Reel action stack: lift above the 3.5rem bottom nav. The
+       existing 5rem already gives a bit of breathing room; we just
+       add the nav height on top. */
+    .binge-actions {
+        bottom: calc(5rem + 3.5rem);
+    }
+    /* Settings + Saved have their own back-chevron headers — no
+       fixed strip to clear, but the back-button-style header looks
+       cramped against the viewport top. Give it some breathing
+       room. */
+    .binge-saved-header {
+        padding-top: 0.6rem;
+    }
 }

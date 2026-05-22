@@ -18,7 +18,7 @@ import { sceneUpdate, tagCreate, tagDestroy } from "./mutations";
 //      suffix. (Was unsuffixed in the prior version of this code; that
 //      tag is harmless to leave orphaned.)
 
-const COLLECTION_TAG_SUFFIX = " 📁";
+export const COLLECTION_TAG_SUFFIX = " 📁";
 const FAVOURITES_TAG_NAME = "Favourite ★";
 const DEFAULT_WATCH_LATER_TAG_NAME = `Watch Later${COLLECTION_TAG_SUFFIX}`;
 
