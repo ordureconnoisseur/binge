@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "push:pc": "npm run build && scp binge.yml dist/binge.entry.js dist/index.html pc:'C:/Users/ethork/.stash/plugins/binge/'"
+    "push": "npm run build && bash scripts/push.sh"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.0",

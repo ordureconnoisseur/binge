@@ -69,14 +69,19 @@ npm run build   # produces dist/index.html
 
 Stack: Vite + React 18 + TypeScript. Output is a single-file SPA (`dist/index.html`) that Stash serves from `/plugin/binge/assets/index.html`. The Stash plugin shim is `binge.entry.js` — it injects the nav button.
 
-To push a build to a running Stash instance over SSH:
+To deploy a build to a running Stash instance you'll usually want a
+one-liner. `npm run push` reads a local `scripts/push.sh` (gitignored
+so each developer keeps their own); a minimal version looks like:
 
 ```bash
-npm run push:pc
-# scp binge.yml dist/binge.entry.js dist/index.html pc:'C:/Users/ethork/.stash/plugins/binge/'
+#!/usr/bin/env bash
+set -euo pipefail
+scp binge.yml dist/binge.entry.js dist/index.html \
+    user@host:'/path/to/stash/plugins/binge/'
 ```
 
-(Edit the script for your own destination.)
+`chmod +x scripts/push.sh` once and the build-and-deploy cycle is then
+`npm run push`.
 
 ## Architecture notes
 
