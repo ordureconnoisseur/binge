@@ -5,6 +5,7 @@ import { useTab } from "../tabs/TabContext";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
 import { useMuteState } from "../hooks/useMuteState";
 import { sceneIncrementO } from "../api/mutations";
+import { recordTagInteractions } from "../api/interactedTags";
 import {
     useHasASR,
     useHasMultiview,
@@ -123,6 +124,8 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
     const handleToggleCollection = async (tagName: string) => {
         const next = !inCollections[tagName];
         setInCollections((m) => ({ ...m, [tagName]: next }));
+        // Same intent signal as the reel: saving = strong taste data.
+        if (next) recordTagInteractions(item.tags);
         try {
             const confirmed = await setSceneInCollection(
                 item.sceneId,
@@ -200,6 +203,9 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
     const triggerLike = () => {
         if (oBusyRef.current) return;
         oBusyRef.current = true;
+        // Push this scene's tags into Explore's recency ring — likes
+        // are the strongest cheap-to-emit signal of taste.
+        recordTagInteractions(item.tags);
         const prev = oCount;
         setOCount(prev + 1);
         setLiked(true);
@@ -322,7 +328,7 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
                             viewBox="0 0 24 24"
                             fill="currentColor"
                         >
-                            <path d="M8 5v14l11-7z" />
+                            <path d="M9 7L18 12L9 17Z" />
                         </svg>
                     </div>
                 )}

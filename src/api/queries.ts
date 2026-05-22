@@ -40,6 +40,9 @@ export interface FindScenesVariables {
         per_page?: number;
         sort?: string;
         direction?: "ASC" | "DESC";
+        // Stash's free-text search across scene title / details / file
+        // path. Drives the Explore search bar.
+        q?: string;
     };
     // Loose typing so we can pass either binge's structured chip filter
     // (built via buildSceneFilter) OR a Stash saved filter's
@@ -231,6 +234,74 @@ export async function findTagByName(name: string): Promise<{
         findTags: { tags: { id: string; name: string }[] };
     }>(FIND_TAG_BY_NAME, { name });
     return data.findTags.tags[0] ?? null;
+}
+
+// Tags pulled from the user's most-recently-liked scenes. Powers the
+// Explore chip-strip fallback when binge's local interaction ring is
+// empty. The shape is: take the N most-recently-O-counter-bumped
+// scenes, aggregate their tags by frequency, return the top M.
+//
+// Why this over a global "most-used tags": global popularity skews
+// toward whatever-the-library-has-most-of, which doesn't match the
+// user's actual taste. Their recent likes do.
+const FIND_RECENTLY_LIKED_SCENES = /* GraphQL */ `
+    query FindRecentlyLikedScenes($perPage: Int!) {
+        findScenes(
+            scene_filter: {
+                o_counter: { value: 0, modifier: GREATER_THAN }
+            }
+            filter: {
+                page: 1
+                per_page: $perPage
+                sort: "last_o_at"
+                direction: DESC
+            }
+        ) {
+            scenes {
+                id
+                tags {
+                    id
+                    name
+                }
+            }
+        }
+    }
+`;
+
+export async function findRecentlyLikedTags(
+    sceneSampleSize: number,
+    topN: number
+): Promise<{ id: string; name: string }[]> {
+    const data = await gql<{
+        findScenes: {
+            scenes: { id: string; tags: { id: string; name: string }[] }[];
+        };
+    }>(FIND_RECENTLY_LIKED_SCENES, { perPage: sceneSampleSize });
+    // Aggregate by frequency; remember insertion order via the Map so
+    // ties resolve in favour of the more-recently-encountered tag
+    // (i.e. tags from the freshest likes win when counts are equal).
+    // ASR/APR rating tags + binge collection tags are filtered out —
+    // they're plumbing, not topics worth surfacing as suggestions.
+    const counts = new Map<
+        string,
+        { tag: { id: string; name: string }; count: number }
+    >();
+    const { isSystemTag } = await import("./tagFilters");
+    for (const s of data.findScenes.scenes) {
+        for (const t of s.tags) {
+            if (isSystemTag(t.name)) continue;
+            const existing = counts.get(t.id);
+            if (existing) {
+                existing.count++;
+            } else {
+                counts.set(t.id, { tag: t, count: 1 });
+            }
+        }
+    }
+    return Array.from(counts.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, topN)
+        .map((x) => x.tag);
 }
 
 // Substring match. Used to discover all binge-collection tags (each

@@ -9,6 +9,7 @@ import { PerformerBio } from "./PerformerBio";
 import { PerformerSceneGrid } from "./PerformerSceneGrid";
 import { PerformerImageGrid } from "./PerformerImageGrid";
 import { CriterionRatingModal } from "../components/CriterionRatingModal";
+import { PerformerMoreSheet } from "./PerformerMoreSheet";
 import { useStories } from "../home/useStories";
 import { useStoryViewer } from "../home/StoryViewerContext";
 
@@ -35,6 +36,10 @@ export function PerformerProfile() {
     const [scrolled, setScrolled] = useState(false);
     const [tab, setTab] = useState<ProfileTab>("scenes");
     const [ratingOpen, setRatingOpen] = useState(false);
+    const [moreOpen, setMoreOpen] = useState(false);
+    // Bumped by the refresh action in the ⋯ menu — forces the fetch
+    // effect below to re-run by changing one of its deps.
+    const [refreshTick, setRefreshTick] = useState(0);
     const bodyRef = useRef<HTMLDivElement>(null);
     const hasAPR = useHasAPR();
     // If this performer is in the stories list, the avatar gets the
@@ -87,7 +92,7 @@ export function PerformerProfile() {
         return () => {
             alive = false;
         };
-    }, [currentId]);
+    }, [currentId, refreshTick]);
 
     useEffect(() => {
         if (!currentId) return;
@@ -170,8 +175,9 @@ export function PerformerProfile() {
                 <button
                     type="button"
                     className="binge-profile-more"
-                    aria-label="More"
-                    disabled
+                    aria-label="More actions"
+                    title="More"
+                    onClick={() => setMoreOpen(true)}
                 >
                     <MoreIcon />
                 </button>
@@ -237,6 +243,15 @@ export function PerformerProfile() {
                                     id: state.performer.id,
                                 }}
                                 onClose={() => setRatingOpen(false)}
+                            />
+                        )}
+                        {moreOpen && state.kind === "ready" && (
+                            <PerformerMoreSheet
+                                performerId={state.performer.id}
+                                onRefresh={() =>
+                                    setRefreshTick((n) => n + 1)
+                                }
+                                onClose={() => setMoreOpen(false)}
                             />
                         )}
                         <div

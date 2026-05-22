@@ -176,7 +176,7 @@ function PlayIcon() {
             height="18"
             fill="currentColor"
         >
-            <path d="M8 5v14l11-7z" />
+            <path d="M9 7L18 12L9 17Z" />
         </svg>
     );
 }

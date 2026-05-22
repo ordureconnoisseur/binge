@@ -4,11 +4,14 @@ import { FilterProvider, useFilter } from "./filter/FilterContext";
 import { FilterBar } from "./filter/FilterBar";
 import { TabBar } from "./tabs/TabBar";
 import { BingeLogo } from "./components/BingeLogo";
+import { BottomNav } from "./components/BottomNav";
+import { useIsMobile } from "./hooks/useIsMobile";
 import { TabProvider, useTab } from "./tabs/TabContext";
 import { Home } from "./tabs/Home";
 import { Following } from "./tabs/Following";
 import { Explore } from "./tabs/Explore";
 import { SavedPage } from "./tabs/SavedPage";
+import { MenuPage } from "./tabs/MenuPage";
 import { SettingsPage } from "./tabs/SettingsPage";
 import { PerformerProfileProvider } from "./performer/PerformerProfileContext";
 import { PerformerProfile } from "./performer/PerformerProfile";
@@ -155,6 +158,7 @@ function App() {
                             >
                                 <TopHeader />
                                 <TabContent />
+                                <MobileBottomNav />
                             </div>
                             <PerformerProfile />
                             <StoryViewer />
@@ -180,7 +184,13 @@ function App() {
 // those routes.
 function TopHeader() {
     const { tab, tabBarVisible } = useTab();
-    if (tab === "saved" || tab === "settings") return null;
+    const isMobile = useIsMobile();
+    if (tab === "saved" || tab === "settings" || tab === "menu") return null;
+    // On mobile the bottom nav owns tab navigation — the top strip
+    // hides entirely. A floating For-You filter gear renders below
+    // when needed. Saved + Settings are now reached via the bottom
+    // nav's burger slot → the "More" page → those entries.
+    if (isMobile) return <MobileFloatingControls />;
     return (
         <header
             className={
@@ -194,6 +204,35 @@ function TopHeader() {
             {tab === "foryou" && <ForYouFilterBtn />}
         </header>
     );
+}
+
+// Mobile-only: the For You filter gear stays accessible as a
+// floating top-right button since the TopHeader it normally lives
+// in is hidden at narrow viewports. Reuses tabBarVisible so the
+// gear auto-hides on scroll-down + reappears on scroll-up —
+// matches the bottom nav's behaviour so they feel like a single
+// chrome layer fading in/out together.
+function MobileFloatingControls() {
+    const { tab, tabBarVisible } = useTab();
+    if (tab !== "foryou") return null;
+    return (
+        <div
+            className={
+                "binge-mobile-floating" + (tabBarVisible ? "" : " is-hidden")
+            }
+        >
+            <ForYouFilterBtn />
+        </div>
+    );
+}
+
+// Render the BottomNav only when we're on mobile. Kept as a sibling
+// of TabContent (not nested inside) so it stays out of any scroll
+// container — fixed positioning + flat z-index is enough.
+function MobileBottomNav() {
+    const isMobile = useIsMobile();
+    if (!isMobile) return null;
+    return <BottomNav />;
 }
 
 // Filter-preferences icon for the For You reel — opens a bottom sheet
@@ -412,6 +451,11 @@ function TabContent() {
             {tab === "settings" && (
                 <div className="binge-tab-pane is-active">
                     <SettingsPage />
+                </div>
+            )}
+            {tab === "menu" && (
+                <div className="binge-tab-pane is-active">
+                    <MenuPage />
                 </div>
             )}
             {reelVisible && (
