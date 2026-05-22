@@ -1,6 +1,6 @@
 name: Binge
 description: Vertical reel viewer for Stash — TikTok-style scene browsing with live filter chips and runtime refract integration.
-version: 0.1.0
+version: 0.2.0
 url: https://github.com/ordureconnoisseur/binge
 ui:
   assets:
