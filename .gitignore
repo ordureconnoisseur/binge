@@ -3,6 +3,10 @@ CLAUDE.md
 AGENTS.md
 .claude-work/
 
+# Personal deploy shortcuts — `npm run push` reads scripts/push.sh,
+# which is meant to be a per-user file (host alias + Stash plugins dir).
+scripts/
+
 # Logs
 logs
 *.log
