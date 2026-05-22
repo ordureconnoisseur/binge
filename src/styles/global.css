@@ -2852,6 +2852,159 @@ body,
     }
 }
 
+/* binge-server config card — full-width settings card, not a row,
+   because it has too many sub-fields to fit in SettingRow's right
+   rail. Header + description on top, then key/value rows below. */
+.binge-settings-card {
+    margin: 0.5rem 1.25rem;
+    padding: 1rem 1.1rem 1.1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+.binge-settings-card.is-disconnected {
+    background: rgba(248, 113, 113, 0.04);
+    border-color: rgba(248, 113, 113, 0.18);
+}
+.binge-settings-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+.binge-settings-card-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+}
+.binge-settings-card-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.85);
+    flex-wrap: wrap;
+}
+.binge-settings-card-status-meta {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+.binge-settings-card-description {
+    margin: 0;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+}
+.binge-settings-card-link {
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    margin-left: 0.25rem;
+}
+.binge-settings-card-link:hover {
+    color: #fff;
+}
+.binge-settings-card-description code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+.binge-settings-card-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.88rem;
+}
+.binge-settings-card-field.is-stacked {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+}
+.binge-settings-card-field-label {
+    color: var(--text-muted);
+}
+.binge-settings-card-field-value {
+    color: rgba(255, 255, 255, 0.92);
+    font-weight: 500;
+}
+
+.binge-server-config-cookie-row {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+.binge-server-config-cookie-row .binge-settings-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.binge-server-config-cookie-save {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #fff;
+    border-radius: 8px;
+    padding: 0.5rem 0.9rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.15s ease;
+}
+.binge-server-config-cookie-save:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.18);
+}
+.binge-server-config-cookie-save:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.binge-server-config-error {
+    color: #f87171;
+    font-size: 0.8rem;
+    margin: 0;
+}
+.binge-server-config-ok {
+    color: #4ade80;
+    font-size: 0.8rem;
+    margin: 0;
+}
+.binge-server-config-help-toggle {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.2rem 0;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.78rem;
+    transition: color 0.15s ease;
+}
+.binge-server-config-help-toggle:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+.binge-server-config-help {
+    margin: 0.25rem 0 0 1.1rem;
+    padding: 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+.binge-server-config-help li {
+    margin-bottom: 0.25rem;
+}
+.binge-server-config-help code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
 /* Following tab — search + sort controls, section heads, grid. The
    .binge-follow-card + .binge-following-grid classes (already defined
    for AllPerformersModal) are reused here so cards have one source

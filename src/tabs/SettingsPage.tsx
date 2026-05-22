@@ -19,7 +19,14 @@ import {
     useShowGalleries,
     useTranscodeType,
 } from "../home/pluginSettings";
-import { getBingeServerHealth } from "../api/bingeServer";
+import {
+    getBingeServerConfig,
+    getBingeServerHealth,
+    setBingeServerConfig,
+    type BingeServerConfigState,
+    type BingeServerHealth,
+} from "../api/bingeServer";
+import { fetchStashApiKey } from "../api/queries";
 
 // In-app settings page — all preferences that used to live in Stash's
 // plugin settings UI now live here. Same localStorage keys + pubsub,
@@ -52,6 +59,7 @@ export function SettingsPage() {
                 <StashDBRow />
                 <RedditRow />
                 <BingeServerRow />
+                <BingeServerConfigCard />
                 <DebugRow />
             </div>
         </div>
@@ -226,6 +234,275 @@ function BingeServerHealthDot({ url }: { url: string }) {
             role="status"
         />
     );
+}
+
+// binge-server live config card. Shows daemon health, auto-pushes the
+// Stash API key on first contact, and exposes a Reddit-cookie input
+// so cookie rotation can happen entirely from the binge UI.
+//
+// Three visible states:
+//   - "unreachable" → daemon down; show a setup link, no fields
+//   - "needs config" → daemon up, missing creds; show inputs
+//   - "all set"     → daemon up + configured; show status + last poll
+//
+// The Stash API key fetch is silent — binge calls
+// `fetchStashApiKey()` (same-origin Stash GraphQL) and POSTs it to
+// /config the first time the daemon comes up without one. The user
+// never sees that step.
+function BingeServerConfigCard() {
+    const url = useBingeServerUrl();
+    const [health, setHealth] = useState<BingeServerHealth | null | "pending">(
+        "pending"
+    );
+    const [config, setConfig] = useState<BingeServerConfigState | null>(null);
+    const [cookieInput, setCookieInput] = useState("");
+    const [cookieBusy, setCookieBusy] = useState(false);
+    const [cookieError, setCookieError] = useState<string | null>(null);
+    const [cookieSaved, setCookieSaved] = useState(false);
+    const [showHelp, setShowHelp] = useState(false);
+
+    // Poll health + config on mount + URL change.
+    useEffect(() => {
+        let alive = true;
+        setHealth("pending");
+        setConfig(null);
+        setCookieError(null);
+        setCookieSaved(false);
+        (async () => {
+            const [h, c] = await Promise.all([
+                getBingeServerHealth(),
+                getBingeServerConfig(),
+            ]);
+            if (!alive) return;
+            setHealth(h);
+            setConfig(c);
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [url]);
+
+    // Silent auto-push of the Stash API key whenever the daemon is
+    // reachable but doesn't have one. Fetch from Stash same-origin →
+    // POST to binge-server → refresh local config state.
+    useEffect(() => {
+        if (config === null) return;
+        if (config.stashApiKeySet) return;
+        let alive = true;
+        (async () => {
+            try {
+                const apiKey = await fetchStashApiKey();
+                if (!alive || !apiKey) return;
+                const stashUrl = window.location.origin;
+                const result = await setBingeServerConfig({
+                    stashUrl,
+                    stashApiKey: apiKey,
+                });
+                if (!alive) return;
+                if (result.ok) {
+                    const refreshed = await getBingeServerConfig();
+                    if (alive) setConfig(refreshed);
+                }
+            } catch (err) {
+                console.warn("[binge] auto-push Stash API key failed", err);
+            }
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [config]);
+
+    const handleSaveCookie = async () => {
+        const cookie = cookieInput.trim();
+        if (!cookie) return;
+        setCookieBusy(true);
+        setCookieError(null);
+        setCookieSaved(false);
+        const result = await setBingeServerConfig({
+            redditSessionCookie: cookie,
+        });
+        if (result.ok) {
+            setCookieSaved(true);
+            setCookieInput("");
+            const refreshed = await getBingeServerConfig();
+            setConfig(refreshed);
+        } else {
+            setCookieError(result.error);
+        }
+        setCookieBusy(false);
+    };
+
+    if (health === "pending") {
+        return (
+            <div className="binge-settings-card">
+                <div className="binge-settings-card-header">
+                    <h3 className="binge-settings-card-title">
+                        binge-server configuration
+                    </h3>
+                    <span className="binge-settings-card-status">
+                        <span className="binge-settings-status-dot is-pending" />
+                        Checking…
+                    </span>
+                </div>
+            </div>
+        );
+    }
+
+    if (health === null) {
+        return (
+            <div className="binge-settings-card is-disconnected">
+                <div className="binge-settings-card-header">
+                    <h3 className="binge-settings-card-title">
+                        binge-server configuration
+                    </h3>
+                    <span className="binge-settings-card-status">
+                        <span className="binge-settings-status-dot is-down" />
+                        Unreachable
+                    </span>
+                </div>
+                <p className="binge-settings-card-description">
+                    Daemon unreachable at <code>{url}</code>. Reddit
+                    stories will be silently skipped until it's running.{" "}
+                    <a
+                        href="https://github.com/ordureconnoisseur/binge-server"
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="binge-settings-card-link"
+                    >
+                        Set up binge-server →
+                    </a>
+                </p>
+            </div>
+        );
+    }
+
+    // Daemon is reachable — render the full config card.
+    const stashKeyState = config?.stashApiKeySet
+        ? "✓ Auto-detected"
+        : "Setting up…";
+    const cookieIsSet = !!config?.redditCookieSet;
+
+    return (
+        <div className="binge-settings-card">
+            <div className="binge-settings-card-header">
+                <h3 className="binge-settings-card-title">
+                    binge-server configuration
+                </h3>
+                <span className="binge-settings-card-status">
+                    <span className="binge-settings-status-dot is-ok" />
+                    Connected
+                    {health.lastPoll && (
+                        <span className="binge-settings-card-status-meta">
+                            · {health.performerCount} performers ·{" "}
+                            last poll {formatRelative(health.lastPoll)}
+                        </span>
+                    )}
+                </span>
+            </div>
+            <p className="binge-settings-card-description">
+                Credentials the daemon uses to poll Reddit on your
+                behalf. The Stash API key is filled in automatically; the
+                Reddit session cookie has to be pasted (it lives in your
+                browser, not in Stash).
+            </p>
+
+            <div className="binge-settings-card-field">
+                <span className="binge-settings-card-field-label">
+                    Stash API key
+                </span>
+                <span className="binge-settings-card-field-value">
+                    {stashKeyState}
+                </span>
+            </div>
+
+            <div className="binge-settings-card-field is-stacked">
+                <span className="binge-settings-card-field-label">
+                    Reddit session cookie
+                </span>
+                <div className="binge-server-config-cookie-row">
+                    <input
+                        type="password"
+                        className="binge-settings-input"
+                        value={cookieInput}
+                        onChange={(e) => {
+                            setCookieInput(e.target.value);
+                            setCookieSaved(false);
+                            setCookieError(null);
+                        }}
+                        placeholder={
+                            cookieIsSet
+                                ? "✓ Set · paste a new value to rotate"
+                                : "Paste your reddit_session value"
+                        }
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        disabled={cookieBusy}
+                    />
+                    <button
+                        type="button"
+                        className="binge-server-config-cookie-save"
+                        onClick={() => void handleSaveCookie()}
+                        disabled={cookieBusy || !cookieInput.trim()}
+                    >
+                        {cookieBusy ? "Saving…" : "Save"}
+                    </button>
+                </div>
+                {cookieError && (
+                    <p className="binge-server-config-error">
+                        {cookieError}
+                    </p>
+                )}
+                {cookieSaved && (
+                    <p className="binge-server-config-ok">Saved ✓</p>
+                )}
+                <button
+                    type="button"
+                    className="binge-server-config-help-toggle"
+                    onClick={() => setShowHelp((v) => !v)}
+                >
+                    {showHelp ? "▾" : "▸"} How to find your Reddit cookie
+                </button>
+                {showHelp && (
+                    <ol className="binge-server-config-help">
+                        <li>
+                            In a regular browser tab, log into
+                            reddit.com.
+                        </li>
+                        <li>
+                            Open DevTools (F12) → Application → Cookies
+                            → https://www.reddit.com
+                        </li>
+                        <li>
+                            Find the row named{" "}
+                            <code>reddit_session</code> and copy its
+                            Value column (a long JWT-looking string).
+                            Paste it above.
+                        </li>
+                        <li>
+                            Cookies expire every few months. When
+                            stories stop updating, repeat steps 1–3.
+                        </li>
+                    </ol>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// Compact relative-time formatter: "2 min ago", "3 h ago", "yesterday".
+function formatRelative(iso: string): string {
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return "—";
+    const diffMs = Date.now() - t;
+    const secs = Math.floor(diffMs / 1000);
+    if (secs < 60) return "just now";
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} d ago`;
 }
 
 function DebugRow() {

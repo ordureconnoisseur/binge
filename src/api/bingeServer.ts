@@ -34,10 +34,28 @@ export interface RedditPost {
 
 export interface BingeServerHealth {
     ok: boolean;
+    // New in v0.2 — present when the daemon reports its config state.
+    // false → Stash creds or Reddit cookie not yet set.
+    configured?: boolean;
     lastPerformerSync: string;
     lastPoll: string;
     performerCount: number;
     postCount: number;
+}
+
+export interface BingeServerConfigState {
+    // The stash URL the daemon will use (visible — not a secret).
+    stashUrl: string;
+    // Whether each secret has been persisted. Booleans only — the
+    // daemon never returns the secret values themselves.
+    stashApiKeySet: boolean;
+    redditCookieSet: boolean;
+}
+
+export interface BingeServerConfigPayload {
+    stashUrl?: string;
+    stashApiKey?: string;
+    redditSessionCookie?: string;
 }
 
 async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T | null> {
@@ -89,6 +107,41 @@ export async function getBingeServerHealth(): Promise<BingeServerHealth | null> 
     return fetchJSON<BingeServerHealth>("/healthz");
 }
 
+export async function getBingeServerConfig(): Promise<BingeServerConfigState | null> {
+    return fetchJSON<BingeServerConfigState>("/config");
+}
+
+// setBingeServerConfig POSTs the given subset of credentials to the
+// daemon. The daemon validates each non-empty field against the live
+// service (Reddit /api/me.json + Stash GraphQL) before persisting.
+// On validation failure the daemon returns 400 with {error:"…"}; we
+// surface that to the caller so the UI can render an inline message.
+export async function setBingeServerConfig(
+    payload: BingeServerConfigPayload
+): Promise<{ ok: true } | { ok: false; error: string }> {
+    const base = readBingeServerUrl();
+    try {
+        const resp = await fetch(base + "/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15_000),
+        });
+        const body = (await resp.json().catch(() => ({}))) as {
+            error?: string;
+        };
+        if (!resp.ok) {
+            return { ok: false, error: body.error || resp.statusText };
+        }
+        return { ok: true };
+    } catch (err) {
+        return {
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+        };
+    }
+}
+
 // Strip the host from a Stash-rooted URL (image_path / preview / etc.)
 // returned by binge-server. binge-server queried Stash via the PC's
 // tailscale IP, so paths come back like
@@ -132,4 +185,26 @@ export function rewriteRedgifsMediaUrl(url: string | null): string | null {
     }
     const base = readBingeServerUrl();
     return `${base}/redgifs/proxy?url=${encodeURIComponent(url)}`;
+}
+
+// Rewrite Reddit-hosted image/video URLs (i.redd.it / preview.redd.it /
+// external-preview.redd.it / v.redd.it) through binge-server's
+// /reddit/proxy. Same hotlink/referrer/firewall reasons as redgifs —
+// gallery preview URLs in particular get 403'd by Reddit's CDN when
+// requested from a non-reddit origin. Returns input unchanged for
+// non-Reddit hosts.
+export function rewriteRedditMediaUrl(url: string | null): string | null {
+    if (!url) return url;
+    let parsed: URL;
+    try {
+        parsed = new URL(url);
+    } catch {
+        return url;
+    }
+    const host = parsed.host.toLowerCase();
+    if (!(host.endsWith(".redd.it") || host.endsWith(".redditmedia.com"))) {
+        return url;
+    }
+    const base = readBingeServerUrl();
+    return `${base}/reddit/proxy?url=${encodeURIComponent(url)}`;
 }
