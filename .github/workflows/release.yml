@@ -1,0 +1,54 @@
+# Builds the plugin and attaches a release zip on every `v*.*.*` tag.
+#
+# Zip layout — unzips directly into ~/.stash/plugins/:
+#
+#   binge-v0.1.0.zip
+#   └── binge/
+#       ├── binge.yml
+#       ├── binge.entry.js
+#       └── index.html
+#
+# To cut a release: `git tag v0.1.0 && git push --tags`.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Stage plugin files
+        run: |
+          mkdir -p release/binge
+          cp binge.yml dist/binge.entry.js dist/index.html release/binge/
+
+      - name: Pack zip
+        run: |
+          cd release
+          zip -r "../binge-${GITHUB_REF_NAME}.zip" binge
+          cd ..
+          ls -lh "binge-${GITHUB_REF_NAME}.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: binge-${{ github.ref_name }}.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true
