@@ -21,7 +21,10 @@ export function Explore() {
         []
     );
     const [tiles, setTiles] = useState<ExploreTile[]>([]);
-    const [page, setPage] = useState(0);
+    // Page is a ref, not state — the observer reads it on each fire,
+    // and we don't want the observer effect to tear down + re-attach
+    // on every page bump (the old setup did, hammering the GC).
+    const pageRef = useRef(0);
     const [isLoading, setIsLoading] = useState(true);
     const [hasMore, setHasMore] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -55,7 +58,7 @@ export function Explore() {
                     fresh.push({ id: s.id, screenshot: s.paths.screenshot });
                 }
                 setTiles((prev) => [...prev, ...fresh]);
-                setPage(nextPage);
+                pageRef.current = nextPage;
                 // Stop paginating when the latest page didn't fill — Stash
                 // returns fewer than per_page when there are no more rows.
                 if (data.findScenes.scenes.length < PAGE_SIZE) {
@@ -81,25 +84,34 @@ export function Explore() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Infinite-scroll sentinel — fires loadPage(page+1) when within
-    // 800px of the viewport bottom.
+    // Infinite-scroll sentinel — fires loadPage(pageRef + 1) when
+    // within 800px of the viewport bottom. Observer attaches ONCE; the
+    // page counter and load gating live in refs so this effect's
+    // identity is stable across pagination.
     useEffect(() => {
         const el = sentinelRef.current;
         if (!el) return;
-        if (!hasMore || isLoading) return;
         const observer = new IntersectionObserver(
             (entries) => {
                 for (const entry of entries) {
-                    if (entry.isIntersecting) {
-                        void loadPage(page + 1);
-                    }
+                    if (!entry.isIntersecting) continue;
+                    // Same gates as the effect-deps version, just
+                    // read at fire time.
+                    if (loadingRef.current) continue;
+                    void loadPage(pageRef.current + 1);
                 }
             },
             { rootMargin: "800px 0px", root: scrollRef.current }
         );
         observer.observe(el);
         return () => observer.disconnect();
-    }, [hasMore, isLoading, page, loadPage]);
+        // loadPage is stable (deps: [sortSeed] — stable for mount).
+        // hasMore + isLoading are *display* state but the observer
+        // simply re-checks loadingRef/hasMore on every fire; if there's
+        // truly no more, the next fire is a no-op via the early return
+        // inside loadPage (which sets hasMore=false after a short page).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleTileClick = (scene: ExploreTile) => {
         // Clear filters, set the pin, switch to chained mode. Do NOT

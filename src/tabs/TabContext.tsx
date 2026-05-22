@@ -4,6 +4,7 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
     type ReactNode,
 } from "react";
@@ -11,6 +12,7 @@ import {
 export type Tab =
     | "home"
     | "foryou"
+    | "following"
     | "explore"
     | "saved"
     | "settings";
@@ -51,6 +53,7 @@ const TabContext = createContext<TabContextValue | null>(null);
 const HASH_TABS: ReadonlySet<Tab> = new Set<Tab>([
     "home",
     "foryou",
+    "following",
     "explore",
     "saved",
     "settings",
@@ -89,11 +92,20 @@ export function TabProvider({ children }: { children: ReactNode }) {
     }, []);
 
     // Browser back / forward → sync tab state. The `hashchange` event
-    // fires when the user navigates history OR edits the URL bar.
+    // fires when the user navigates history OR edits the URL bar. The
+    // listener attaches ONCE for the lifetime of the provider — we
+    // route through a ref to read the latest tab without churning the
+    // listener registration on every setTab (which would leave a brief
+    // window with duplicate listeners and made the listener race with
+    // PerformerProfileContext's own hashchange handler).
+    const tabRef = useRef<Tab>(tab);
+    useEffect(() => {
+        tabRef.current = tab;
+    }, [tab]);
     useEffect(() => {
         const onHashChange = () => {
             const next = readTabFromHash();
-            if (next && next !== tab) {
+            if (next && next !== tabRef.current) {
                 setTabRaw(next);
                 setTabBarVisible(true);
                 setReelMode("random");
@@ -101,7 +113,7 @@ export function TabProvider({ children }: { children: ReactNode }) {
         };
         window.addEventListener("hashchange", onHashChange);
         return () => window.removeEventListener("hashchange", onHashChange);
-    }, [tab]);
+    }, []);
 
     const setTab = useCallback((next: Tab) => {
         setTabRaw(next);

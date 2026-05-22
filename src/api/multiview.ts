@@ -29,8 +29,8 @@ function readQueue(): MultiviewQueueItem[] {
 function writeQueue(queue: MultiviewQueueItem[]): void {
     try {
         localStorage.setItem(MULTIVIEW_STORAGE_KEY, JSON.stringify(queue));
-    } catch {
-        /* quota etc — ignore */
+    } catch (err) {
+        console.warn("[binge] multiview queue write failed", err);
     }
 }
 

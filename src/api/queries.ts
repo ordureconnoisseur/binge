@@ -123,6 +123,11 @@ export function findScenes(variables: FindScenesVariables = {}) {
         },
         scene_filter: variables.scene_filter,
     };
+    // Double-cast: `merged` is well-typed but `gql<T>`'s variables
+    // param is the loosely-typed `Record<string, unknown>` shape. TS
+    // refuses the implicit narrowing because the nested filter
+    // objects have non-string fields. The shape IS correct at runtime
+    // — the GraphQL server validates against the schema.
     return gql<FindScenesResult>(
         FIND_SCENES,
         merged as unknown as Record<string, unknown>
@@ -838,7 +843,10 @@ function flattenSceneNodes(scenes: RawSceneNode[]): RecentSceneRow[] {
     for (const s of scenes) {
         const firstFile = s.files?.[0];
         const sceneTags = s.tags ?? [];
-        for (const p of s.performers) {
+        // Stash can occasionally return a scene with null `performers`
+        // during partial writes — guard so one bad row doesn't crash
+        // the whole feed flatten.
+        for (const p of s.performers ?? []) {
             rows.push({
                 sceneId: s.id,
                 sceneTitle: s.title,

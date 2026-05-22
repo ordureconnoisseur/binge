@@ -2852,6 +2852,78 @@ body,
     }
 }
 
+/* Following tab — search + sort controls, section heads, grid. The
+   .binge-follow-card + .binge-following-grid classes (already defined
+   for AllPerformersModal) are reused here so cards have one source
+   of truth. */
+.binge-following-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.4rem 0 1rem;
+}
+.binge-following-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    padding: 0.55rem 0.85rem;
+    color: #fff;
+    font-size: 0.92rem;
+    line-height: 1.2;
+}
+.binge-following-search:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.25);
+    outline-offset: 1px;
+}
+.binge-following-search::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+.binge-following-sort {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    padding: 0.55rem 0.7rem;
+    color: #fff;
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+.binge-following-sort:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.25);
+    outline-offset: 1px;
+}
+.binge-following-sort option {
+    background: #1a1a1a;
+    color: #fff;
+}
+.binge-following-section + .binge-following-section {
+    margin-top: 1.5rem;
+}
+.binge-following-section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin: 0 0 0.6rem;
+}
+.binge-following-section-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0;
+}
+.binge-following-section-count {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+.binge-following-empty {
+    padding: 0.5rem 0;
+}
+
 /* Manual-refresh button in the Home title row. Wipes in-memory +
    localStorage caches (recentScenes, stashdb, reddit) and triggers a
    re-fetch. Spins while a refresh is in flight. */

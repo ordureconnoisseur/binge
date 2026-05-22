@@ -364,8 +364,13 @@ export function Reel() {
                         };
                     });
                 })
-                .catch(() => {
-                    /* swallow — pagination retries on next scroll */
+                .catch((err) => {
+                    // Pagination retries on next scroll; just surface
+                    // in DevTools so the failure is debuggable.
+                    console.error(
+                        "[binge] chained-mode pagination failed",
+                        err
+                    );
                 })
                 .finally(() => {
                     loadingMoreRef.current = false;

@@ -8,10 +8,12 @@ import {
 } from "../api/queries";
 
 // Tiny in-memory cache so multiple Home widgets sharing the same data
-// (stories row, feed) get one network fetch instead of N. TTL is short
-// — recent scenes don't change second-to-second but the user might add
-// a scene and want to see it surface promptly.
-const TTL_MS = 30_000;
+// (stories row, feed) get one network fetch instead of N. 5-minute TTL
+// is generous because binge tabs stay open for hours and the home
+// screen has an explicit refresh button (plus storage events) for
+// hard busting. Anything shorter and we burn dozens of repeat queries
+// per session for data that changes once or twice a day.
+const TTL_MS = 5 * 60_000;
 
 // One slot per resource. The cache key includes `sinceIso` because
 // callers compute their own "now - 30d" — without it, a slow caller

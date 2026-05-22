@@ -65,8 +65,8 @@
                     onClick: handleClick,
                     className:
                         "minimal p-4 p-xl-2 d-flex d-xl-inline-block flex-column justify-content-between align-items-center btn btn-primary",
-                    title: "binge",
-                    "aria-label": "binge",
+                    title: "Binge",
+                    "aria-label": "Binge",
                 },
                 // Icon-only — no label span. Native nav items hide their
                 // span via refract's CSS; we just don't render one.

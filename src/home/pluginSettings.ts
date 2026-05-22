@@ -83,8 +83,11 @@ function readString<T extends string>(
 function writeNumber(key: string, value: number): void {
     try {
         localStorage.setItem(key, String(value));
-    } catch {
-        /* ignore */
+    } catch (err) {
+        // Likely incognito / quota — value stays in React state but
+        // won't survive a reload. Surface in DevTools so the issue is
+        // debuggable.
+        console.warn("[binge] localStorage write failed", key, err);
     }
     notify(key);
 }
@@ -92,8 +95,8 @@ function writeNumber(key: string, value: number): void {
 function writeString(key: string, value: string): void {
     try {
         localStorage.setItem(key, value);
-    } catch {
-        /* ignore */
+    } catch (err) {
+        console.warn("[binge] localStorage write failed", key, err);
     }
     notify(key);
 }
@@ -112,8 +115,8 @@ function notify(key: string): void {
 function writeBool(key: string, value: boolean): void {
     try {
         localStorage.setItem(key, value ? "1" : "0");
-    } catch {
-        /* private mode etc — ignore */
+    } catch (err) {
+        console.warn("[binge] localStorage write failed", key, err);
     }
     notify(key);
 }

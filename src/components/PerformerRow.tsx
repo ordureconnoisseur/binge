@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BingeScene } from "../api/queries";
 import { PerformerSheet } from "./PerformerSheet";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
@@ -42,7 +42,13 @@ export function PerformerRow({ performers }: PerformerRowProps) {
     // Cap at 4 visible to keep the row tidy; show "+N" if more
     const visible = performers.slice(0, 4);
     const overflow = performers.length - visible.length;
-    const nameSummary = formatNames(performers.map((p) => p.name));
+    // The reel re-renders this row constantly during like-bursts, hover
+    // states, etc — memoise the joined name string so we don't rerun
+    // map + format every paint.
+    const nameSummary = useMemo(
+        () => formatNames(performers.map((p) => p.name)),
+        [performers]
+    );
 
     return (
         <div className="binge-performer-row">
