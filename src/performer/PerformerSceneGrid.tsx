@@ -6,11 +6,32 @@ import {
 } from "../api/queries";
 import { useFilter } from "../filter/FilterContext";
 import { useTab } from "../tabs/TabContext";
+import {
+    getOwnedStashDBSceneIds,
+    getStashDBBox,
+    getStashDBScenesForPerformer,
+    type StashDBScene,
+} from "../api/stashdb";
+import { useIncludeStashDBInProfile } from "../home/pluginSettings";
+import { AddSceneModal } from "../home/AddSceneModal";
 
 interface PerformerSceneGridProps {
     performer: PerformerDetail;
     onClose: () => void;
 }
+
+// Mixed-scene cell — discriminates library cards from StashDB-only
+// cards. Interleaved by date desc in a single grid.
+type GridCell =
+    | { kind: "library"; date: string; scene: PerformerSceneCard }
+    | {
+          kind: "stashdb";
+          date: string;
+          scene: StashDBScene;
+          stashBoxIndex: number;
+      };
+
+const STASHDB_ENDPOINT = "https://stashdb.org/graphql";
 
 const PAGE_SIZE = 24;
 // Distance from grid bottom that triggers the next page load. Matches the
@@ -34,13 +55,72 @@ export function PerformerSceneGrid({
     const { replace } = useFilter();
     const { setTab, setPinFirstSceneId } = useTab();
 
+    // StashDB mixin state — fetched once when the profile opens.
+    // Filtered to scenes the user doesn't already own (owned ids
+    // matched against `scene_id` not `id`, since Stash dedupes by
+    // stash_id locally and we want to suppress duplicates).
+    const includeStashDBInProfile = useIncludeStashDBInProfile();
+    const [stashDBScenes, setStashDBScenes] = useState<StashDBScene[]>([]);
+    const [stashBoxIndex, setStashBoxIndex] = useState<number | null>(null);
+    const [sceneModalFor, setSceneModalFor] = useState<{
+        sceneId: string;
+        title: string | null;
+        cover: string | null;
+        stashboxUrl: string;
+    } | null>(null);
+
     // Reset when the performer changes (re-opening the profile for another id).
     useEffect(() => {
         setScenes([]);
         setCount(null);
         setPage(1);
         setError(null);
+        setStashDBScenes([]);
+        setStashBoxIndex(null);
     }, [performer.id]);
+
+    // One-shot StashDB fetch when the toggle is on AND the performer
+    // has a stashdb stash_id linked. Fetches their full StashDB
+    // catalogue, subtracts owned scenes (we already have them locally
+    // — surfacing again would be noise), and stashes the rest for
+    // interleaving with the library scenes.
+    useEffect(() => {
+        if (!includeStashDBInProfile) {
+            setStashDBScenes([]);
+            return;
+        }
+        const sdb = performer.stash_ids?.find(
+            (s) => s.endpoint === STASHDB_ENDPOINT
+        );
+        if (!sdb) {
+            setStashDBScenes([]);
+            return;
+        }
+        let alive = true;
+        (async () => {
+            try {
+                const box = await getStashDBBox();
+                if (!box) return;
+                const [list, owned] = await Promise.all([
+                    getStashDBScenesForPerformer(sdb.stash_id, box.api_key),
+                    getOwnedStashDBSceneIds(),
+                ]);
+                if (!alive) return;
+                setStashBoxIndex(box.index);
+                setStashDBScenes(
+                    list.filter((s) => !owned.has(s.id))
+                );
+            } catch (err) {
+                console.warn(
+                    "[binge] performer-profile stashdb mixin failed",
+                    err
+                );
+            }
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [performer.id, performer.stash_ids, includeStashDBInProfile]);
 
     useEffect(() => {
         let alive = true;
@@ -126,15 +206,34 @@ export function PerformerSceneGrid({
             {scenes.length === 0 && !loading && !error && (
                 <div className="binge-status">no scenes</div>
             )}
-            {scenes.length > 0 && (
+            {(scenes.length > 0 || stashDBScenes.length > 0) && (
                 <ul className="binge-profile-scene-grid">
-                    {scenes.map((s) => (
-                        <SceneTile
-                            key={s.id}
-                            scene={s}
-                            onPick={() => handlePick(s.id)}
-                        />
-                    ))}
+                    {buildCells(
+                        scenes,
+                        stashDBScenes,
+                        stashBoxIndex
+                    ).map((cell) =>
+                        cell.kind === "library" ? (
+                            <SceneTile
+                                key={`l:${cell.scene.id}`}
+                                scene={cell.scene}
+                                onPick={() => handlePick(cell.scene.id)}
+                            />
+                        ) : (
+                            <StashDBTile
+                                key={`s:${cell.scene.id}`}
+                                scene={cell.scene}
+                                onPick={() =>
+                                    setSceneModalFor({
+                                        sceneId: cell.scene.id,
+                                        title: cell.scene.title,
+                                        cover: cell.scene.coverUrl,
+                                        stashboxUrl: `https://stashdb.org/scenes/${cell.scene.id}`,
+                                    })
+                                }
+                            />
+                        )
+                    )}
                 </ul>
             )}
             <div ref={sentinelRef} aria-hidden="true" />
@@ -143,7 +242,112 @@ export function PerformerSceneGrid({
                     loading more…
                 </div>
             )}
+            {sceneModalFor && stashBoxIndex !== null && (
+                <AddSceneModal
+                    stashDBSceneId={sceneModalFor.sceneId}
+                    fallbackTitle={sceneModalFor.title}
+                    fallbackCover={sceneModalFor.cover}
+                    stashboxUrl={sceneModalFor.stashboxUrl}
+                    onCreated={() => {
+                        // Remove the now-owned scene from the
+                        // mixin so it doesn't keep showing as a
+                        // discovery card (the user's library will
+                        // also surface it via the library path on
+                        // the next refresh).
+                        setStashDBScenes((prev) =>
+                            prev.filter(
+                                (s) => s.id !== sceneModalFor.sceneId
+                            )
+                        );
+                        setSceneModalFor(null);
+                    }}
+                    onClose={() => setSceneModalFor(null)}
+                />
+            )}
         </section>
+    );
+}
+
+// Merge library + StashDB scenes into a single grid ordered by date
+// descending. Library scenes use whatever date Stash returns (the
+// scene's release date if set, otherwise null → sorts to the end).
+// StashDB scenes use `releaseDate`. Both fall back to empty string
+// when null so the sort is stable.
+function buildCells(
+    library: PerformerSceneCard[],
+    stashDB: StashDBScene[],
+    stashBoxIndex: number | null
+): GridCell[] {
+    const cells: GridCell[] = [];
+    for (const s of library) {
+        cells.push({
+            kind: "library",
+            date: s.date ?? "",
+            scene: s,
+        });
+    }
+    if (stashBoxIndex !== null) {
+        for (const s of stashDB) {
+            cells.push({
+                kind: "stashdb",
+                date: s.releaseDate ?? "",
+                scene: s,
+                stashBoxIndex,
+            });
+        }
+    }
+    cells.sort((a, b) => b.date.localeCompare(a.date));
+    return cells;
+}
+
+// StashDB-only tile: cover + release date + "StashDB" badge, tap
+// opens the AddSceneModal. Mirrors the library tile layout but with
+// no preview WebM (StashDB doesn't host preview clips).
+function StashDBTile({
+    scene,
+    onPick,
+}: {
+    scene: StashDBScene;
+    onPick: () => void;
+}) {
+    const sceneTitle = scene.title?.trim() || "";
+    return (
+        <li className="binge-profile-scene-cell is-landscape-thumb">
+            <button
+                type="button"
+                className="binge-profile-scene-card"
+                onClick={onPick}
+                title={sceneTitle || `StashDB scene ${scene.id}`}
+            >
+                <span
+                    className="binge-profile-scene-poster"
+                    style={
+                        scene.coverUrl
+                            ? {
+                                  backgroundImage: `url(${scene.coverUrl})`,
+                              }
+                            : undefined
+                    }
+                />
+                <span className="binge-profile-scene-stashdb-badge">
+                    StashDB
+                </span>
+                <span className="binge-profile-scene-hover">
+                    <span className="binge-profile-scene-hover-stats">
+                        {scene.releaseDate && (
+                            <span className="binge-profile-scene-stat">
+                                {scene.releaseDate}
+                            </span>
+                        )}
+                    </span>
+                    {sceneTitle && (
+                        <span className="binge-profile-scene-title">
+                            {sceneTitle}
+                        </span>
+                    )}
+                </span>
+            </button>
+        </li>
     );
 }
 

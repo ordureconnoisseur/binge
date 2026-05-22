@@ -8,16 +8,22 @@ import {
 
 // Lets any descendant of <PerformerProfileProvider> summon the full-screen
 // performer page without prop drilling. The actual rendering lives in
-// <PerformerProfile/>, which reads `currentId` and portals itself to body.
+// <PerformerProfile/>, which reads `currentProfile` and portals itself to body.
 //
-// The profile is mirrored to the URL hash (`#/p/<id>`) so the browser
-// back button closes it, and direct deep-links work on first paint.
-// The tab hash (`#/home`, `#/foryou`, …) and the profile hash share the
-// same fragment — opening a profile pushes a new history entry on top
-// of the current tab, and back pops to that tab.
+// The profile is mirrored to the URL hash so the browser back button closes
+// it, and direct deep-links work on first paint. Two hash shapes:
+//   - `#/p/<localId>`   library performer (existing)
+//   - `#/sdbp/<stashId>` StashDB-only performer (NEW — not in the user's
+//                        Stash library yet; profile renders from StashDB
+//                        data + their StashDB scenes)
+export type ProfileTarget =
+    | { kind: "local"; id: string }
+    | { kind: "stashdb"; id: string };
+
 interface PerformerProfileContextValue {
-    currentId: string | null;
+    currentProfile: ProfileTarget | null;
     openProfile: (id: string) => void;
+    openStashDBProfile: (stashId: string) => void;
     close: () => void;
 }
 
@@ -25,17 +31,27 @@ const PerformerProfileContext = createContext<
     PerformerProfileContextValue | undefined
 >(undefined);
 
-const PROFILE_HASH_PATTERN = /^#\/p\/([^/?]+)/;
+const LOCAL_HASH_PATTERN = /^#\/p\/([^/?]+)/;
+const STASHDB_HASH_PATTERN = /^#\/sdbp\/([^/?]+)/;
 
-function readProfileIdFromHash(): string | null {
+function readProfileFromHash(): ProfileTarget | null {
     if (typeof window === "undefined") return null;
-    const m = window.location.hash.match(PROFILE_HASH_PATTERN);
-    return m ? decodeURIComponent(m[1]) : null;
+    const hash = window.location.hash;
+    const stashdbMatch = hash.match(STASHDB_HASH_PATTERN);
+    if (stashdbMatch) {
+        return { kind: "stashdb", id: decodeURIComponent(stashdbMatch[1]) };
+    }
+    const localMatch = hash.match(LOCAL_HASH_PATTERN);
+    if (localMatch) {
+        return { kind: "local", id: decodeURIComponent(localMatch[1]) };
+    }
+    return null;
 }
 
-function writeProfileHash(id: string): void {
+function writeProfileHash(target: ProfileTarget): void {
     if (typeof window === "undefined") return;
-    const next = `#/p/${encodeURIComponent(id)}`;
+    const prefix = target.kind === "stashdb" ? "sdbp" : "p";
+    const next = `#/${prefix}/${encodeURIComponent(target.id)}`;
     if (window.location.hash === next) return;
     window.history.pushState(null, "", next);
 }
@@ -45,40 +61,46 @@ export function PerformerProfileProvider({
 }: {
     children: React.ReactNode;
 }) {
-    // Initial state honours a direct deep-link such as
-    // .../index.html#/p/823 — opens that performer on first paint.
-    const [currentId, setCurrentId] = useState<string | null>(() =>
-        readProfileIdFromHash()
+    const [currentProfile, setCurrentProfile] = useState<ProfileTarget | null>(
+        () => readProfileFromHash()
     );
 
-    // Browser back / forward → sync. When the user pops the profile
-    // entry off the history stack we set currentId back to null and
-    // PerformerProfile unmounts itself.
     useEffect(() => {
         const onHashChange = () => {
-            setCurrentId(readProfileIdFromHash());
+            setCurrentProfile(readProfileFromHash());
         };
         window.addEventListener("hashchange", onHashChange);
         return () => window.removeEventListener("hashchange", onHashChange);
     }, []);
 
     const openProfile = useCallback((id: string) => {
-        writeProfileHash(id);
-        setCurrentId(id);
+        const target: ProfileTarget = { kind: "local", id };
+        writeProfileHash(target);
+        setCurrentProfile(target);
+    }, []);
+
+    const openStashDBProfile = useCallback((stashId: string) => {
+        const target: ProfileTarget = { kind: "stashdb", id: stashId };
+        writeProfileHash(target);
+        setCurrentProfile(target);
     }, []);
 
     const close = useCallback(() => {
-        if (readProfileIdFromHash()) {
-            // Pop the profile entry — the hashchange listener will
-            // clear `currentId` once the hash settles.
+        if (readProfileFromHash()) {
             window.history.back();
         } else {
-            setCurrentId(null);
+            setCurrentProfile(null);
         }
     }, []);
+
     return (
         <PerformerProfileContext.Provider
-            value={{ currentId, openProfile, close }}
+            value={{
+                currentProfile,
+                openProfile,
+                openStashDBProfile,
+                close,
+            }}
         >
             {children}
         </PerformerProfileContext.Provider>

@@ -11,7 +11,15 @@ import {
     getRecentGalleries,
     getGalleriesByDate,
 } from "./recentScenesCache";
-import { useShowGalleries, useLookbackDays } from "./pluginSettings";
+import {
+    useShowGalleries,
+    useLookbackDays,
+    useIncludeStashDB,
+} from "./pluginSettings";
+import {
+    fetchDiscoveryFeedItems,
+    type DiscoveryFeedItem,
+} from "./discoveryFeed";
 
 // Performer summary inside a feed item. Multiple performers per item are
 // kept so the card can show their names and route taps to the correct
@@ -65,7 +73,19 @@ export interface GalleryFeedItem {
     paths: string[];
 }
 
-export type FeedItem = SceneFeedItem | GalleryFeedItem;
+// StashDB discovery card — a scene featuring at least one performer
+// the user hasn't added to their library, with a Follow CTA that
+// creates that performer locally (scrape + create). Same `key` +
+// `effectiveAt` shape as the other variants so the merged feed sort
+// stays homogeneous.
+export interface DiscoveryFeedItemWrapped extends DiscoveryFeedItem {
+    kind: "discovery";
+}
+
+export type FeedItem =
+    | SceneFeedItem
+    | GalleryFeedItem
+    | DiscoveryFeedItemWrapped;
 
 export type FeedState =
     | { kind: "loading" }
@@ -127,6 +147,7 @@ export function useFeed(): FeedHookResult {
     const [lookbackDays, setLookbackDays] = useState(initialLookbackDays);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const showGalleries = useShowGalleries();
+    const includeStashDB = useIncludeStashDB();
 
     // When the user picks a new lookback in plugin settings, snap the
     // current window back to that value so the feed re-fetches with
@@ -170,6 +191,7 @@ export function useFeed(): FeedHookResult {
                     scenesByDate,
                     galleriesByCreated,
                     galleriesByDate,
+                    discoveryItems,
                 ] = await Promise.all([
                     getRecentScenes(sinceIso),
                     getScenesByDate(sinceDate),
@@ -182,6 +204,15 @@ export function useFeed(): FeedHookResult {
                     showGalleries
                         ? getGalleriesByDate(sinceDate)
                         : Promise.resolve([] as RecentGalleryRow[]),
+                    // StashDB discovery — scenes featuring unfollowed
+                    // performers. Same toggle as the stories-row
+                    // StashDB integration; both surface or both
+                    // hide together so the user has one switch.
+                    // Failures swallowed inside fetchDiscoveryFeedItems
+                    // so a StashDB outage never breaks the feed.
+                    includeStashDB
+                        ? fetchDiscoveryFeedItems(sinceDate)
+                        : Promise.resolve([] as DiscoveryFeedItem[]),
                 ]);
                 if (!alive) return;
 
@@ -280,9 +311,14 @@ export function useFeed(): FeedHookResult {
                 // and galleryItems is small enough that the cap step
                 // (which the scene side does) doesn't apply here.
 
-                const all: FeedItem[] = [...sceneList, ...galleryItems].sort(
-                    (a, b) => b.effectiveAt.localeCompare(a.effectiveAt)
-                );
+                const wrappedDiscovery: DiscoveryFeedItemWrapped[] =
+                    discoveryItems.map((d) => ({ kind: "discovery", ...d }));
+
+                const all: FeedItem[] = [
+                    ...sceneList,
+                    ...galleryItems,
+                    ...wrappedDiscovery,
+                ].sort((a, b) => b.effectiveAt.localeCompare(a.effectiveAt));
 
                 // End-of-history detection: if widening the window
                 // didn't add any new items, the user has scrolled past
@@ -306,7 +342,7 @@ export function useFeed(): FeedHookResult {
         return () => {
             alive = false;
         };
-    }, [lookbackDays, showGalleries]);
+    }, [lookbackDays, showGalleries, includeStashDB]);
 
     const loadMore = useCallback(() => {
         setLookbackDays((d) =>

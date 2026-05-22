@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { findScenes, findRecentlyLikedTags } from "../api/queries";
 import { getTopInteractedTags, type TagScore } from "../api/interactedTags";
+import { DiscoverPerformersBar } from "./DiscoverPerformersBar";
 import { useFilter } from "../filter/FilterContext";
 import { useTab } from "./TabContext";
 import { useAutoHideTabBar } from "../hooks/useAutoHideTabBar";
@@ -249,6 +250,7 @@ export function Explore() {
 
     return (
         <div className="binge-tab-scroll" ref={scrollRef}>
+            <DiscoverPerformersBar />
             <header className="binge-explore-header">
                 <div className="binge-explore-search-row">
                     <span

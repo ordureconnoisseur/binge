@@ -322,6 +322,10 @@ interface PerformerBucket {
 // merge them into the per-performer buckets. Owned stash_ids are
 // filtered out (the user already has those scenes — they'll surface
 // via the library path). 12h cache via stashdb.ts/readStashDBCache.
+//
+// Discovery of UNFOLLOWED StashDB performers happens in the feed
+// (`src/home/discoveryFeed.ts`), not here — the stories row only
+// ever shows performers that already exist in the local library.
 async function mergeStashDBScenes(
     byPerformer: Map<string, PerformerBucket>,
     sinceIsoDate: string
@@ -331,9 +335,6 @@ async function mergeStashDBScenes(
     const linkedPerformers = await getLinkedPerformers();
     if (linkedPerformers.length === 0) return;
 
-    // Map StashDB stash_id → local performer info so we can attach
-    // discovered scenes to existing buckets (or create a new bucket
-    // for a linked performer with no recent library scenes).
     const stashIdToLocal = new Map<string, LinkedPerformer>();
     for (const p of linkedPerformers) {
         stashIdToLocal.set(p.stashId, p);
@@ -353,10 +354,10 @@ async function mergeStashDBScenes(
 
     for (const scene of scenes) {
         if (owned.has(scene.id)) continue;
-        // A scene with multiple performers attaches to each of their
-        // buckets (matching how the library path works).
-        for (const stashId of scene.performerStashIds) {
-            const local = stashIdToLocal.get(stashId);
+        // Defensive — old v1 cache + malformed StashDB responses can
+        // leave performers undefined.
+        for (const sp of scene.performers ?? []) {
+            const local = stashIdToLocal.get(sp.id);
             if (!local) continue;
             let bucket = byPerformer.get(local.localId);
             if (!bucket) {

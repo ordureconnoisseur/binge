@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 const SHOW_GALLERIES_KEY = "binge.showGalleries";
 const SHOW_DEBUG_KEY = "binge.showDebug";
 const INCLUDE_STASHDB_KEY = "binge.includeStashDB";
+const INCLUDE_STASHDB_IN_PROFILE_KEY = "binge.includeStashDBInProfile";
 const INCLUDE_REDDIT_KEY = "binge.includeReddit";
 const AUTO_SCROLL_KEY = "binge.autoScroll";
 const REFRACT_INTEGRATION_KEY = "binge.refractIntegration";
@@ -249,6 +250,14 @@ export function useIncludeStashDB(): boolean {
     return useStoredBool(INCLUDE_STASHDB_KEY, true);
 }
 
+// Mixes StashDB-only scenes (those you don't own yet) into the
+// scene grid on a library performer's profile, alongside their
+// library scenes. Separate toggle from the stories integration so
+// users can enable one without the other.
+export function useIncludeStashDBInProfile(): boolean {
+    return useStoredBool(INCLUDE_STASHDB_IN_PROFILE_KEY, true);
+}
+
 // Reddit integration. On by default; if binge-server is unreachable
 // the merge silently no-ops (network fetch returns []), so leaving
 // this on with no daemon running just costs one failed fetch per
@@ -327,6 +336,9 @@ export function setShowDebug(value: boolean): void {
 }
 export function setIncludeStashDB(value: boolean): void {
     writeBool(INCLUDE_STASHDB_KEY, value);
+}
+export function setIncludeStashDBInProfile(value: boolean): void {
+    writeBool(INCLUDE_STASHDB_IN_PROFILE_KEY, value);
 }
 export function setIncludeReddit(value: boolean): void {
     writeBool(INCLUDE_REDDIT_KEY, value);

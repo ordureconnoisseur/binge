@@ -4,6 +4,7 @@ import { findPerformer, type PerformerDetail } from "../api/queries";
 import { setPerformerFavorite } from "../api/mutations";
 import { useHasAPR } from "../plugins/PluginContext";
 import { usePerformerProfile } from "./PerformerProfileContext";
+import { StashDBPerformerProfile } from "./StashDBPerformerProfile";
 import { PerformerStatsRow } from "./PerformerStatsRow";
 import { PerformerBio } from "./PerformerBio";
 import { PerformerSceneGrid } from "./PerformerSceneGrid";
@@ -26,8 +27,28 @@ type LoadState =
 // <body> for the same reason PerformerSheet is: the slide's `.binge-overlay`
 // is its own stacking context, which would cap our z-index beneath the
 // action-stack heart and other slide UI.
+// Branch wrapper: PerformerProfileContext can now point at either a
+// local Stash performer (`kind: "local"`) or a StashDB-only performer
+// (`kind: "stashdb"`). The local case is the existing
+// `LocalPerformerProfile` below; the StashDB case forwards to
+// `StashDBPerformerProfile` which renders StashDB data + their
+// StashDB scenes with "Add to library" tap targets.
 export function PerformerProfile() {
-    const { currentId, close } = usePerformerProfile();
+    const { currentProfile } = usePerformerProfile();
+    if (!currentProfile) return null;
+    if (currentProfile.kind === "stashdb") {
+        return (
+            <StashDBPerformerProfile
+                stashDBPerformerId={currentProfile.id}
+            />
+        );
+    }
+    return <LocalPerformerProfile localId={currentProfile.id} />;
+}
+
+function LocalPerformerProfile({ localId }: { localId: string }) {
+    const currentId = localId;
+    const { close } = usePerformerProfile();
     const [state, setState] = useState<LoadState>({ kind: "idle" });
     // Local favorite mirror so the Follow button responds instantly without
     // refetching the whole performer. Synced from the fetched performer.
@@ -165,8 +186,8 @@ export function PerformerProfile() {
                     {state.kind === "ready" && favorite && (
                         <span
                             className="binge-profile-verified"
-                            aria-label="Following"
-                            title="Following"
+                            aria-label="Favourited"
+                            title="Favourited"
                         >
                             <VerifiedIcon />
                         </span>
@@ -233,7 +254,7 @@ export function PerformerProfile() {
                                 disabled={busy}
                                 aria-pressed={favorite}
                             >
-                                {favorite ? "Following" : "Follow"}
+                                {favorite ? "Favourited" : "Favourite"}
                             </button>
                         </div>
                         {ratingOpen && state.kind === "ready" && (

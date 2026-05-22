@@ -3,6 +3,8 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useFeed } from "./useFeed";
 import { SceneFeedCard } from "./SceneFeedCard";
 import { GalleryFeedCard } from "./GalleryFeedCard";
+import { DiscoveryFeedCard } from "./DiscoveryFeedCard";
+import { invalidateStashDBCache } from "../api/stashdb";
 
 interface FeedProps {
     // The scrollable container this feed lives inside — usually
@@ -146,8 +148,20 @@ export function Feed({ scrollContainerRef }: FeedProps) {
                     >
                         {item.kind === "scene" ? (
                             <SceneFeedCard item={item} />
-                        ) : (
+                        ) : item.kind === "gallery" ? (
                             <GalleryFeedCard item={item} />
+                        ) : (
+                            <DiscoveryFeedCard
+                                item={item}
+                                onFollowed={() => {
+                                    // Drop the StashDB cache so the
+                                    // next useFeed refetch picks the
+                                    // performer up as a library
+                                    // performer and stops surfacing
+                                    // them as a discovery suggestion.
+                                    invalidateStashDBCache();
+                                }}
+                            />
                         )}
                     </div>
                 );
