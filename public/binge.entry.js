@@ -1,6 +1,10 @@
 // binge.entry.js — runs inside Stash's main SPA. Adds a "binge" nav button
 // that opens the reel SPA fullscreen at /plugin/binge/assets/index.html.
 //
+// All user-facing settings now live inside the binge SPA itself
+// (Home → burger menu → Settings). This file is intentionally minimal:
+// it owns the nav-button injection only.
+//
 // Structure cribbed from secondfolder/stash-tv:
 //   - patch.instead's 3rd arg is the Original *component*; wrap it as
 //     <Original>{children}<NewBtn/></Original> to append a menu item
@@ -12,18 +16,6 @@
     if (!PluginApi) return;
     const React = PluginApi.React;
     const REEL_PATH = "/plugin/binge/assets/index.html";
-
-    // ── Settings injection ──────────────────────────────────────────
-    // Shared with the reel SPA via same-origin localStorage. The reel
-    // reads on load and falls back to "auto" if missing.
-    const TRANSCODE_STORAGE_KEY = "binge.transcodeType";
-    const TRANSCODE_OPTIONS = [
-        { value: "auto",   label: "Auto (Stash decides)" },
-        { value: "direct", label: "Direct (no transcode)" },
-        { value: "mp4",    label: "Transcoded MP4" },
-        { value: "webm",   label: "Transcoded WebM" },
-        { value: "hls",    label: "HLS streaming" },
-    ];
 
     // Infinity symbol — single path, viewBox 0 0 512 512, currentColor for theming
     const INFINITY_PATH =
@@ -99,84 +91,4 @@
             ];
         }
     );
-
-    // ── Plugin settings panel ───────────────────────────────────────
-    // Refract's pattern: patch.instead on "PluginSettings", check
-    // props.pluginID, render our component for our plugin, fall through
-    // to Original for every other plugin's panel.
-    function BingeSettings() {
-        const [transcode, setTranscode] = React.useState(
-            function () {
-                try {
-                    return (
-                        localStorage.getItem(TRANSCODE_STORAGE_KEY) || "auto"
-                    );
-                } catch (e) {
-                    return "auto";
-                }
-            }
-        );
-
-        const handleTranscodeChange = function (e) {
-            const next = e.target.value;
-            try {
-                localStorage.setItem(TRANSCODE_STORAGE_KEY, next);
-            } catch (err) {
-                /* private mode etc — ignore */
-            }
-            setTranscode(next);
-            // Same-origin storage events don't fire in the writer's own
-            // window, but they DO fire in other windows of the same origin
-            // — the reel iframe will see this and live-refresh.
-        };
-
-        return React.createElement(
-            "div",
-            { className: "plugin-settings" },
-            React.createElement(
-                "div",
-                { className: "setting", id: "plugin-binge-transcode" },
-                React.createElement(
-                    "div",
-                    null,
-                    React.createElement("h3", null, "Stream type"),
-                    React.createElement(
-                        "div",
-                        { className: "sub-heading" },
-                        "How videos are delivered to the binge reel. Auto follows Stash's own transcode rules. Direct skips transcoding (best for already-compatible formats). MP4/WebM force a transcoded output. HLS uses chunked streaming with adaptive quality."
-                    )
-                ),
-                React.createElement(
-                    "div",
-                    null,
-                    React.createElement(
-                        "select",
-                        {
-                            className: "form-control",
-                            value: transcode,
-                            onChange: handleTranscodeChange,
-                            style: { minWidth: "16rem" },
-                        },
-                        TRANSCODE_OPTIONS.map(function (opt) {
-                            return React.createElement(
-                                "option",
-                                { key: opt.value, value: opt.value },
-                                opt.label
-                            );
-                        })
-                    )
-                )
-            )
-        );
-    }
-
-    PluginApi.patch.instead("PluginSettings", function () {
-        const args = Array.prototype.slice.call(arguments);
-        const Original = args[args.length - 1];
-        const props = args[0];
-        if (!props || props.pluginID !== "binge") {
-            return React.createElement(Original, props);
-        }
-        return React.createElement(BingeSettings);
-    });
 })();

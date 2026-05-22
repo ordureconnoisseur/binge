@@ -27,13 +27,96 @@ body,
 }
 
 .binge-app {
+    position: relative;
     height: 100vh;
     width: 100vw;
     overflow: hidden;
 }
 
+/* ── Debug overlay (toggleable via plugin settings) ────────────────── */
+.binge-debug-overlay {
+    position: fixed;
+    bottom: 0.6rem;
+    left: 0.6rem;
+    z-index: 200;
+    min-width: 220px;
+    max-width: 320px;
+    padding: 0.55rem 0.7rem;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    pointer-events: none;
+    /* user-select on so a value can be copied for sharing */
+    user-select: text;
+}
+.binge-debug-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+.binge-debug-label {
+    color: rgba(255, 255, 255, 0.55);
+}
+.binge-debug-value {
+    color: #fff;
+    text-align: right;
+}
+.binge-debug-value.is-warn {
+    color: #ffb347;
+}
+.binge-debug-recent {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.binge-debug-recent-heading {
+    color: rgba(255, 255, 255, 0.55);
+    margin-bottom: 0.15rem;
+}
+.binge-debug-recent-row {
+    display: flex;
+    gap: 0.6rem;
+}
+.binge-debug-recent-row.is-fail {
+    color: #ff6b6b;
+}
+.binge-debug-recent-ms {
+    min-width: 3ch;
+    text-align: right;
+    color: rgba(255, 255, 255, 0.7);
+}
+.binge-debug-recent-name {
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Tab content panes — all mounted at once, inactive ones hidden via
+   display:none. Keeps scroll position, data caches, virtualizer state,
+   and IntersectionObservers alive across tab swaps. Inactive videos
+   pause automatically because IO threshold fails when display:none. */
+.binge-tab-pane {
+    position: absolute;
+    inset: 0;
+    /* Visibility classes set display below. */
+}
+.binge-tab-pane.is-active {
+    display: block;
+}
+.binge-tab-pane.is-hidden {
+    display: none;
+}
+
 /* ── Reel ──────────────────────────────────────────────────────────── */
 .binge-reel {
+    position: relative;
     height: 100vh;
     overflow-y: scroll;
     scroll-snap-type: y mandatory;
@@ -45,12 +128,24 @@ body,
     display: none;
 }
 
-.binge-slide {
-    position: relative;
-    height: 100vh;
+/* Virtualizer wrapper. The reel is rendered via @tanstack/react-virtual:
+   only a handful of slides exist in the DOM at once, each absolutely
+   positioned at its computed `translateY`. The wrapper owns the
+   scroll-snap target (not the inner .binge-slide article) so the parent
+   `scroll-snap-type: y mandatory` engages on the positioned element. */
+.binge-slide-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     scroll-snap-align: start;
     scroll-snap-stop: always;
+}
+
+.binge-slide {
+    position: relative;
+    height: 100%;
+    width: 100%;
     background: #000;
     overflow: hidden;
 }
@@ -62,46 +157,231 @@ body,
     background: #000;
 }
 
+/* Full-slide tap target. Sits over the video; overlay text, action stack,
+   mute toggle, and progress bar all have higher z-index so their hits
+   don't bubble here. Borderless transparent button to keep accessibility
+   semantics (focus / aria-label / keyboard activation). */
+.binge-tap-target {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    /* Suppress the iOS tap highlight + double-tap zoom */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+.binge-tap-target:focus {
+    outline: none;
+}
+
+/* Centered paused-overlay: mute toggle on top, large play glyph below.
+   Visible whenever the video is paused; fades out when playing. */
+.binge-paused-overlay {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    z-index: 4; /* above tap-target (z:2), below overlay/action stack */
+    pointer-events: none; /* children opt back in */
+    opacity: 1;
+    transition: opacity 0.28s ease;
+}
+.binge-paused-overlay.is-hidden {
+    opacity: 0;
+}
+
+/* The large play glyph circle. Pointer-events:none so taps fall through to
+   the tap-target underneath and trigger play. */
+.binge-paused-glyph {
+    width: 5rem;
+    height: 5rem;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+}
+.binge-paused-glyph svg {
+    width: 52%;
+    height: 52%;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+    transform: translateX(2px); /* optical center for the play triangle */
+}
+
+/* Mute toggle — small glass pill. Positioned by parent overlay (no fixed
+   coordinates of its own). Pointer-events on so taps register. */
+.binge-mute-toggle {
+    appearance: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    transition: transform 0.18s ease, background 0.22s ease,
+        border-color 0.22s ease;
+    pointer-events: auto;
+}
+.binge-paused-overlay.is-hidden .binge-mute-toggle {
+    pointer-events: none;
+}
+.binge-mute-toggle:hover,
+.binge-mute-toggle:focus-visible {
+    transform: scale(1.08);
+    background: rgba(var(--accent-rgb), 0.22);
+    border-color: rgba(var(--accent-rgb), 0.55);
+}
+
+/* ── Progress bar (bottom edge, drawn against Stash duration) ──────── */
+.binge-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 14px; /* enlarged hit-target; only the inner 2px is visible */
+    z-index: 7;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-end;
+    padding: 0 0.6rem;
+    pointer-events: auto;
+}
+.binge-progress::before {
+    /* Track */
+    content: "";
+    position: absolute;
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: 0.45rem;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 2px;
+    transition: height 0.18s ease, bottom 0.18s ease;
+}
+.binge-progress.is-hovering::before {
+    height: 4px;
+    bottom: 0.35rem;
+}
+.binge-progress-fill {
+    position: absolute;
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: 0.45rem;
+    height: 2px;
+    transform-origin: left;
+    background: #fff;
+    border-radius: 2px;
+    will-change: transform;
+    pointer-events: none;
+    transition: height 0.18s ease, bottom 0.18s ease;
+}
+.binge-progress.is-hovering .binge-progress-fill {
+    height: 4px;
+    bottom: 0.35rem;
+}
+
 /* ── Scene overlay (bottom-left) ───────────────────────────────────── */
 .binge-overlay {
     position: absolute;
     left: 0;
-    right: 5rem; /* leave room for the action stack */
+    right: 0;
     bottom: 0;
-    padding: 1.5rem 1.25rem 2.25rem;
+    /* Full-width so the gradient reaches the right edge; padding-right
+       reserves space for the action stack so text never sits under it. */
+    padding: 1.5rem 5.5rem 2.25rem 1.25rem;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, transparent 100%);
     color: var(--text);
     pointer-events: none;
-}
-
-.binge-title {
-    margin: 0 0 0.25rem;
-    font-size: 1.15rem;
-    font-weight: 600;
-    line-height: 1.25;
-    color: #fff;
-    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+    z-index: 5;
 }
 
 .binge-studio {
-    margin: 0;
-    font-size: 0.75rem;
-    color: var(--text-muted);
+    margin: 0 0 0.2rem;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.65);
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    font-weight: 600;
+}
+
+/* Caption — single-line tappable text. Truncates with ellipsis; tap
+   opens the SceneDetailsSheet with full description + hashtags.
+   Reserves room on the right so it never collides with the action
+   stack (right inset 4rem ≈ stack edge + breathing room). */
+.binge-caption {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: #fff;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    max-width: 50%;
+    display: block;
+    /* The .binge-overlay parent has pointer-events: none so video taps
+       still pass through to the play/pause target. Opt this button back
+       in so the details sheet can actually open. */
+    pointer-events: auto;
+}
+/* Single-line inline caption: bold title, em-dash separator, fainter
+   inline description. The wrapper handles overflow so the description
+   ellipses first while the title stays fully readable. */
+.binge-caption-line {
+    display: block;
+    font-size: 0.95rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+    transition: opacity 0.18s ease;
+}
+.binge-caption-title {
+    font-weight: 700;
+    color: #fff;
+}
+.binge-caption-sep {
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 500;
+}
+.binge-caption-details {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+}
+.binge-caption:hover .binge-caption-line,
+.binge-caption:focus-visible .binge-caption-line {
+    opacity: 0.78;
 }
 
 /* ── Right-side action stack ───────────────────────────────────────── */
 .binge-actions {
     position: absolute;
-    right: 0.75rem;
-    bottom: 4.5rem;
+    right: 0.7rem;
+    bottom: 5rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.85rem;
     pointer-events: auto;
-    z-index: 5;
+    z-index: 6;
 }
 
 /* Performer row — Instagram-style stacked avatars + "A and B" name text */
@@ -178,6 +458,12 @@ body,
 }
 
 .binge-performer-names {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
     font-size: 0.92rem;
     font-weight: 700;
     color: #fff;
@@ -189,6 +475,251 @@ body,
     -webkit-line-clamp: 2;
     line-clamp: 2;
     -webkit-box-orient: vertical;
+    transition: opacity 0.15s ease;
+}
+.binge-performer-names:hover,
+.binge-performer-names:focus-visible {
+    opacity: 0.82;
+    outline: none;
+}
+
+/* Follow / Following button — outlined Instagram-style pill next to the
+   performer name. Toggles favorite on the primary (first) performer. */
+.binge-follow-btn {
+    appearance: none;
+    background: transparent;
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.28rem 0.85rem;
+    border-radius: 999px;
+    line-height: 1;
+    margin-left: 0.4rem;
+    pointer-events: auto;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease,
+        opacity 0.18s ease;
+    flex: 0 0 auto;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+.binge-follow-btn:hover,
+.binge-follow-btn:focus-visible {
+    background: rgba(255, 255, 255, 0.12);
+}
+.binge-follow-btn:disabled {
+    opacity: 0.55;
+    cursor: progress;
+}
+.binge-follow-btn.is-following {
+    border-color: rgba(255, 255, 255, 0.35);
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.06);
+    text-shadow: none;
+}
+.binge-follow-btn.is-following:hover,
+.binge-follow-btn.is-following:focus-visible {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+/* ── Performers bottom sheet (Instagram-style) ─────────────────────── */
+.binge-sheet-root {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+}
+
+.binge-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    /* Animate opacity AND the blur amount from 0 so the expensive
+       backdrop-filter paint ramps up alongside the sheet slide
+       instead of slamming in on first frame. */
+    animation: binge-sheet-fade 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: opacity, backdrop-filter;
+}
+@keyframes binge-sheet-fade {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0);
+        -webkit-backdrop-filter: blur(0);
+    }
+    to {
+        opacity: 1;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+}
+
+.binge-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 75vh;
+    background: rgba(15, 15, 18, 0.96);
+    border-top: 1px solid var(--glass-border);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.55);
+    padding: 0.5rem 0 1.25rem;
+    display: flex;
+    flex-direction: column;
+    /* Slightly longer duration + opacity fade alongside the slide so
+       the sheet doesn't pop in at full opacity while still moving —
+       reads as one continuous motion instead of two parallel events. */
+    animation: binge-sheet-slide 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+}
+@keyframes binge-sheet-slide {
+    from {
+        transform: translateY(100%);
+        opacity: 0.6;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Symmetrical close animation: slide back down + fade backdrop. The
+   sheet's React owner sets `.is-exiting` on the root, waits for the
+   animation to finish, then unmounts. See useSheetClose. */
+.binge-sheet-root.is-exiting .binge-sheet {
+    animation: binge-sheet-slide-out 0.26s
+        cubic-bezier(0.7, 0, 0.84, 0) both;
+}
+.binge-sheet-root.is-exiting .binge-sheet-backdrop {
+    animation: binge-sheet-fade-out 0.26s
+        cubic-bezier(0.7, 0, 0.84, 0) both;
+}
+@keyframes binge-sheet-slide-out {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(100%);
+        opacity: 0.6;
+    }
+}
+@keyframes binge-sheet-fade-out {
+    from {
+        opacity: 1;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    to {
+        opacity: 0;
+        backdrop-filter: blur(0);
+        -webkit-backdrop-filter: blur(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .binge-sheet,
+    .binge-sheet-backdrop,
+    .binge-sheet-root.is-exiting .binge-sheet,
+    .binge-sheet-root.is-exiting .binge-sheet-backdrop {
+        animation-duration: 0.01ms;
+    }
+}
+
+.binge-sheet-handle {
+    width: 38px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+    margin: 0.35rem auto 0.6rem;
+}
+
+.binge-sheet-title {
+    margin: 0.25rem 0 0.85rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-align: center;
+    color: #fff;
+}
+
+.binge-sheet-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.binge-sheet-list::-webkit-scrollbar {
+    width: 6px;
+}
+.binge-sheet-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+}
+
+.binge-sheet-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.55rem 1rem;
+}
+
+.binge-sheet-row-main {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0; /* lets the name truncate inside flex */
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.1rem 0;
+    text-align: left;
+}
+
+.binge-sheet-avatar {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background-color: var(--bg-1);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+}
+
+.binge-sheet-initial {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.binge-sheet-name {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+/* Sheet rows reuse .binge-follow-btn but with a slightly tighter look so
+   they pack into the row height. */
+.binge-sheet-row .binge-follow-btn {
+    margin-left: 0;
+    padding: 0.32rem 0.95rem;
+    font-size: 0.82rem;
 }
 
 /* Instagram-style icon-only action button (no chrome, no background). The
@@ -204,7 +735,7 @@ body,
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.05rem;
     transition: transform 0.18s ease, filter 0.22s ease;
     /* Drop shadow on the icon ensures contrast against bright video frames. */
     filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.85));
@@ -223,6 +754,18 @@ body,
 }
 .binge-action-button.is-error .binge-heart {
     color: #ff6b6b;
+}
+
+/* Long-press feedback: heart shrinks and dims toward "removal" over the
+   hold window. If the user releases early, the transition resets quickly. */
+.binge-action-button.is-holding .binge-heart {
+    color: #9ca3af !important;
+    transform: scale(0.72);
+    transition: transform 1.5s ease-out, color 1.5s ease-out, filter 1.5s ease-out;
+    filter: none;
+}
+.binge-action-button .binge-heart {
+    transition: color 0.2s ease, filter 0.2s ease, transform 0.2s ease;
 }
 
 /* Heart icon: outlined white by default; refract-pink (#f472b6) with glow
@@ -287,22 +830,589 @@ body,
 
 .binge-action-count {
     font-size: 0.78rem;
-    font-weight: 700;
+    font-weight: 600;
     color: #fff;
     line-height: 1;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
 
-/* ── Filter chip bar (top, floats over reel) ───────────────────────── */
-.binge-filter-bar {
+/* ── Rate button + slide-out star strip ────────────────────────────── */
+.binge-action-rate-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+}
+.binge-rate-button.is-active svg {
+    color: #ffd24c;
+    filter:
+        drop-shadow(0 0 6px rgba(255, 210, 76, 0.65))
+        drop-shadow(0 0 14px rgba(255, 210, 76, 0.35));
+}
+.binge-app.refract .binge-rate-button.is-active svg {
+    color: rgba(var(--accent-rgb), 1);
+    filter:
+        drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.65))
+        drop-shadow(0 0 14px rgba(var(--accent-rgb), 0.35));
+}
+
+/* Star strip floats to the LEFT of the rate button, anchored to its
+   vertical centre. Sits above the slide content with its own z-index. */
+.binge-rate-strip {
+    position: absolute;
+    right: calc(100% + 0.6rem);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    z-index: 7;
+}
+.binge-rate-star {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0.15rem;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.45);
+    transition: color 0.12s ease, transform 0.12s ease;
+}
+.binge-rate-star:hover,
+.binge-rate-star:focus-visible {
+    color: rgba(255, 255, 255, 0.85);
+    outline: none;
+    transform: translateY(-1px);
+}
+.binge-rate-star.is-filled {
+    color: #ffd24c;
+    filter: drop-shadow(0 0 3px rgba(255, 210, 76, 0.6));
+}
+.binge-app.refract .binge-rate-star.is-filled {
+    color: rgba(var(--accent-rgb), 1);
+    filter: drop-shadow(0 0 3px rgba(var(--accent-rgb), 0.6));
+}
+.binge-rate-star svg {
+    width: 1.4em;
+    height: 1.4em;
+}
+
+/* ── Multiview button ──────────────────────────────────────────────── */
+.binge-multiview-button.is-active svg {
+    color: #6aa9ff;
+    filter:
+        drop-shadow(0 0 6px rgba(106, 169, 255, 0.65))
+        drop-shadow(0 0 14px rgba(106, 169, 255, 0.35));
+}
+.binge-app.refract .binge-multiview-button.is-active svg {
+    color: rgba(var(--accent-rgb), 1);
+    filter:
+        drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.65))
+        drop-shadow(0 0 14px rgba(var(--accent-rgb), 0.35));
+}
+
+/* ── Scribe button ─────────────────────────────────────────────────── */
+.binge-scribe-button svg {
+    color: #fff;
+}
+.binge-scribe-button:hover svg,
+.binge-scribe-button:focus-visible svg {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* ── Filter sheet (For You algorithm/preset manager) ──────────────── */
+.binge-filter-sheet {
+    padding-bottom: 0.75rem;
+}
+.binge-filter-sheet-header {
+    padding: 0 1.25rem 0.6rem;
+}
+.binge-filter-sheet-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+}
+.binge-filter-sheet-section {
+    padding: 0.5rem 1.25rem 0.85rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.binge-filter-sheet-section:first-of-type {
+    border-top: none;
+}
+.binge-filter-sheet-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.55rem;
+}
+.binge-filter-sheet-section-head h3 {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.55);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.binge-filter-sheet-clear,
+.binge-filter-sheet-save-toggle {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6aa9ff;
+    border-radius: 4px;
+}
+.binge-app.refract .binge-filter-sheet-clear,
+.binge-app.refract .binge-filter-sheet-save-toggle {
+    color: rgba(var(--accent-rgb), 1);
+}
+.binge-filter-sheet-clear:hover,
+.binge-filter-sheet-save-toggle:hover {
+    color: #fff;
+}
+
+.binge-filter-sheet-empty {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.55);
+    padding: 0.6rem 0;
+}
+
+.binge-filter-sheet-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.binge-filter-sheet-chip {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 0.3rem 0.45rem 0.3rem 0.7rem;
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+.binge-filter-sheet-chip:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+.binge-filter-sheet-chip-x {
+    opacity: 0.6;
+    font-weight: 700;
+}
+
+.binge-filter-sheet-save-form {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 0.55rem;
+}
+.binge-filter-sheet-input {
+    flex: 1;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #fff;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.88rem;
+    outline: none;
+}
+.binge-filter-sheet-input:focus {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+.binge-filter-sheet-save-confirm,
+.binge-filter-sheet-save-cancel {
+    appearance: none;
+    border: none;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.binge-filter-sheet-save-confirm {
+    background: #6aa9ff;
+    color: #fff;
+}
+.binge-app.refract .binge-filter-sheet-save-confirm {
+    background: rgba(var(--accent-rgb), 0.95);
+}
+.binge-filter-sheet-save-confirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.binge-filter-sheet-save-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.binge-filter-sheet-presets {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    max-height: 40vh;
+    overflow-y: auto;
+}
+.binge-filter-sheet-preset-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.3rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.binge-filter-sheet-preset-row:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+.binge-filter-sheet-preset-apply {
+    appearance: none;
+    flex: 1;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+.binge-filter-sheet-preset-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.binge-filter-sheet-preset-meta {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.55);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.binge-filter-sheet-preset-delete {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0 0.7rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1.15rem;
+    font-weight: 700;
+    transition: color 0.12s ease, background 0.12s ease;
+}
+.binge-filter-sheet-preset-delete:hover {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.08);
+}
+
+/* Saved-filter chip (in-sheet and on the top FilterBar) — distinct
+   accent tone so the user can tell at a glance they're in saved-filter
+   mode instead of chip mode. */
+.binge-filter-sheet-chip-saved,
+.binge-filter-chip-saved {
+    border-color: rgba(106, 169, 255, 0.55);
+    background: rgba(106, 169, 255, 0.18);
+}
+.binge-app.refract .binge-filter-sheet-chip-saved,
+.binge-app.refract .binge-filter-chip-saved {
+    border-color: rgba(var(--accent-rgb), 0.55);
+    background: rgba(var(--accent-rgb), 0.22);
+}
+
+.binge-filter-sheet-preset-row.is-active {
+    border-color: rgba(106, 169, 255, 0.55);
+    background: rgba(106, 169, 255, 0.12);
+}
+.binge-app.refract .binge-filter-sheet-preset-row.is-active {
+    border-color: rgba(var(--accent-rgb), 0.55);
+    background: rgba(var(--accent-rgb), 0.16);
+}
+
+/* ── Save sheet (bottom sheet for "Save to..." collections) ────────── */
+.binge-save-sheet {
+    /* Reuses .binge-sheet base — backdrop, handle, slide animation
+       all come from there. Just need content layout overrides. */
+    padding-bottom: 0.5rem;
+}
+.binge-save-sheet-header {
+    padding: 0 1.25rem 0.5rem;
+}
+.binge-save-sheet-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+}
+.binge-save-sheet-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 0.6rem;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+.binge-save-sheet-row {
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 0.7rem 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 10px;
+    text-align: left;
+    transition: background 0.12s ease;
+    font-size: 0.95rem;
+}
+.binge-save-sheet-row:hover,
+.binge-save-sheet-row:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+.binge-save-sheet-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.65);
+    flex: 0 0 auto;
+}
+.binge-save-sheet-row.is-active .binge-save-sheet-icon {
+    color: #ffd24c;
+}
+.binge-app.refract .binge-save-sheet-row.is-active .binge-save-sheet-icon {
+    color: rgba(var(--accent-rgb), 1);
+}
+.binge-save-sheet-name {
+    flex: 1;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.binge-save-sheet-check {
+    width: 1.1em;
+    text-align: right;
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+.binge-save-sheet-check.is-checked {
+    color: #ffd24c;
+}
+.binge-app.refract .binge-save-sheet-check.is-checked {
+    color: rgba(var(--accent-rgb), 1);
+}
+
+/* Footer holds the "+ New collection" button and (when active) the
+   inline create-input row. */
+.binge-save-sheet-footer {
+    padding: 0.4rem 1.25rem 0.65rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 0.3rem;
+}
+.binge-save-sheet-create-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.55rem 0;
+    color: #6aa9ff;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+.binge-app.refract .binge-save-sheet-create-btn {
+    color: rgba(var(--accent-rgb), 1);
+}
+.binge-save-sheet-create-btn:hover,
+.binge-save-sheet-create-btn:focus-visible {
+    color: #fff;
+    outline: none;
+}
+.binge-save-sheet-create-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.4rem 0;
+}
+.binge-save-sheet-input {
+    flex: 1;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 0.5rem 0.7rem;
+    color: #fff;
+    font-size: 0.9rem;
+    outline: none;
+}
+.binge-save-sheet-input:focus {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+.binge-save-sheet-create-confirm,
+.binge-save-sheet-create-cancel {
+    appearance: none;
+    border: none;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.binge-save-sheet-create-confirm {
+    background: #6aa9ff;
+    color: #fff;
+}
+.binge-app.refract .binge-save-sheet-create-confirm {
+    background: rgba(var(--accent-rgb), 0.95);
+}
+.binge-save-sheet-create-confirm:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+.binge-save-sheet-create-confirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.binge-save-sheet-create-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+.binge-save-sheet-create-cancel:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
+}
+.binge-save-sheet-error {
+    margin-top: 0.4rem;
+    font-size: 0.78rem;
+    color: #ff6b6b;
+}
+
+/* ── Bookmark / favourite button ───────────────────────────────────── */
+.binge-bookmark-button.is-active svg {
+    color: #ffd24c;
+    filter:
+        drop-shadow(0 0 6px rgba(255, 210, 76, 0.7))
+        drop-shadow(0 0 14px rgba(255, 210, 76, 0.4));
+}
+.binge-app.refract .binge-bookmark-button.is-active svg {
+    color: rgba(var(--accent-rgb), 1);
+    filter:
+        drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.7))
+        drop-shadow(0 0 14px rgba(var(--accent-rgb), 0.4));
+}
+
+/* ── TopHeader (fixed top strip, shared gradient) ──────────────────── */
+.binge-top-header {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    z-index: 20;
-    padding: 0.75rem 0.85rem;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 100%);
-    pointer-events: none; /* lets the chips be the only click targets */
+    z-index: 30;
+    /* ONE gradient for both the tab nav and the active-filter chips so
+       they look like one floating header instead of two stacked strips. */
+    background: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.6) 0%,
+        rgba(0, 0, 0, 0) 100%
+    );
+    padding: 0.85rem 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    pointer-events: none; /* children opt back in */
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.binge-top-header.is-hidden {
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+}
+.binge-top-header > * {
+    pointer-events: auto;
+}
+
+/* TabBar — inline within the top header now (no fixed pos, no gradient). */
+.binge-tabbar {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    line-height: 1.1;
+}
+
+.binge-tabbar-link {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0.2rem 0.1rem;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    cursor: pointer;
+    /* Drop shadow so the bare-text labels stay readable over any frame. */
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+    transition: color 0.18s ease, transform 0.18s ease;
+    position: relative;
+}
+.binge-tabbar-link:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+.binge-tabbar-link.is-active {
+    color: #fff;
+    font-weight: 700;
+}
+.binge-tabbar-link.is-active::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -4px;
+    width: 18px;
+    height: 2px;
+    background: #fff;
+    border-radius: 2px;
+    transform: translateX(-50%);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* ── Active filter chips (inside TopHeader, alongside TabBar) ──────── */
+.binge-filter-bar {
+    /* No fixed positioning, no gradient — inherits both from the parent
+       .binge-top-header so we don't double-paint the top scrim. */
+}
+.binge-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem;
 }
 
 .binge-filter-chips {
@@ -587,6 +1697,1600 @@ body,
     font-size: 0.92rem;
 }
 
+/* ── Following / Explore tab containers ────────────────────────────── */
+.binge-tab-scroll {
+    height: 100vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.binge-tab-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+.binge-tab-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+}
+
+.binge-tab-inner {
+    /* TabBar height ≈ 3rem; first content starts below it. */
+    padding: 4rem 1.25rem 3rem;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.binge-tab-title {
+    margin: 0.5rem 0 1.5rem;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.01em;
+}
+/* Title + adjacent action button (e.g. Home's "Saved" entry). Lets the
+   title still take the full row width when no action is present. */
+.binge-tab-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+.binge-tab-title-row .binge-tab-title {
+    margin: 0.5rem 0;
+}
+.binge-tab-title-action {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.4rem;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.75);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.12s ease, background 0.12s ease;
+}
+.binge-tab-title-action:hover,
+.binge-tab-title-action:focus-visible {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+
+/* Binge brand mark in the TopHeader (top-left, mirrors the burger
+   menu's top-right placement). Stays out of the centered tab nav's
+   flow via absolute positioning. */
+.binge-header-brand {
+    position: absolute;
+    top: 0.85rem;
+    left: 0.95rem;
+    font-size: 1.4rem;
+    color: rgba(255, 255, 255, 0.9);
+    z-index: 31;
+    pointer-events: none;
+    line-height: 1;
+}
+.binge-app.refract .binge-header-brand {
+    color: rgba(var(--accent-rgb), 1);
+}
+
+/* ── Home burger menu (lives in TopHeader, top-right of tab nav) ──── */
+.binge-home-burger {
+    position: absolute;
+    top: 0.85rem;
+    right: 0.85rem;
+    pointer-events: auto;
+    z-index: 31; /* above TopHeader's gradient and FilterBar */
+}
+.binge-home-burger-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.35rem;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.85);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.12s ease, background 0.12s ease;
+}
+.binge-home-burger-btn:hover,
+.binge-home-burger-btn:focus-visible {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+.binge-home-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    min-width: 10rem;
+    padding: 0.3rem;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 32;
+}
+.binge-home-menu-item {
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.55rem 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: #fff;
+    border-radius: 6px;
+    text-align: left;
+    transition: background 0.12s ease;
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+.binge-home-menu-item:hover,
+.binge-home-menu-item:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+.binge-home-menu-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.85);
+    flex: 0 0 auto;
+}
+.binge-home-menu-label {
+    flex: 1;
+}
+
+/* ── Settings page ─────────────────────────────────────────────────── */
+.binge-saved-spacer {
+    /* Header layout reuses .binge-saved-header; the right-side slot
+       is occupied by + on Saved, by nothing on Settings — this
+       spacer preserves the visual balance. */
+    width: 32px;
+    display: inline-block;
+}
+.binge-settings-list {
+    padding: 0.5rem 0;
+}
+.binge-settings-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.binge-settings-row:last-child {
+    border-bottom: none;
+}
+.binge-settings-row-text {
+    flex: 1;
+    min-width: 0;
+}
+.binge-settings-row-title {
+    margin: 0 0 0.2rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+}
+.binge-settings-row-description {
+    margin: 0;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.4;
+}
+.binge-settings-row-control {
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+.binge-settings-select {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #fff;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.88rem;
+    min-width: 13rem;
+    cursor: pointer;
+}
+.binge-settings-select:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.25);
+    outline-offset: 1px;
+}
+.binge-settings-select option {
+    background: #1a1a1a;
+    color: #fff;
+}
+
+/* Switch toggle (used for boolean settings). */
+.binge-settings-switch {
+    display: inline-flex;
+    cursor: pointer;
+    position: relative;
+}
+.binge-settings-switch input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+.binge-settings-switch-track {
+    width: 2.4rem;
+    height: 1.35rem;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    position: relative;
+    transition: background 0.18s ease;
+}
+.binge-settings-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: calc(1.35rem - 4px);
+    height: calc(1.35rem - 4px);
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.18s ease;
+}
+.binge-settings-switch input:checked + .binge-settings-switch-track {
+    background: #6aa9ff;
+}
+.binge-app.refract
+    .binge-settings-switch
+    input:checked
+    + .binge-settings-switch-track {
+    background: rgba(var(--accent-rgb), 1);
+}
+.binge-settings-switch input:checked + .binge-settings-switch-track .binge-settings-switch-thumb {
+    transform: translateX(calc(2.4rem - 1.35rem));
+}
+
+/* Action-stack overflow ("…") sheet. Compact list of one-line actions. */
+.binge-more-sheet {
+    padding-bottom: 0.5rem;
+}
+.binge-more-sheet-list {
+    list-style: none;
+    margin: 0.4rem 0 0;
+    padding: 0;
+}
+.binge-more-sheet-row {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #fff;
+    width: 100%;
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: background 0.15s ease;
+}
+.binge-more-sheet-row:hover,
+.binge-more-sheet-row:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+    outline: none;
+}
+.binge-more-sheet-row-label {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.binge-more-sheet-row-sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+/* Toggle styled like the SettingsPage switch — same affordance. */
+.binge-more-sheet-switch {
+    flex: 0 0 auto;
+    width: 2.4rem;
+    height: 1.35rem;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    position: relative;
+    transition: background 0.18s ease;
+}
+.binge-more-sheet-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: calc(1.35rem - 4px);
+    height: calc(1.35rem - 4px);
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.18s ease;
+}
+.binge-more-sheet-switch.is-on {
+    background: #6aa9ff;
+}
+.binge-app.refract .binge-more-sheet-switch.is-on {
+    background: rgba(var(--accent-rgb), 1);
+}
+.binge-more-sheet-switch.is-on .binge-more-sheet-switch-thumb {
+    transform: translateX(calc(2.4rem - 1.35rem));
+}
+
+/* Lifts a sheet root above the performer-profile overlay (z:90).
+   Used by the rating modal so it can be summoned from the profile. */
+.binge-sheet-root-top {
+    z-index: 110;
+}
+
+/* Advanced criterion-rating modal (ASR / APR replicas).
+   Reuses the bottom-sheet shell. Per-group sections, per-criterion
+   star rows, optional preview rating100 footer. */
+.binge-rating-modal {
+    max-height: 86vh;
+    overflow-y: auto;
+}
+.binge-rating-modal-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0.4rem 1rem 0.8rem;
+    gap: 1rem;
+}
+.binge-rating-modal-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #fff;
+}
+.binge-rating-modal-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1rem;
+}
+.binge-rating-modal-rating {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+}
+.binge-rating-modal-progress {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+.binge-rating-modal-body {
+    padding: 0 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.binge-rating-modal-group-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0 0 0.3rem;
+}
+.binge-rating-modal-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: opacity 0.15s ease;
+}
+.binge-rating-modal-row:last-child {
+    border-bottom: none;
+}
+.binge-rating-modal-row.is-pending {
+    opacity: 0.55;
+}
+.binge-rating-modal-row-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.92rem;
+    color: #fff;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.binge-rating-modal-row-desc {
+    color: var(--text-muted);
+    cursor: help;
+    font-size: 0.8rem;
+}
+.binge-rating-modal-row-stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.05rem;
+    flex: 0 0 auto;
+}
+.binge-rating-modal-star {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.22);
+    font-size: 1.4rem;
+    line-height: 1;
+    padding: 0.25rem 0.18rem;
+    cursor: pointer;
+    transition: color 0.1s ease;
+}
+.binge-rating-modal-star:hover,
+.binge-rating-modal-star.is-on {
+    color: #ffd24d;
+}
+.binge-rating-modal-star:disabled {
+    cursor: not-allowed;
+}
+.binge-rating-modal-clear {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    padding: 0.25rem 0.4rem;
+    margin-left: 0.35rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+.binge-rating-modal-clear:hover:not(:disabled) {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+.binge-rating-modal-clear:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.binge-rating-modal-footer {
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+.binge-rating-modal-footer small {
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+.binge-rating-modal-empty {
+    padding: 1.5rem 1rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+.binge-rating-modal-warning {
+    margin: 0 1rem 0.5rem;
+    padding: 0.6rem 0.8rem;
+    background: rgba(255, 196, 0, 0.12);
+    border: 1px solid rgba(255, 196, 0, 0.35);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: #ffd966;
+    line-height: 1.4;
+}
+/* Compact rating trigger sitting next to the performer-profile name. */
+.binge-profile-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.binge-profile-rate {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.4rem;
+    line-height: 1;
+    padding: 0.2rem 0.4rem;
+    cursor: pointer;
+    border-radius: 6px;
+    transition:
+        color 0.15s ease,
+        background 0.15s ease;
+}
+.binge-profile-rate:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+.binge-profile-rate:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.3);
+    outline-offset: 2px;
+}
+
+/* The performer-name h1 doubles as a "Open in Stash" link. Button is
+   styled to inherit the h1's typography so it reads exactly like the
+   text it replaces. */
+.binge-profile-name-link {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+.binge-profile-name-link:hover {
+    opacity: 0.85;
+}
+.binge-profile-name-link:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.35);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Diagnostic overlay shown when a reddit-video element errors out
+   (CORS block, codec mismatch, redgifs hotlink protection, etc).
+   Stacked on top of the muted poster image so the user can see what
+   URL failed and why. */
+.binge-story-viewer-video-error {
+    position: absolute;
+    inset: auto 0.6rem 5rem 0.6rem;
+    background: rgba(178, 34, 34, 0.85);
+    color: #fff;
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    z-index: 5;
+}
+.binge-story-viewer-video-error code {
+    display: block;
+    margin-top: 0.25rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.65rem;
+    opacity: 0.92;
+}
+
+/* binge-server URL field + reachability dot. */
+.binge-settings-url-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+.binge-settings-input {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    color: #fff;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.88rem;
+    min-width: 16rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.binge-settings-input:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.25);
+    outline-offset: 1px;
+}
+.binge-settings-status-dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    flex: 0 0 auto;
+}
+.binge-settings-status-dot.is-ok {
+    background: #4ade80;
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
+}
+.binge-settings-status-dot.is-down {
+    background: #f87171;
+    box-shadow: 0 0 6px rgba(248, 113, 113, 0.6);
+}
+.binge-settings-status-dot.is-pending {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Saved page (binge collections manager) ────────────────────────── */
+.binge-saved-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 0.85rem 0.7rem;
+    position: sticky;
+    top: 0;
+    background: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.85) 0%,
+        rgba(0, 0, 0, 0.6) 100%
+    );
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 5;
+}
+.binge-saved-back,
+.binge-saved-add {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.4rem;
+    border-radius: 8px;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s ease;
+}
+.binge-saved-back:hover,
+.binge-saved-back:focus-visible,
+.binge-saved-add:hover,
+.binge-saved-add:focus-visible {
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+}
+.binge-saved-title {
+    flex: 1;
+    margin: 0;
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.binge-saved-create-form {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.5rem 0.85rem 0.7rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.binge-saved-create-input {
+    flex: 1;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 0.55rem 0.8rem;
+    color: #fff;
+    font-size: 0.95rem;
+    outline: none;
+}
+.binge-saved-create-input:focus {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+.binge-saved-create-confirm,
+.binge-saved-create-cancel {
+    appearance: none;
+    border: none;
+    padding: 0 1rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.binge-saved-create-confirm {
+    background: #6aa9ff;
+    color: #fff;
+}
+.binge-app.refract .binge-saved-create-confirm {
+    background: rgba(var(--accent-rgb), 0.95);
+}
+.binge-saved-create-confirm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.binge-saved-create-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.binge-saved-error {
+    margin: 0.6rem 0.85rem 0;
+    padding: 0.5rem 0.7rem;
+    background: rgba(255, 107, 107, 0.15);
+    border: 1px solid rgba(255, 107, 107, 0.35);
+    border-radius: 8px;
+    color: #ff9b9b;
+    font-size: 0.85rem;
+}
+
+.binge-saved-grid {
+    display: grid;
+    /* IG-style compact tiles. auto-fill so wide screens get more
+       columns rather than stretching tiles to absurd sizes; max-width
+       caps the whole grid so it doesn't span the full window. */
+    grid-template-columns: repeat(auto-fill, minmax(150px, 180px));
+    justify-content: center;
+    gap: 1.1rem;
+    padding: 1.25rem 0.85rem 2rem;
+    max-width: 55rem;
+    margin: 0 auto;
+}
+.binge-saved-tile {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: left;
+    -webkit-tap-highlight-color: transparent;
+}
+.binge-saved-tile-cover {
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    border-radius: 10px;
+    background-color: #1a1a1a;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transition: transform 0.12s ease;
+    position: relative;
+}
+.binge-saved-tile-cover.is-empty {
+    display: grid;
+    place-items: center;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.82rem;
+}
+.binge-saved-tile-cover.is-single {
+    /* full cover-image rendered by the inner .binge-saved-tile-single */
+}
+.binge-saved-tile-cover.is-mosaic {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 2px;
+}
+.binge-saved-tile:hover .binge-saved-tile-cover,
+.binge-saved-tile:focus-visible .binge-saved-tile-cover {
+    transform: translateY(-1px);
+}
+
+.binge-saved-tile-single {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.binge-saved-tile-cell {
+    background-color: #222;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.binge-saved-tile-empty {
+    font-style: italic;
+}
+.binge-saved-tile-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0 0.1rem;
+}
+.binge-saved-tile-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.binge-saved-tile-count {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.55);
+    flex: 0 0 auto;
+}
+
+/* Delete-confirm modal — centered card, dimmer backdrop. */
+.binge-saved-confirm-root {
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+}
+.binge-saved-confirm-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+.binge-saved-confirm-card {
+    position: relative;
+    max-width: 24rem;
+    width: 100%;
+    padding: 1.2rem 1.25rem;
+    background: var(--bg-1, #111);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    color: #fff;
+}
+.binge-app.refract .binge-saved-confirm-card {
+    background: var(--glass-bg, rgba(20, 20, 20, 0.92));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+.binge-saved-confirm-title {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+}
+.binge-saved-confirm-body {
+    margin: 0 0 1rem;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.88rem;
+    line-height: 1.4;
+}
+.binge-saved-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+.binge-saved-confirm-cancel,
+.binge-saved-confirm-destroy {
+    appearance: none;
+    border: none;
+    padding: 0.55rem 1rem;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.binge-saved-confirm-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+.binge-saved-confirm-destroy {
+    background: #ff4d6d;
+    color: #fff;
+}
+.binge-saved-confirm-destroy:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+.binge-saved-confirm-destroy:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* ── Following grid ────────────────────────────────────────────────── */
+.binge-following-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1.25rem 1rem;
+}
+
+.binge-follow-card {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    transition: transform 0.2s ease;
+}
+.binge-follow-card:hover,
+.binge-follow-card:focus-visible {
+    transform: translateY(-2px);
+}
+
+.binge-follow-card {
+    position: relative; /* for the favorite indicator dot */
+}
+
+.binge-follow-avatar {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background-color: var(--bg-1);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    /* Non-favorited: muted ring. Favorites get accent + glow via the
+       .is-favorite override below. */
+    border: 3px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45),
+        0 10px 26px rgba(0, 0, 0, 0.55);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+/* Favorited: refract-pink "glass" ring — semi-translucent border with
+   layered outer glow + inner glow for a luminous halo. Pink matches the
+   liked-heart treatment elsewhere in binge so favorites read as the same
+   visual language. */
+.binge-follow-card.is-favorite .binge-follow-avatar {
+    border-color: rgba(244, 114, 182, 0.85);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.45),
+        inset 0 0 12px rgba(244, 114, 182, 0.28),
+        0 0 16px rgba(244, 114, 182, 0.55),
+        0 0 32px rgba(244, 114, 182, 0.25),
+        0 10px 26px rgba(0, 0, 0, 0.55);
+}
+.binge-follow-card.is-favorite:hover .binge-follow-avatar,
+.binge-follow-card.is-favorite:focus-visible .binge-follow-avatar {
+    transform: scale(1.04);
+    border-color: rgba(244, 114, 182, 1);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.45),
+        inset 0 0 16px rgba(244, 114, 182, 0.4),
+        0 0 28px rgba(244, 114, 182, 0.75),
+        0 0 48px rgba(244, 114, 182, 0.35),
+        0 14px 32px rgba(0, 0, 0, 0.65);
+}
+.binge-follow-card:hover .binge-follow-avatar,
+.binge-follow-card:focus-visible .binge-follow-avatar {
+    transform: scale(1.04);
+    border-color: #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45),
+        0 14px 32px rgba(0, 0, 0, 0.65),
+        0 0 30px rgba(var(--accent-rgb), 0.55);
+}
+
+.binge-follow-initial {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.binge-follow-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.binge-follow-count {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* ── Explore grid (3-column scene wall, IG-style) ──────────────────── */
+
+/* Wraps the grid + sentinels. Hangs off the .binge-tab-scroll parent
+   directly (no .binge-tab-inner wrapper) so tiles can extend
+   edge-to-edge without the page padding the other tabs use. */
+.binge-explore-grid-wrap {
+    padding-top: 0.25rem;
+}
+
+.binge-explore-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
+}
+
+.binge-explore-tile {
+    appearance: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background-color: #111;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    overflow: hidden;
+    transition: filter 0.15s ease, transform 0.15s ease;
+}
+.binge-explore-tile:hover,
+.binge-explore-tile:focus-visible {
+    filter: brightness(1.1);
+    outline: none;
+    z-index: 1;
+}
+.binge-explore-tile:focus-visible {
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 244, 114, 182), 0.7);
+}
+
+/* Play-indicator glyph in the corner of every tile — every binge tile
+   is a video. White with a subtle drop-shadow so it stays legible
+   against any frame. */
+.binge-explore-tile-play {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    color: #fff;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+    pointer-events: none;
+    line-height: 0;
+}
+
+/* ── Explore sections (legacy — preset/discover/tag layout kept for
+   potential reuse if we re-introduce them somewhere) ──────────────── */
+.binge-explore-section {
+    margin: 0 0 2.25rem;
+}
+.binge-explore-section:last-child {
+    margin-bottom: 1rem;
+}
+
+.binge-explore-heading {
+    margin: 0 0 0.85rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.binge-explore-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0 0 0.85rem;
+}
+.binge-explore-section-header .binge-explore-heading {
+    margin: 0;
+}
+
+.binge-see-all {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.15rem 0.3rem;
+    border-radius: 6px;
+    transition: color 0.18s ease, background 0.18s ease;
+}
+.binge-see-all:hover,
+.binge-see-all:focus-visible {
+    color: var(--accent-bright, var(--accent));
+    background: rgba(var(--accent-rgb), 0.1);
+}
+
+/* ── Home / Stories row ─────────────────────────────────────────────── */
+
+/* Container section. Hosts the horizontal scroller; carries top/bottom
+   breathing room so it sits cleanly under the page title without needing
+   margin work in Home.tsx. */
+.binge-stories-row {
+    margin: 0 -0.25rem 1rem;
+    padding: 0.25rem 0;
+}
+.binge-stories-row-loading {
+    min-height: 100px;
+}
+.binge-stories-empty {
+    padding: 1.25rem 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.binge-stories-scroller {
+    display: flex;
+    gap: 0.85rem;
+    overflow-x: auto;
+    padding: 0.4rem 0.25rem 0.6rem;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+}
+.binge-stories-scroller::-webkit-scrollbar {
+    display: none;
+}
+
+/* Floating chevron buttons that scroll the bubble row horizontally.
+   Only mounted when there's overflow in that direction (see
+   StoriesRow's IntersectionObserver). */
+.binge-stories-row {
+    position: relative;
+}
+.binge-stories-chevron {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+.binge-stories-chevron:hover,
+.binge-stories-chevron:focus-visible {
+    background: rgba(0, 0, 0, 0.75);
+    outline: none;
+}
+.binge-stories-chevron-left {
+    left: 0.2rem;
+}
+.binge-stories-chevron-right {
+    right: 0.2rem;
+}
+/* Touch devices already swipe; hide chevrons to reclaim the edges. */
+@media (hover: none) and (pointer: coarse) {
+    .binge-stories-chevron {
+        display: none;
+    }
+}
+
+/* Manual-refresh button in the Home title row. Wipes in-memory +
+   localStorage caches (recentScenes, stashdb, reddit) and triggers a
+   re-fetch. Spins while a refresh is in flight. */
+.binge-stories-refresh {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0.4rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    transition: color 0.15s ease;
+}
+.binge-stories-refresh:hover {
+    color: #fff;
+}
+.binge-stories-refresh:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.3);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.binge-stories-refresh.is-refreshing svg {
+    animation: binge-spin 0.8s linear infinite;
+}
+.binge-stories-refresh:disabled {
+    cursor: progress;
+}
+@keyframes binge-spin {
+    to { transform: rotate(360deg); }
+}
+
+.binge-story {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    flex: 0 0 auto;
+    width: 78px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    scroll-snap-align: start;
+    transition: transform 0.18s ease;
+}
+.binge-story:hover,
+.binge-story:focus-visible {
+    transform: translateY(-2px);
+}
+.binge-story:focus-visible {
+    outline: none;
+}
+
+/* The gradient ring. Inner padding (3px) reveals the gradient around the
+   avatar. A 2px black inset border on the avatar gives the IG-typical
+   gap between ring and photo. */
+.binge-story-ring {
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    background: linear-gradient(
+        45deg,
+        #f09433 0%,
+        #e6683c 25%,
+        #dc2743 50%,
+        #cc2366 75%,
+        #bc1888 100%
+    );
+    padding: 3px;
+    display: block;
+    transition: filter 0.18s ease;
+}
+.binge-story:hover .binge-story-ring,
+.binge-story:focus-visible .binge-story-ring {
+    filter: brightness(1.1);
+}
+
+/* Refract palette uses --accent-rgb. When the app detects refract, swap
+   the IG gradient for an accent-tinted radial so the row themes with the
+   rest of the UI instead of clashing. */
+.binge-app.refract .binge-story-ring {
+    background: conic-gradient(
+        from 140deg,
+        rgba(var(--accent-rgb), 1) 0deg,
+        rgba(var(--accent-rgb), 0.5) 180deg,
+        rgba(var(--accent-rgb), 1) 360deg
+    );
+}
+
+.binge-story-avatar {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: var(--bg-1, #1a1a1a);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    border: 2px solid #000;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+}
+
+.binge-story-initial {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text, #fff);
+}
+
+.binge-story-name {
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: #fff;
+    text-align: center;
+    line-height: 1.15;
+    max-width: 78px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+}
+
+/* Discover performers horizontal scroller (Explore tab). */
+.binge-discover-scroller {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding: 0.4rem 0.1rem 0.85rem;
+    margin: 0 -0.25rem;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+}
+.binge-discover-scroller::-webkit-scrollbar {
+    display: none;
+}
+
+.binge-discover-card {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    flex: 0 0 auto;
+    width: 88px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    scroll-snap-align: start;
+    transition: transform 0.18s ease;
+    position: relative;
+}
+.binge-discover-card:hover,
+.binge-discover-card:focus-visible {
+    transform: translateY(-2px);
+}
+
+.binge-discover-avatar {
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+    background-color: var(--bg-1);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4),
+        0 6px 18px rgba(0, 0, 0, 0.45);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.2s ease;
+}
+.binge-discover-card.is-favorite .binge-discover-avatar {
+    border-color: rgba(244, 114, 182, 0.85);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.4),
+        inset 0 0 8px rgba(244, 114, 182, 0.28),
+        0 0 12px rgba(244, 114, 182, 0.55),
+        0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.binge-discover-card:hover .binge-discover-avatar,
+.binge-discover-card:focus-visible .binge-discover-avatar {
+    transform: scale(1.05);
+    border-color: #fff;
+}
+
+.binge-discover-initial {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.binge-discover-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #fff;
+    text-align: center;
+    line-height: 1.15;
+    max-width: 88px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* ── Full-screen modal (All Performers) ────────────────────────────── */
+.binge-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    animation: binge-modal-fade 0.18s ease-out;
+}
+@keyframes binge-modal-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.binge-modal {
+    background: var(--bg-0);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    width: min(960px, 100%);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6),
+        0 0 30px rgba(var(--accent-rgb), 0.18);
+    overflow: hidden;
+}
+
+.binge-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+.binge-modal-header h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.binge-modal-close {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.6rem;
+    line-height: 1;
+    padding: 0.2rem 0.5rem;
+    border-radius: 8px;
+    transition: color 0.18s ease, background 0.18s ease;
+}
+.binge-modal-close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.binge-modal-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+.binge-modal-search {
+    flex: 1;
+    appearance: none;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    padding: 0.55rem 0.9rem;
+    border-radius: var(--radius-sm, 12px);
+    font-size: 0.95rem;
+    outline: none;
+}
+.binge-modal-search:focus {
+    border-color: rgba(var(--accent-rgb), 0.55);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.18);
+}
+.binge-modal-count {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.binge-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.binge-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.binge-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+}
+
+/* Saved-filter preset cards — horizontal scroller */
+.binge-preset-scroller {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding: 0.25rem 0.1rem 0.6rem;
+    margin: 0 -0.25rem;
+    scrollbar-width: none;
+}
+.binge-preset-scroller::-webkit-scrollbar {
+    display: none;
+}
+
+.binge-preset-card {
+    appearance: none;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    cursor: pointer;
+    flex: 0 0 auto;
+    min-width: 180px;
+    max-width: 240px;
+    border-radius: var(--radius);
+    padding: 0.95rem 1rem;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    transition: transform 0.18s ease, border-color 0.22s ease,
+        box-shadow 0.22s ease;
+}
+.binge-preset-card:hover,
+.binge-preset-card:focus-visible {
+    transform: translateY(-2px);
+    border-color: rgba(var(--accent-rgb), 0.55);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55),
+        0 0 22px rgba(var(--accent-rgb), 0.32);
+}
+
+.binge-preset-card-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+}
+.binge-preset-card-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.binge-preset-card-pill {
+    font-size: 0.7rem;
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.14);
+    border-radius: 999px;
+    padding: 0.18rem 0.55rem;
+    align-self: flex-start;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+/* Popular tags pill grid */
+.binge-tag-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.binge-tag-pill {
+    appearance: none;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    cursor: pointer;
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.18s ease, border-color 0.18s ease,
+        transform 0.18s ease;
+}
+.binge-tag-pill:hover,
+.binge-tag-pill:focus-visible {
+    transform: translateY(-1px);
+    background: rgba(var(--accent-rgb), 0.18);
+    border-color: rgba(var(--accent-rgb), 0.55);
+}
+.binge-tag-name {
+    line-height: 1;
+}
+.binge-tag-count {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
 /* ── Loading / error / empty ───────────────────────────────────────── */
 .binge-status {
     display: grid;
@@ -599,4 +3303,1924 @@ body,
 }
 .binge-status-error {
     color: #ff6b6b;
+}
+/* Overlay variant — sits on top of the reel scroll container while loading
+   or showing an empty/error state, without unmounting .binge-reel itself.
+   Keeping the scroll container mounted keeps scrollRef stable so the
+   TanStack virtualizer doesn't lose its scroll element on tab-switch. */
+.binge-status-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    background: transparent;
+}
+
+/* ── Feed (Home tab vertical scene-post list) ──────────────────────── */
+
+/* Virtualized vertical feed. Top-level node is the tall spacer the
+   TanStack virtualizer sizes via inline `height`; card wrappers are
+   absolutely positioned inside it. We can't use flex here — the
+   virtualizer needs each card to be addressable by transform offset. */
+.binge-feed {
+    padding-top: 1rem;
+    /* In loading/error/empty states the JSX renders no children and no
+       inline height. min-height keeps those empty states centered
+       vertically without the card-wrapper rules below taking effect. */
+    min-height: 80px;
+}
+.binge-feed-loading {
+    min-height: 200px;
+}
+.binge-feed-empty {
+    padding: 2rem 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* Each virtual card wrapper. Absolute-positioned inside .binge-feed;
+   horizontally centered via translateX(-50%) on `left: 50%`. The
+   vertical translate component is set inline per-card from the
+   virtualizer's vi.start. Bottom margin bakes in the IG-style gap
+   between posts so the virtualizer can measure each item INCLUDING
+   the spacing. */
+.binge-feed-card-wrapper {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 100%;
+    max-width: 470px;
+    padding-bottom: 1.5rem;
+    box-sizing: border-box;
+}
+
+/* Sentinel + load-more indicator at the end of the feed. Acts as the
+   IntersectionObserver target for infinite scroll. */
+.binge-feed-sentinel {
+    height: 60px;
+    display: grid;
+    place-items: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.binge-feed-card {
+    width: 100%;
+    max-width: 470px;
+    background: var(--bg-1, #111);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+}
+.binge-app.refract .binge-feed-card {
+    background: var(--glass-bg, rgba(255, 255, 255, 0.04));
+    border-color: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Card header (author row) ─────────────────────────────────────── */
+.binge-feed-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 0.85rem;
+}
+
+.binge-feed-card-author {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: inherit;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.binge-feed-card-name-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    color: inherit;
+    min-width: 0;
+    flex: 1 1 auto;
+    text-align: left;
+}
+.binge-feed-card-name-btn:focus-visible {
+    outline: 2px solid rgba(var(--accent-rgb, 244, 114, 182), 0.5);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Stacked overlapping avatars in the header. Mirrors the Reel's
+   PerformerRow style at a smaller (28px) size suited to the feed. */
+.binge-feed-card-avatar-stack {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+.binge-feed-card-stack-avatar {
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: var(--bg-2, #222);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    border: 2px solid var(--bg-1, #111);
+    box-sizing: border-box;
+    cursor: pointer;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    color: #fff;
+    transition: transform 0.15s ease;
+}
+.binge-feed-card-avatar-stack > .binge-feed-card-stack-avatar:not(:first-child) {
+    margin-left: -10px;
+}
+.binge-feed-card-stack-avatar:hover,
+.binge-feed-card-stack-avatar:focus-visible {
+    transform: translateY(-1px);
+    outline: none;
+    z-index: 10 !important;
+}
+.binge-feed-card-stack-initial {
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+.binge-feed-card-stack-overflow {
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 0.65rem;
+    font-weight: 700;
+    cursor: default;
+}
+.binge-app.refract .binge-feed-card-stack-avatar {
+    border-color: var(--glass-bg, rgba(255, 255, 255, 0.04));
+}
+
+.binge-feed-card-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+}
+
+.binge-feed-card-time {
+    color: var(--text-muted, rgba(255, 255, 255, 0.6));
+    font-size: 0.78rem;
+    flex: 0 0 auto;
+}
+
+/* ── Card media block ─────────────────────────────────────────────── */
+
+/* Media wrapper: aspect-ratio drives the height. Default landscape;
+   portrait-shot scenes get the 9:16 frame so we don't letterbox them
+   needlessly. */
+.binge-feed-card-media {
+    position: relative;
+    width: 100%;
+    background: #000;
+    overflow: hidden;
+}
+.binge-feed-card-media.is-landscape {
+    aspect-ratio: 16 / 9;
+}
+.binge-feed-card-media.is-portrait {
+    aspect-ratio: 9 / 16;
+    max-height: 78vh;
+}
+
+.binge-feed-card-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+.binge-feed-card-video.is-portrait {
+    object-fit: cover;
+}
+
+.binge-feed-card-tap {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.binge-feed-card-tap:focus {
+    outline: none;
+}
+
+.binge-feed-card-play-glyph {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+}
+.binge-feed-card-play-glyph svg {
+    width: 28px;
+    height: 28px;
+    transform: translateX(2px); /* optical centring of the play wedge */
+}
+
+.binge-feed-card-mute {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.55rem;
+    z-index: 3;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: #fff;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background 0.15s ease;
+}
+.binge-feed-card-mute:hover,
+.binge-feed-card-mute:focus-visible {
+    background: rgba(0, 0, 0, 0.7);
+    outline: none;
+}
+
+/* ── Card actions row ─────────────────────────────────────────────── */
+.binge-feed-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0.85rem 0.4rem;
+}
+
+.binge-feed-card-like {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.3rem;
+    border-radius: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.binge-feed-card-like:hover,
+.binge-feed-card-like:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+    outline: none;
+}
+.binge-feed-card-like.is-liked {
+    color: #ff4d6d;
+}
+.binge-feed-card-like-count {
+    font-size: 0.85rem;
+}
+
+/* Secondary action icons in the feed-card row (Rate, Multiview, Scribe,
+   Bookmark). Plain icon buttons matching the like button's chrome. */
+.binge-feed-card-iconbtn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.3rem;
+    border-radius: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.binge-feed-card-iconbtn:hover,
+.binge-feed-card-iconbtn:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+    outline: none;
+}
+.binge-feed-card-iconbtn.is-active {
+    color: #6aa9ff;
+}
+.binge-app.refract .binge-feed-card-iconbtn.is-active {
+    color: rgba(var(--accent-rgb), 1);
+}
+/* Icons are sized via their inline em width — but the feed card uses
+   smaller buttons than the reel's action stack, so override here. */
+.binge-feed-card-iconbtn svg {
+    width: 1.6em;
+    height: 1.6em;
+}
+
+.binge-feed-card-cta {
+    appearance: none;
+    margin-left: auto;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.binge-feed-card-cta:hover,
+.binge-feed-card-cta:focus-visible {
+    background: rgba(255, 255, 255, 0.16);
+    transform: translateY(-1px);
+    outline: none;
+}
+.binge-app.refract .binge-feed-card-cta {
+    background: rgba(var(--accent-rgb), 0.85);
+}
+.binge-app.refract .binge-feed-card-cta:hover,
+.binge-app.refract .binge-feed-card-cta:focus-visible {
+    background: rgba(var(--accent-rgb), 1);
+}
+
+/* ── Gallery card media (carousel + dots) ─────────────────────────── */
+
+.binge-gallery-media {
+    position: relative;
+    width: 100%;
+    background: #000;
+}
+
+/* Square aspect for the carousel viewport — matches IG's multi-image
+   post default. Each slide is a child sized to the carousel's
+   clientWidth via scroll-snap. */
+.binge-gallery-carousel {
+    display: flex;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+.binge-gallery-carousel::-webkit-scrollbar {
+    display: none;
+}
+
+.binge-gallery-slide {
+    appearance: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    background-color: #111;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    cursor: pointer;
+}
+.binge-gallery-slide:focus {
+    outline: none;
+}
+
+/* End-of-carousel "View gallery →" panel. Visually distinct from image
+   slides — solid background + centered CTA. */
+.binge-gallery-end {
+    background-color: rgba(var(--accent-rgb, 244, 114, 182), 0.18);
+    background-image: none;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+.binge-app.refract .binge-gallery-end {
+    background-color: rgba(var(--accent-rgb), 0.22);
+}
+.binge-gallery-end-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+    color: #fff;
+}
+.binge-gallery-end-label {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+.binge-gallery-end-sub {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.75);
+}
+.binge-gallery-end-inner svg {
+    margin-top: 0.35rem;
+}
+
+/* Image-count badge (top-right of the media area). */
+.binge-gallery-count-badge {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.55rem;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* Dots indicator — small row below the media. Each dot maps to one
+   slide; clicking jumps via smooth scroll. */
+.binge-gallery-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0;
+}
+.binge-gallery-dot {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.25);
+    border: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+.binge-gallery-dot:hover {
+    background: rgba(255, 255, 255, 0.45);
+}
+.binge-gallery-dot.is-active {
+    background: #fff;
+    transform: scale(1.2);
+}
+
+/* IG-style hashtag row sitting under the caption. Each tag is a button
+   that filters the For You reel to that tag when tapped. */
+.binge-feed-card-hashtags {
+    padding: 0 0.85rem 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    line-height: 1.4;
+}
+.binge-feed-card-hashtag {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6aa9ff;
+    transition: color 0.12s ease, text-decoration 0.12s ease;
+}
+.binge-feed-card-hashtag:hover,
+.binge-feed-card-hashtag:focus-visible {
+    color: #9bc4ff;
+    text-decoration: underline;
+    outline: none;
+}
+.binge-app.refract .binge-feed-card-hashtag {
+    color: rgba(var(--accent-rgb), 1);
+}
+.binge-app.refract .binge-feed-card-hashtag:hover,
+.binge-app.refract .binge-feed-card-hashtag:focus-visible {
+    color: rgba(var(--accent-rgb), 1);
+    filter: brightness(1.2);
+}
+.binge-feed-card-hashtag-more {
+    appearance: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-muted, rgba(255, 255, 255, 0.55));
+    transition: color 0.12s ease;
+}
+.binge-feed-card-hashtag-more:hover,
+.binge-feed-card-hashtag-more:focus-visible {
+    color: #fff;
+    outline: none;
+}
+
+/* ── Card caption ─────────────────────────────────────────────────── */
+.binge-feed-card-caption {
+    padding: 0 0.85rem 0.5rem;
+    color: #fff;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    word-break: break-word;
+}
+/* First line: bold title + inline "…more" button when there's a
+   description to expand. IG-style — title acts as the caption lead-in. */
+.binge-feed-card-caption-line {
+    display: block;
+}
+.binge-feed-card-title {
+    font-weight: 700;
+    color: #fff;
+}
+.binge-feed-card-caption-dim {
+    color: rgba(255, 255, 255, 0.55);
+}
+.binge-feed-card-more-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: color 0.12s ease;
+}
+.binge-feed-card-more-btn:hover,
+.binge-feed-card-more-btn:focus-visible {
+    color: #fff;
+    outline: none;
+}
+/* Expanded description block under the title. Multi-paragraph
+   preserving via white-space. */
+.binge-feed-card-details {
+    margin-top: 0.35rem;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+/* ── Story viewer (IG-style modal) ─────────────────────────────────── */
+
+.binge-story-viewer-root {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.binge-story-viewer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    backdrop-filter: blur(10px);
+}
+
+.binge-story-viewer-close {
+    position: absolute;
+    top: 1rem;
+    right: 1.25rem;
+    z-index: 3;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: #fff;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+.binge-story-viewer-close:hover,
+.binge-story-viewer-close:focus-visible {
+    background: rgba(255, 255, 255, 0.18);
+    transform: scale(1.05);
+    outline: none;
+}
+
+/* 3-column grid: side columns flex equally so the centred focused card
+   stays at viewport centre regardless of how many peeks each side has
+   (e.g. activeIndex=0 has 0 left peeks but up to 2 right peeks).
+   `minmax(0, 1fr)` is critical — without the `0` minimum, the side
+   columns refuse to shrink below their intrinsic content width, so
+   tall/wide peeks push the centre track off-centre. */
+.binge-story-viewer-stage {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 1rem;
+    width: 100%;
+    height: 100%;
+    padding: 1.5rem;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.binge-story-viewer-peeks {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+}
+.binge-story-viewer-peeks-left {
+    justify-self: end;
+}
+.binge-story-viewer-peeks-right {
+    justify-self: start;
+}
+
+/* Card aspect ratio + cap. 9/16 is portrait video; max-height caps the
+   visual so it doesn't take the entire viewport on tall windows. */
+.binge-story-viewer-card {
+    position: relative;
+    aspect-ratio: 9 / 16;
+    height: min(88vh, 880px);
+    max-width: 96vw;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    flex: 0 0 auto;
+}
+
+.binge-story-viewer-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    /* Landscape default: `contain` letterboxes so the full frame stays
+       visible. Portrait scenes (height > width) get `.is-portrait`
+       added by StoryViewer.tsx — they fill the card via `cover` since
+       the source already matches the 9:16 frame. */
+    object-fit: contain;
+    background: #000;
+}
+.binge-story-viewer-video.is-portrait {
+    object-fit: cover;
+}
+
+/* StashDB scenes render a still image instead of a <video>. Default
+   contain (most StashDB covers are 16:9 or 3:2 — letterbox cleanly). */
+.binge-story-viewer-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+/* Reddit text-post card: full-bleed dark card with title and body.
+   Title-only when body is empty. */
+.binge-story-viewer-text {
+    position: absolute;
+    inset: 0;
+    background: #0d0d0d;
+    color: #f3f3f3;
+    padding: 4rem 1.75rem 3.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1rem;
+    overflow: hidden;
+}
+.binge-story-viewer-text-title {
+    font-size: 1.35rem;
+    line-height: 1.25;
+    font-weight: 600;
+    margin: 0;
+}
+.binge-story-viewer-text-body {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0;
+    opacity: 0.85;
+    white-space: pre-wrap;
+}
+
+/* Reddit link-post card: thumbnail as background + dark overlay. */
+.binge-story-viewer-link {
+    position: absolute;
+    inset: 0;
+    background: #0d0d0d center / cover no-repeat;
+    background-color: #0d0d0d;
+}
+.binge-story-viewer-link-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0.1) 0%,
+        rgba(0, 0, 0, 0.55) 60%,
+        rgba(0, 0, 0, 0.85) 100%
+    );
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1.5rem 1.75rem 4rem;
+    color: #fff;
+}
+.binge-story-viewer-link-domain {
+    font-size: 0.7rem;
+    text-transform: lowercase;
+    letter-spacing: 0.03em;
+    opacity: 0.8;
+    align-self: flex-start;
+    padding: 0.15rem 0.5rem;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+}
+.binge-story-viewer-link-title {
+    font-size: 1.2rem;
+    line-height: 1.3;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* The avatar + name in the story-viewer header is a button — tapping
+   opens the performer's binge profile and closes the viewer. Inherit
+   typography from the surrounding meta row. */
+.binge-story-viewer-performer {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: opacity 0.15s ease;
+}
+.binge-story-viewer-performer:hover {
+    opacity: 0.85;
+}
+.binge-story-viewer-performer:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.35);
+    outline-offset: 2px;
+    border-radius: 999px;
+}
+
+/* "StashDB" pill in the header so the user knows the current scene
+   isn't in their library (and the CTA leads outside, not to the reel). */
+.binge-story-viewer-source-badge {
+    margin-left: 0.4rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.binge-app.refract .binge-story-viewer-source-badge {
+    background: rgba(var(--accent-rgb), 0.35);
+}
+
+/* Header — progress strip + performer meta. Sits over the video with a
+   downward gradient so text/icons stay legible against any frame. */
+.binge-story-viewer-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    padding: 0.55rem 0.9rem 1.6rem;
+    background: linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0.6) 0%,
+        rgba(0, 0, 0, 0) 100%
+    );
+    pointer-events: none;
+}
+.binge-story-viewer-header > * {
+    pointer-events: auto;
+}
+
+.binge-story-viewer-progress {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 0.6rem;
+}
+.binge-story-viewer-progress-segment {
+    flex: 1;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.binge-story-viewer-progress-fill {
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    transform-origin: left;
+    transform: scaleX(0);
+}
+
+.binge-story-viewer-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: #fff;
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.binge-story-viewer-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    background-size: cover;
+    background-position: center top;
+    flex: 0 0 auto;
+}
+
+.binge-story-viewer-name {
+    font-weight: 600;
+    /* No truncation by default — the meta row has plenty of room
+       (avatar + name + small time + optional badge + mute on the
+       right). Only clamp if the name itself is absurdly long, which
+       very few performer names are. */
+    white-space: nowrap;
+}
+.binge-story-viewer-performer {
+    /* Allow the name to render at its natural size and shrink only
+       when the meta row genuinely runs out of space. */
+    min-width: 0;
+    max-width: 100%;
+}
+
+.binge-story-viewer-time {
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 400;
+    font-size: 0.78rem;
+}
+
+.binge-story-viewer-mute {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.25rem 0.4rem;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+}
+.binge-story-viewer-mute:hover,
+.binge-story-viewer-mute:focus-visible {
+    background: rgba(255, 255, 255, 0.12);
+    outline: none;
+}
+
+/* Tap zones — split the card into three vertical thirds. They sit
+   above the video but below the header/footer overlays. */
+.binge-story-viewer-tap {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 3;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.binge-story-viewer-tap:focus {
+    outline: none;
+}
+.binge-story-viewer-tap-left {
+    left: 0;
+    width: 33%;
+}
+.binge-story-viewer-tap-center {
+    left: 33%;
+    width: 34%;
+}
+.binge-story-viewer-tap-right {
+    left: 67%;
+    width: 33%;
+}
+
+/* Footer — caption + "Watch full scene" CTA. Mirrors the header gradient. */
+.binge-story-viewer-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    padding: 1.4rem 0.9rem 0.9rem;
+    background: linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.7) 0%,
+        rgba(0, 0, 0, 0) 100%
+    );
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    pointer-events: none;
+}
+.binge-story-viewer-footer > * {
+    pointer-events: auto;
+}
+
+.binge-story-viewer-caption {
+    color: #fff;
+    font-size: 0.85rem;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.binge-story-viewer-cta {
+    appearance: none;
+    border: none;
+    background: rgba(255, 255, 255, 0.95);
+    color: #111;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.65rem 1rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+.binge-story-viewer-cta:hover,
+.binge-story-viewer-cta:focus-visible {
+    background: #fff;
+    transform: translateY(-1px);
+    outline: none;
+}
+.binge-app.refract .binge-story-viewer-cta {
+    background: rgba(var(--accent-rgb), 0.95);
+    color: #fff;
+}
+.binge-app.refract .binge-story-viewer-cta:hover,
+.binge-app.refract .binge-story-viewer-cta:focus-visible {
+    background: rgba(var(--accent-rgb), 1);
+}
+
+/* Side peeks — non-focused stories shrunk and dimmed. distance-1 sits
+   closer to the focused card; distance-2 sits further out. */
+.binge-story-viewer-peek {
+    appearance: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 10px;
+    background-color: #1a1a1a;
+    background-size: cover;
+    background-position: center;
+    flex: 0 0 auto;
+    aspect-ratio: 9 / 16;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+.binge-story-viewer-peek.is-distance-1 {
+    height: min(46vh, 460px);
+    opacity: 0.72;
+    filter: brightness(0.85);
+}
+.binge-story-viewer-peek.is-distance-2 {
+    height: min(32vh, 320px);
+    opacity: 0.45;
+    filter: brightness(0.7);
+}
+.binge-story-viewer-peek:hover,
+.binge-story-viewer-peek:focus-visible {
+    opacity: 1;
+    filter: none;
+    transform: scale(1.03);
+    outline: none;
+}
+
+.binge-story-viewer-peek-name {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0.6rem;
+    text-align: center;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+}
+
+/* Desktop chevrons — pinned to the viewport edges so they always sit at
+   the same spot regardless of how many peeks render. Mirrors the
+   ImageLightbox nav buttons. */
+.binge-story-viewer-chevron {
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: background 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+}
+.binge-story-viewer-chevron svg {
+    width: 22px;
+    height: 22px;
+}
+.binge-story-viewer-chevron:hover,
+.binge-story-viewer-chevron:focus-visible {
+    background: rgba(255, 255, 255, 0.2);
+    outline: none;
+}
+.binge-story-viewer-chevron:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+.binge-story-viewer-chevron-prev {
+    left: 0.85rem;
+}
+.binge-story-viewer-chevron-next {
+    right: 0.85rem;
+}
+
+/* Narrow viewports: hide peeks entirely so the focused card has room. */
+@media (max-width: 1000px) {
+    .binge-story-viewer-peek.is-distance-2 {
+        display: none;
+    }
+}
+@media (max-width: 720px) {
+    .binge-story-viewer-peeks {
+        display: none;
+    }
+    /* On touch viewports the in-card tap zones cover prev/next, so the
+       desktop chevrons become redundant chrome. */
+    .binge-story-viewer-chevron {
+        display: none;
+    }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Performer profile (Instagram-style full-screen page)
+
+   Z-stacking: profile root sits at z:90 — above the bottom sheet (z:80)
+   so it can portal over a PerformerSheet, below the binge-modal-overlay
+   (z:100) since the All Performers modal stays open underneath while
+   the profile portals on top. The profile is itself portalled to <body>
+   to escape the slide's `.binge-overlay` stacking context (same fix as
+   PerformerSheet).
+   ────────────────────────────────────────────────────────────────────── */
+.binge-profile-root {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: #050505;
+    display: flex;
+    flex-direction: column;
+    animation: binge-profile-fade 0.2s ease-out;
+    color: #fff;
+}
+@keyframes binge-profile-fade {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Sticky top bar starts transparent so the avatar peeks through; ramps
+   to a glass surface once the user scrolls past the very top (driven by
+   .is-scrolled toggled in PerformerProfile.tsx). */
+.binge-profile-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 44px 1fr 44px;
+    align-items: center;
+    height: 56px;
+    padding: 0 0.5rem;
+    background: transparent;
+    transition: background 0.22s ease, backdrop-filter 0.22s ease,
+        border-color 0.22s ease;
+    border-bottom: 1px solid transparent;
+}
+.binge-profile-topbar.is-scrolled {
+    background: rgba(8, 8, 8, 0.78);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.binge-profile-back,
+.binge-profile-more {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background 0.18s ease, opacity 0.18s ease;
+}
+.binge-profile-back svg,
+.binge-profile-more svg {
+    width: 22px;
+    height: 22px;
+}
+.binge-profile-back:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.binge-profile-more:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.binge-profile-topbar-name {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.binge-profile-verified {
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    color: rgba(244, 114, 182, 1);
+    filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.55));
+}
+.binge-profile-verified svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Body owns the scroll. The grid below uses it as its IntersectionObserver
+   root via rootMargin (no explicit root → uses viewport which works because
+   profile-root is fixed full-screen). */
+.binge-profile-body {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    padding-bottom: 2rem;
+}
+.binge-profile-body::-webkit-scrollbar { width: 6px; }
+.binge-profile-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+/* Override the global .binge-status full-height so loading/error inside
+   the profile body doesn't push the viewport. */
+.binge-profile-body .binge-status {
+    height: auto;
+    min-height: 180px;
+    padding: 1.5rem;
+}
+
+.binge-profile-hero {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.25rem 1.5rem 0.5rem;
+}
+
+.binge-profile-avatar {
+    flex: 0 0 auto;
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.06);
+    background-size: cover;
+    background-position: center;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+}
+
+/* IG-style gradient story ring around the profile avatar, mounted only
+   when the performer has new content in the stories list. Tap → opens
+   the story viewer at this performer. Sized 4px larger than the inner
+   avatar (96 → 104) so the ring is visible at the canonical 3px gap
+   plus a 1px inner border. */
+.binge-profile-avatar-ring {
+    appearance: none;
+    border: none;
+    padding: 3px;
+    background: linear-gradient(
+        45deg,
+        #f09433 0%,
+        #e6683c 25%,
+        #dc2743 50%,
+        #cc2366 75%,
+        #bc1888 100%
+    );
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    transition: filter 0.18s ease;
+}
+.binge-profile-avatar-ring:hover,
+.binge-profile-avatar-ring:focus-visible {
+    filter: brightness(1.1);
+    outline: none;
+}
+.binge-profile-avatar-ring .binge-profile-avatar {
+    /* Carve out the inner gap so the gradient ring stays visible
+       even when the avatar fills its container. */
+    box-shadow: inset 0 0 0 2px #0a0a0a;
+}
+.binge-app.refract .binge-profile-avatar-ring {
+    background: conic-gradient(
+        from 140deg,
+        rgba(var(--accent-rgb), 1) 0%,
+        rgba(var(--accent-rgb), 0.6) 50%,
+        rgba(var(--accent-rgb), 1) 100%
+    );
+}
+.binge-profile-avatar-initial {
+    font-size: 2rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.binge-profile-stats {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+.binge-profile-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    line-height: 1.2;
+}
+.binge-profile-stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+}
+.binge-profile-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted, rgba(255, 255, 255, 0.55));
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 0.15rem;
+}
+
+.binge-profile-bio {
+    padding: 0.75rem 1.5rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.binge-profile-name {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #fff;
+}
+.binge-profile-aliases {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted, rgba(255, 255, 255, 0.6));
+    font-style: italic;
+}
+.binge-profile-attrs {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.78);
+}
+.binge-profile-details {
+    margin: 0.15rem 0 0;
+    font-size: 0.92rem;
+    color: rgba(255, 255, 255, 0.86);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.binge-profile-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.3rem;
+}
+.binge-profile-link-chip {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+.binge-profile-link-chip:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+.binge-profile-actions {
+    padding: 0.5rem 1.5rem 1rem;
+}
+/* Larger version of .binge-follow-btn for the profile's primary action. */
+.binge-profile-follow {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    font-size: 0.95rem;
+    border-radius: 12px;
+}
+
+.binge-profile-scenes {
+    padding: 0.5rem 1.5rem 1.5rem;
+}
+.binge-profile-scenes-heading {
+    margin: 0 0 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted, rgba(255, 255, 255, 0.6));
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 0.9rem;
+}
+.binge-profile-scenes-loading {
+    min-height: 60px;
+    height: auto;
+    padding: 0.75rem;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Profile scene grid
+
+   Reels-style: every tile locked to 9:16 portrait, regardless of source
+   orientation. Thumbnails are bg-image with `background-size: cover` —
+   landscape sources get cropped sides-in by default. Hover reveals a
+   dark gradient with title + stats; landscape-source tiles also switch
+   `background-size` to `contain` on hover so the full thumbnail is
+   visible (zoomed out to fit).
+   ────────────────────────────────────────────────────────────────────── */
+.binge-profile-scene-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 6px;
+}
+@media (min-width: 720px) {
+    .binge-profile-scene-grid {
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 8px;
+    }
+}
+@media (min-width: 1100px) {
+    .binge-profile-scene-grid {
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    }
+}
+
+.binge-profile-scene-cell {
+    display: block;
+    margin: 0;
+    padding: 0;
+}
+
+.binge-profile-scene-card {
+    appearance: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    background: #050505;
+    color: inherit;
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    contain: layout paint style;
+}
+.binge-profile-scene-card:focus-visible {
+    outline: 2px solid rgba(244, 114, 182, 0.7);
+    outline-offset: 2px;
+}
+
+.binge-profile-scene-poster {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #050505;
+    /* background-size is a keyword — it doesn't tween — so the
+       cover→contain swap snaps. transform stays animatable. */
+    transition: background-size 0.25s ease, transform 0.4s ease;
+}
+.binge-profile-scene-cell.is-landscape-thumb
+    .binge-profile-scene-card:hover
+    .binge-profile-scene-poster,
+.binge-profile-scene-cell.is-landscape-thumb
+    .binge-profile-scene-card:focus-visible
+    .binge-profile-scene-poster {
+    background-size: contain;
+}
+
+/* Preview clip — sits above the poster, below the hover overlay.
+   Opacity 0 by default; fades in alongside the hover overlay when the
+   user mouses in (the JS in SceneTile starts playback at the same time).
+   `object-fit: cover` matches the poster's default crop so the transition
+   from still → motion doesn't reframe. Landscape sources swap to
+   `contain` on hover, same as the poster — full video visible once
+   played. */
+.binge-profile-scene-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #050505;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    z-index: 1;
+}
+.binge-profile-scene-card:hover .binge-profile-scene-preview,
+.binge-profile-scene-card:focus-visible .binge-profile-scene-preview {
+    opacity: 1;
+}
+.binge-profile-scene-cell.is-landscape-thumb
+    .binge-profile-scene-card:hover
+    .binge-profile-scene-preview,
+.binge-profile-scene-cell.is-landscape-thumb
+    .binge-profile-scene-card:focus-visible
+    .binge-profile-scene-preview {
+    object-fit: contain;
+}
+
+/* Hover overlay — gradient + title + stats. Fades in together; nothing
+   visible by default so the thumbnails are clean. */
+.binge-profile-scene-hover {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0.7rem 0.7rem 0.65rem;
+    background: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.85) 0%,
+        rgba(0, 0, 0, 0.55) 45%,
+        rgba(0, 0, 0, 0) 70%
+    );
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+}
+.binge-profile-scene-card:hover .binge-profile-scene-hover,
+.binge-profile-scene-card:focus-visible .binge-profile-scene-hover {
+    opacity: 1;
+}
+
+.binge-profile-scene-hover-stats {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    margin-bottom: 0.4rem;
+}
+.binge-profile-scene-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+.binge-profile-scene-stat svg {
+    width: 12px;
+    height: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+.binge-profile-scene-stat.is-o svg {
+    color: rgba(244, 114, 182, 1);
+    filter: drop-shadow(0 0 4px rgba(244, 114, 182, 0.55))
+        drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+
+.binge-profile-scene-title {
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    text-align: left;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Scene details sheet — Instagram caption modal
+
+   Slides up from the bottom, reusing the .binge-sheet- chrome from
+   PerformerSheet (handle, backdrop, slide-in animation). Adds its own
+   layout for studio + date header, title, body text, and a wrap of
+   hashtag chips.
+   ────────────────────────────────────────────────────────────────────── */
+.binge-details-sheet {
+    padding-bottom: 1.5rem;
+}
+
+.binge-details-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.65);
+    margin: 0 0 0.4rem;
+    padding: 0 1.25rem;
+}
+.binge-details-studio {
+    color: #fff;
+}
+.binge-details-dot {
+    opacity: 0.6;
+}
+.binge-details-date {
+    font-variant-numeric: tabular-nums;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+}
+
+.binge-details-title {
+    margin: 0 0 0.6rem;
+    padding: 0 1.25rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #fff;
+    word-break: break-word;
+}
+/* Filename-fallback variant — dimmer + slightly smaller so the user
+   can tell this isn't a properly-scraped title. Still clickable. */
+.binge-details-title.is-filename {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.78);
+}
+/* Anchor wrapping the title — opens the scene in Stash. Inherit the
+   parent heading's typography so it looks like plain text; subtle
+   underline + accent on hover hints it's clickable. */
+.binge-details-title-link {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.12s ease, text-decoration-color 0.12s ease;
+}
+.binge-details-title-link:hover,
+.binge-details-title-link:focus-visible {
+    color: var(--accent-bright, var(--accent, #fff));
+    text-decoration: underline;
+    text-decoration-color: currentColor;
+    outline: none;
+}
+
+.binge-details-body {
+    margin: 0 0 1rem;
+    padding: 0 1.25rem;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.88);
+    white-space: pre-wrap;
+}
+
+.binge-details-empty {
+    margin: 0;
+    padding: 0 1.25rem;
+    font-size: 0.9rem;
+    color: var(--text-muted, rgba(255, 255, 255, 0.55));
+}
+
+/* Hashtag chips — minimal flat pills with #-prefix, Instagram convention.
+   No backdrop blur; the sheet has its own glass surface already. Subtle
+   white-on-translucent so tags read as secondary content. */
+.binge-hashtag-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+.binge-hashtag {
+    display: inline-block;
+    padding: 0.32rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Profile tabs (Scenes / Photos)
+   IG-style minimal tab strip — small caps text with an underline on the
+   active tab. Sits between the action row and the content grid.
+   ────────────────────────────────────────────────────────────────────── */
+.binge-profile-tabs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    padding: 0.5rem 1.5rem;
+    margin-top: 0.4rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.binge-profile-tab {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0.6rem 0.2rem;
+    color: var(--text-muted, rgba(255, 255, 255, 0.55));
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.18s ease;
+}
+.binge-profile-tab:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+.binge-profile-tab.is-active {
+    color: #fff;
+}
+.binge-profile-tab.is-active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: #fff;
+    border-radius: 2px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Photos: 1:1 square grid + full-screen lightbox
+   ────────────────────────────────────────────────────────────────────── */
+.binge-profile-photos {
+    padding: 0.6rem 1.5rem 1.5rem;
+}
+.binge-profile-photo-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
+}
+@media (min-width: 720px) {
+    .binge-profile-photo-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+    }
+}
+@media (min-width: 1100px) {
+    .binge-profile-photo-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+.binge-profile-photo-cell {
+    display: block;
+    margin: 0;
+    padding: 0;
+}
+.binge-profile-photo-card {
+    appearance: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: #050505;
+    cursor: pointer;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    position: relative;
+    transition: filter 0.18s ease;
+}
+.binge-profile-photo-card:hover {
+    filter: brightness(1.08);
+}
+.binge-profile-photo-card:focus-visible {
+    outline: 2px solid rgba(244, 114, 182, 0.7);
+    outline-offset: 2px;
+}
+.binge-profile-photo-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Lightbox — full-screen image viewer over the profile (z:90) and any
+   sheets. Backdrop dimmed; image centered with object-fit: contain so
+   portrait images breathe. Prev/next chevrons are large hit targets on
+   the sides; counter sits bottom-center. */
+.binge-lightbox-root {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: binge-lightbox-fade 0.18s ease-out;
+}
+@keyframes binge-lightbox-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.binge-lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.binge-lightbox-stage {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 5rem;
+    pointer-events: none;
+}
+.binge-lightbox-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+    border-radius: 4px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+    pointer-events: auto;
+}
+
+.binge-lightbox-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 2;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    font-size: 1.8rem;
+    line-height: 1;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: background 0.18s ease;
+}
+.binge-lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.binge-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: background 0.18s ease;
+}
+.binge-lightbox-nav:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+.binge-lightbox-nav svg {
+    width: 22px;
+    height: 22px;
+}
+.binge-lightbox-prev {
+    left: 0.75rem;
+}
+.binge-lightbox-next {
+    right: 0.75rem;
+}
+.binge-lightbox-counter {
+    position: absolute;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
