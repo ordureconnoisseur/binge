@@ -2697,7 +2697,11 @@ body,
    the rest of the content. Re-accessing the search means scrolling
    back up. */
 .binge-explore-header {
-    padding: 4rem 0.6rem 0.45rem;
+    /* Was 4rem top to clear the floating TopHeader. The Discover
+       Performers bar above us now owns that clearance — drop our
+       own top inset to a tight value so the bubble row + search
+       sit close together. */
+    padding: 0.35rem 0.6rem 0.45rem;
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
@@ -3320,6 +3324,7 @@ body,
    the ring is a strong visual anchor and the IG colours read more
    reliably as "has new content" than an accent-tinted variant did. */
 
+
 .binge-story-avatar {
     box-sizing: border-box;
     width: 100%;
@@ -3754,6 +3759,797 @@ body,
     -webkit-backdrop-filter: blur(20px);
 }
 
+/* ── StashDB discovery card ───────────────────────────────────────────
+   Sits in the Home feed alongside SceneFeedCard / GalleryFeedCard for
+   scenes whose primary performer isn't in the user's library yet.
+   Distinct visual style: prominent cover, StashDB badge, Follow CTA.
+*/
+.binge-discovery-card {
+    width: 100%;
+    max-width: 470px;
+    background: var(--bg-1, #111);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+.binge-app.refract .binge-discovery-card {
+    background: var(--glass-bg, rgba(255, 255, 255, 0.04));
+    border-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.binge-discovery-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.7rem 0.85rem;
+}
+/* The header text region must allow truncation so the Follow button
+   pinned at the right always stays visible — without min-width:0 a
+   long performer name pushes the button off-edge. */
+.binge-discovery-card-header > .binge-discovery-card-header-text {
+    min-width: 0;
+}
+.binge-discovery-card-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    background-size: cover;
+    background-position: center;
+    display: grid;
+    place-items: center;
+    flex: 0 0 38px;
+}
+.binge-discovery-card-initial {
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.binge-discovery-card-header-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    overflow: hidden;
+}
+.binge-discovery-card-name {
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.binge-discovery-card-sub {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.78rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.binge-discovery-card-trigger {
+    appearance: none;
+    background: none;
+    border: none;
+    padding: 0;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+.binge-discovery-card-trigger:hover {
+    text-decoration: underline;
+}
+
+.binge-discovery-card-cover {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+    text-decoration: none;
+}
+.binge-discovery-card-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.binge-discovery-card-cover-empty {
+    background: linear-gradient(135deg, #181818, #242424);
+}
+
+.binge-discovery-card-body {
+    padding: 0.7rem 0.9rem 0.95rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+.binge-discovery-card-title {
+    color: #fff;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    /* Two-line clamp — long StashDB titles look messy past that. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Co-performer row: inline "@name" mention links with a small
+   "with" prefix. Each mention has an IG-style hover card (see
+   `.binge-performer-hovercard` below). */
+.binge-discovery-card-coperformers {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+.binge-discovery-card-with {
+    color: rgba(255, 255, 255, 0.45);
+    margin-right: 0.25rem;
+}
+.binge-discovery-card-coperformer {
+    display: inline;
+}
+.binge-discovery-card-co-sep {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+/* The "@name" mention itself — inline-block so it doesn't break
+   awkwardly mid-word, with a subtle accent colour to mark it as
+   interactive. Used inside DiscoveryFeedCard and reusable for any
+   future "performer mention" pattern. */
+.binge-performer-mention {
+    color: #99c5ff;
+    cursor: pointer;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.binge-performer-mention:hover,
+.binge-performer-mention:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+.binge-app.refract .binge-performer-mention {
+    color: rgba(var(--accent-rgb), 1);
+}
+
+/* Follow button — pinned to the top-right of the header. Compact
+   pill ("+ Follow") so it doesn't dominate the row even when the
+   primary performer name is short. */
+.binge-discovery-card-follow {
+    appearance: none;
+    flex: 0 0 auto;
+    background: #2f7ee0;
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, filter 0.15s ease;
+    white-space: nowrap;
+}
+.binge-discovery-card-follow:hover:not(:disabled),
+.binge-discovery-card-follow:focus-visible:not(:disabled) {
+    filter: brightness(1.1);
+    outline: none;
+}
+.binge-discovery-card-follow:disabled {
+    opacity: 0.8;
+    cursor: default;
+}
+.binge-discovery-card-follow.is-followed {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+}
+.binge-discovery-card-follow.is-error {
+    background: rgba(220, 80, 80, 0.7);
+}
+.binge-app.refract .binge-discovery-card-follow {
+    background: rgba(var(--accent-rgb), 0.95);
+    color: #0d0d0d;
+}
+.binge-discovery-card-stashdb-link {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.78rem;
+    text-decoration: none;
+    align-self: flex-start;
+    margin-top: 0.1rem;
+}
+.binge-discovery-card-stashdb-link:hover,
+.binge-discovery-card-stashdb-link:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+    outline: none;
+}
+
+/* ── Performer hover card (IG mini-profile style) ──────────────── */
+.binge-performer-hovercard {
+    position: absolute;
+    z-index: 60;
+    width: 260px;
+    background: rgba(20, 20, 22, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    padding: 0.85rem 0.95rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #fff;
+}
+.binge-performer-hovercard-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+.binge-performer-hovercard-img {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.08);
+    background-size: cover;
+    background-position: center;
+    flex: 0 0 56px;
+    display: grid;
+    place-items: center;
+}
+.binge-performer-hovercard-initial {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+.binge-performer-hovercard-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.binge-performer-hovercard-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.binge-performer-hovercard-meta {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+.binge-performer-hovercard-pill {
+    align-self: flex-start;
+    margin-top: 0.18rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.binge-performer-hovercard-pill.is-library {
+    background: rgba(80, 200, 120, 0.15);
+    color: #6fd998;
+    border: 1px solid rgba(80, 200, 120, 0.3);
+}
+.binge-performer-hovercard-pill.is-stashdb {
+    background: rgba(80, 150, 250, 0.16);
+    color: #99c5ff;
+    border: 1px solid rgba(80, 150, 250, 0.3);
+}
+.binge-performer-hovercard-open,
+.binge-performer-hovercard-follow {
+    appearance: none;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.5rem 0.7rem;
+    cursor: pointer;
+    transition: background 0.15s ease, filter 0.15s ease;
+    border: none;
+}
+.binge-performer-hovercard-open {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+.binge-performer-hovercard-open:hover,
+.binge-performer-hovercard-open:focus-visible {
+    background: rgba(255, 255, 255, 0.14);
+    outline: none;
+}
+.binge-performer-hovercard-follow {
+    background: #2f7ee0;
+    color: #fff;
+}
+.binge-performer-hovercard-follow:hover:not(:disabled),
+.binge-performer-hovercard-follow:focus-visible:not(:disabled) {
+    filter: brightness(1.1);
+    outline: none;
+}
+.binge-performer-hovercard-follow:disabled {
+    opacity: 0.8;
+    cursor: default;
+}
+.binge-performer-hovercard-follow.is-followed {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+}
+.binge-performer-hovercard-follow.is-error {
+    background: rgba(220, 80, 80, 0.7);
+}
+.binge-app.refract .binge-performer-hovercard-follow {
+    background: rgba(var(--accent-rgb), 0.95);
+    color: #0d0d0d;
+}
+.binge-performer-hovercard-error {
+    color: #ff8585;
+    font-size: 0.76rem;
+    line-height: 1.4;
+}
+
+/* Wrapper that hover handlers attach to. Inline so it follows the
+   text flow for "@name" mentions but also works around an avatar+
+   name combo in a card header. */
+.binge-hovercard-trigger {
+    display: inline;
+    cursor: pointer;
+}
+/* When the hovercard wraps an avatar stack item, the wrapper needs
+   to participate in the inline-flex flow with the same negative-
+   margin overlap rule as the bare avatar buttons had before. The
+   outer `.binge-feed-card-stack-wrap` carries the stacking +
+   z-index; this trigger just inherits its dimensions. */
+.binge-feed-card-stack-wrap > .binge-hovercard-trigger {
+    display: inline-flex;
+}
+.binge-hovercard-trigger:has(.binge-discovery-card-header-target) {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    gap: 0.7rem;
+}
+.binge-discovery-card-header-target {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    gap: 0.7rem;
+}
+.binge-discovery-card-error {
+    color: #ff8585;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ── Follow performer modal ────────────────────────────────────────
+   Stash-style "Add to library" sheet that confirms a performerCreate
+   before it fires. Mounts on the same .binge-sheet portal stack as
+   the existing bottom sheets (MoreSheet, etc.) — `.binge-sheet-root-top`
+   places it above story-viewer-level overlays. */
+.binge-follow-modal {
+    width: min(640px, calc(100vw - 1rem));
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    background: #131316;
+    border-radius: 18px 18px 0 0;
+}
+@media (min-width: 720px) {
+    .binge-follow-modal {
+        border-radius: 14px;
+        margin: auto;
+    }
+}
+.binge-follow-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.95rem 1.05rem 0.5rem;
+    gap: 0.5rem;
+}
+.binge-follow-modal-header h2 {
+    margin: 0;
+    font-size: 1rem;
+    color: #fff;
+    font-weight: 600;
+}
+.binge-follow-modal-close {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.4rem;
+    line-height: 1;
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+    border-radius: 8px;
+}
+.binge-follow-modal-close:hover,
+.binge-follow-modal-close:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    outline: none;
+}
+.binge-follow-modal-loading {
+    padding: 1.5rem 1.05rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    text-align: center;
+}
+.binge-follow-modal-body {
+    overflow-y: auto;
+    padding: 0 1.05rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.binge-follow-modal-hero {
+    display: flex;
+    gap: 1.1rem;
+    align-items: flex-start;
+}
+.binge-follow-modal-hero-wrap {
+    position: relative;
+    width: 240px;
+    flex: 0 0 240px;
+}
+.binge-follow-modal-hero-img {
+    width: 100%;
+    height: 320px;
+    background-color: rgba(255, 255, 255, 0.05);
+    background-size: cover;
+    background-position: center;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+}
+.binge-follow-modal-hero-nav {
+    appearance: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.55);
+    border: none;
+    color: #fff;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background 0.15s ease;
+}
+.binge-follow-modal-hero-nav:hover,
+.binge-follow-modal-hero-nav:focus-visible {
+    background: rgba(0, 0, 0, 0.8);
+    outline: none;
+}
+.binge-follow-modal-hero-nav.is-prev {
+    left: 4px;
+}
+.binge-follow-modal-hero-nav.is-next {
+    right: 4px;
+}
+.binge-follow-modal-hero-dots {
+    position: absolute;
+    bottom: 6px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+}
+.binge-follow-modal-hero-dot {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.4);
+    border: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s ease;
+}
+.binge-follow-modal-hero-dot.is-active {
+    background: #fff;
+}
+.binge-follow-modal-hero-counter {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.15rem 0.4rem;
+    border-radius: 999px;
+}
+.binge-follow-modal-stats {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+}
+.binge-follow-modal-stats strong {
+    color: #fff;
+    font-weight: 600;
+}
+.binge-follow-modal-checkbox {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    color: #fff;
+    font-size: 0.85rem;
+}
+.binge-follow-modal-checkbox input {
+    appearance: auto;
+    accent-color: #2f7ee0;
+}
+
+/* Scene-mode hero: 16:9 landscape variant of the modal hero (vs the
+   3:4 portrait variant used by FollowPerformerModal). */
+.binge-follow-modal-hero-img.is-scene {
+    width: 320px;
+    height: 180px;
+}
+.binge-follow-modal-hero-wrap:has(.is-scene) {
+    width: 320px;
+    flex: 0 0 320px;
+}
+
+.binge-follow-modal-not-in-library {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.78rem;
+    margin-left: 0.4rem;
+}
+.binge-follow-modal-coperformers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+    align-items: center;
+}
+.binge-follow-modal-coperformers-label {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.78rem;
+}
+.binge-follow-modal-coperformer-chip {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    padding: 0.18rem 0.55rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.78rem;
+}
+.binge-follow-modal-coperformer-chip.is-in-library {
+    background: rgba(80, 200, 120, 0.12);
+    border-color: rgba(80, 200, 120, 0.3);
+    color: #6fd998;
+}
+
+/* ── Card-corner triple-dot menu ─────────────────────────────────── */
+.binge-card-menu-trigger {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    flex: 0 0 32px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.binge-card-menu-trigger:hover,
+.binge-card-menu-trigger:focus-visible,
+.binge-card-menu-trigger[aria-expanded="true"] {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    outline: none;
+}
+.binge-card-menu {
+    position: absolute;
+    z-index: 60;
+    min-width: 220px;
+    background: rgba(20, 20, 22, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    padding: 0.4rem;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+.binge-card-menu-item {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    text-align: left;
+    padding: 0.55rem 0.65rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    transition: background 0.12s ease;
+}
+.binge-card-menu-item:hover,
+.binge-card-menu-item:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+.binge-card-menu-item.is-danger {
+    color: #ff9090;
+}
+.binge-card-menu-icon {
+    flex: 0 0 18px;
+    margin-top: 1px;
+    color: rgba(255, 255, 255, 0.7);
+    display: inline-flex;
+}
+.binge-card-menu-text {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+}
+.binge-card-menu-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.2;
+}
+.binge-card-menu-sub {
+    font-size: 0.74rem;
+    color: rgba(255, 255, 255, 0.55);
+    line-height: 1.3;
+}
+.binge-follow-modal-hero-empty {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.75rem;
+}
+.binge-follow-modal-hero-meta {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+}
+.binge-follow-modal-stashdb-link {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.78rem;
+    text-decoration: none;
+}
+.binge-follow-modal-stashdb-link:hover,
+.binge-follow-modal-stashdb-link:focus-visible {
+    color: #99c5ff;
+    text-decoration: underline;
+    outline: none;
+}
+
+.binge-follow-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 0.85rem;
+}
+.binge-follow-modal-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 500;
+}
+.binge-follow-modal-label-text {
+    /* Inline so "Name *" sits on one row instead of wrapping the
+       asterisk to a new line. */
+    display: inline;
+    line-height: 1.2;
+}
+.binge-follow-modal-label-required {
+    color: #ff8585;
+}
+.binge-follow-modal-label.is-full {
+    grid-column: 1 / -1;
+}
+.binge-follow-modal-input,
+.binge-follow-modal-textarea {
+    appearance: none;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.88rem;
+    padding: 0.5rem 0.6rem;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    font-family: inherit;
+}
+.binge-follow-modal-input:focus,
+.binge-follow-modal-textarea:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(120, 180, 250, 0.5);
+    outline: none;
+}
+.binge-follow-modal-textarea {
+    resize: vertical;
+    line-height: 1.4;
+    min-height: 2.5rem;
+}
+.binge-follow-modal-error {
+    color: #ff8585;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    padding: 0.5rem 0.7rem;
+    background: rgba(220, 80, 80, 0.08);
+    border: 1px solid rgba(220, 80, 80, 0.2);
+    border-radius: 8px;
+}
+
+.binge-follow-modal-footer {
+    display: flex;
+    gap: 0.65rem;
+    padding: 0.85rem 1.05rem 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin-top: 0.4rem;
+}
+.binge-follow-modal-cancel,
+.binge-follow-modal-submit {
+    appearance: none;
+    flex: 1 1 50%;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.7rem 0.9rem;
+    cursor: pointer;
+    transition: background 0.15s ease, filter 0.15s ease;
+}
+.binge-follow-modal-cancel {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.8);
+}
+.binge-follow-modal-cancel:hover:not(:disabled),
+.binge-follow-modal-cancel:focus-visible:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    outline: none;
+}
+.binge-follow-modal-submit {
+    background: #2f7ee0;
+    color: #fff;
+}
+.binge-follow-modal-submit:hover:not(:disabled),
+.binge-follow-modal-submit:focus-visible:not(:disabled) {
+    filter: brightness(1.1);
+    outline: none;
+}
+.binge-follow-modal-submit:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+.binge-app.refract .binge-follow-modal-submit {
+    background: rgba(var(--accent-rgb), 0.95);
+    color: #0d0d0d;
+}
+
 /* ── Card header (author row) ─────────────────────────────────────── */
 .binge-feed-card-header {
     display: flex;
@@ -3767,6 +4563,16 @@ body,
     align-items: center;
     gap: 0.55rem;
     color: inherit;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+/* The name button gets wrapped in a PerformerHoverCard so hovering
+   the text shows the same mini profile as the avatar. The trigger
+   has to participate in the author row's flex layout — let it
+   shrink (min-width: 0) and take the remaining horizontal space. */
+.binge-feed-card-author > .binge-hovercard-trigger {
+    display: inline-flex;
+    align-items: center;
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -3797,8 +4603,8 @@ body,
 }
 .binge-feed-card-stack-avatar {
     appearance: none;
-    width: 28px;
-    height: 28px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     background-color: var(--bg-2, #222);
     background-size: cover;
@@ -3814,8 +4620,19 @@ body,
     color: #fff;
     transition: transform 0.15s ease;
 }
-.binge-feed-card-avatar-stack > .binge-feed-card-stack-avatar:not(:first-child) {
-    margin-left: -10px;
+.binge-feed-card-avatar-stack > .binge-feed-card-stack-avatar:not(:first-child),
+.binge-feed-card-avatar-stack > .binge-hovercard-trigger:not(:first-child) {
+    margin-left: -14px;
+}
+/* When the hover-card trigger is a direct child of the avatar stack
+   (library scene cards wrap each avatar in PerformerHoverCard so
+   hovering surfaces the mini-profile), force it to inline-flex so
+   it has dimensions matching the 28px avatar inside. Without this,
+   the default `display: inline` collapses the trigger to a 0×0
+   click target and mouseenter never fires. */
+.binge-feed-card-avatar-stack > .binge-hovercard-trigger {
+    display: inline-flex;
+    line-height: 0;
 }
 .binge-feed-card-stack-avatar:hover,
 .binge-feed-card-stack-avatar:focus-visible {
@@ -4912,6 +5729,172 @@ body,
     padding: 1.25rem 1.5rem 0.5rem;
 }
 
+/* ── Discover Performers bubble row (top of Explore) ──────────────
+   Horizontal-scroll row of StashDB performer bubbles, mirroring the
+   homepage stories row visually. Mirrors `.binge-explore-chips` for
+   the chevron-in-gutter scroll pattern but uses larger bubbles.
+*/
+.binge-discover-bar {
+    /* 4rem top clears the floating TopHeader (binge logo + tabs
+       row) — this used to live on .binge-explore-header but the
+       discover bar is now Explore's first child so the clearance
+       lives here. Bottom near-zero because the explore-header
+       below us provides its own tight top inset. Mobile drops to
+       1rem (override below) since the TopHeader is hidden there. */
+    padding: 4rem 0.6rem 0;
+}
+.binge-discover-bar-title {
+    margin: 0 0 0.55rem 0.45rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.01em;
+}
+.binge-discover-bar-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.binge-discover-bar-scroll {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: 0.85rem;
+    padding: 0.4rem 0.45rem;
+    flex: 1 1 auto;
+    scroll-behavior: smooth;
+}
+.binge-discover-bar-scroll::-webkit-scrollbar {
+    display: none;
+}
+.binge-discover-bar-skeleton {
+    flex: 0 0 76px;
+    height: 100px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+}
+.binge-discover-bubble {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 0 0 76px;
+    cursor: pointer;
+}
+.binge-discover-bubble-img {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.06);
+    background-size: cover;
+    background-position: center top;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.binge-discover-bubble-img.is-in-library {
+    /* Green ring for performers already in the user's library —
+       same colour family as the "In library" pill on hover cards. */
+    border-color: rgba(80, 200, 120, 0.55);
+}
+.binge-discover-bubble:hover .binge-discover-bubble-img,
+.binge-discover-bubble:focus-visible .binge-discover-bubble-img {
+    transform: scale(1.04);
+}
+.binge-discover-bubble-initial {
+    font-weight: 600;
+    font-size: 1.5rem;
+}
+.binge-discover-bubble-name {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+    line-height: 1.2;
+    max-width: 76px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.binge-discover-bar-chevron {
+    appearance: none;
+    background: rgba(20, 20, 22, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    flex: 0 0 32px;
+    margin: 0 0.25rem;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+.binge-discover-bar-chevron:hover,
+.binge-discover-bar-chevron:focus-visible {
+    background: rgba(40, 40, 42, 0.85);
+    outline: none;
+}
+.binge-discover-bar-chevron.is-hidden {
+    display: none;
+}
+.binge-discover-bar-chevron svg {
+    width: 18px;
+    height: 18px;
+}
+/* The hover card trigger needs to participate in the horizontal
+   scroll flow with its bubble child sized correctly. */
+.binge-discover-bar-scroll > .binge-hovercard-trigger {
+    display: inline-flex;
+    flex: 0 0 76px;
+}
+
+/* Small StashDB pill rendered next to the topbar name on the
+   StashDB-only profile (analogous to the Favourited verified-tick
+   on the local profile). */
+.binge-profile-stashdb-pill {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(80, 150, 250, 0.16);
+    color: #99c5ff;
+    border: 1px solid rgba(80, 150, 250, 0.3);
+    margin-left: 0.45rem;
+    vertical-align: middle;
+}
+
+/* Corner badge on a StashDB scene tile inside the profile grid. */
+.binge-profile-scene-card {
+    position: relative;
+}
+.binge-profile-scene-stashdb-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 0.64rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 0.16rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #99c5ff;
+    border: 1px solid rgba(80, 150, 250, 0.4);
+    backdrop-filter: blur(6px);
+    z-index: 2;
+}
+.binge-profile-scene-stashdb-badge.is-owned {
+    color: #6fd998;
+    border-color: rgba(80, 200, 120, 0.4);
+}
+
 .binge-profile-avatar {
     flex: 0 0 auto;
     width: 96px;
@@ -5762,7 +6745,13 @@ body,
        because it had to clear the floating TopHeader. On mobile
        that clearance is irrelevant; drop to a comfortable inset. */
     .binge-explore-header {
-        padding: 1rem 0.6rem 0.45rem;
+        padding: 0.35rem 0.6rem 0.45rem;
+    }
+    /* On mobile the floating TopHeader is hidden — the discover
+       bar doesn't need to reserve 4rem of top clearance. Drop to
+       1rem of breathing room. */
+    .binge-discover-bar {
+        padding: 1rem 0.6rem 0;
     }
     /* Reel action stack: lift above the 3.5rem bottom nav. The
        existing 5rem already gives a bit of breathing room; we just

@@ -7,6 +7,7 @@ import {
     setBingeServerUrl,
     setIncludeReddit,
     setIncludeStashDB,
+    setIncludeStashDBInProfile,
     setLookbackDays,
     setRefractIntegration,
     setShowDebug,
@@ -15,6 +16,7 @@ import {
     useBingeServerUrl,
     useIncludeReddit,
     useIncludeStashDB,
+    useIncludeStashDBInProfile,
     useLookbackDays,
     useRefractIntegration,
     useShowDebug,
@@ -59,6 +61,7 @@ export function SettingsPage() {
                 <GalleriesRow />
                 <LookbackRow />
                 <StashDBRow />
+                <StashDBProfileRow />
                 <RedditRow />
                 <BingeServerRow />
                 <BingeServerConfigCard />
@@ -146,6 +149,22 @@ function StashDBRow() {
                 checked={value}
                 onChange={(v) => setIncludeStashDB(v)}
                 label="StashDB"
+            />
+        </SettingRow>
+    );
+}
+
+function StashDBProfileRow() {
+    const value = useIncludeStashDBInProfile();
+    return (
+        <SettingRow
+            title="Mix StashDB scenes into performer profiles"
+            description="When viewing a library performer's profile, also surface scenes from their StashDB catalogue that you don't already own — interleaved with your library scenes by date. Tapping a StashDB-only scene opens the same add-to-library modal as the discovery feed."
+        >
+            <SwitchToggle
+                checked={value}
+                onChange={(v) => setIncludeStashDBInProfile(v)}
+                label="StashDB in profiles"
             />
         </SettingRow>
     );

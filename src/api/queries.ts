@@ -563,6 +563,10 @@ export interface PerformerDetail {
     url: string | null;
     urls: string[] | null;
     tags: { id: string; name: string }[];
+    // Linked stashbox ids — used by the in-profile StashDB mixin
+    // (PerformerSceneGrid pulls StashDB scenes by this performer's
+    // stash_id when one points at stashdb.org/graphql).
+    stash_ids: { endpoint: string; stash_id: string }[];
 }
 
 const FIND_PERFORMER = /* GraphQL */ `
@@ -589,6 +593,10 @@ const FIND_PERFORMER = /* GraphQL */ `
                 id
                 name
             }
+            stash_ids {
+                endpoint
+                stash_id
+            }
         }
     }
 `;
@@ -606,6 +614,10 @@ export async function findPerformer(id: string): Promise<PerformerDetail> {
 export interface PerformerSceneCard {
     id: string;
     title: string | null;
+    // Release date (YYYY-MM-DD) — used to sort library scenes against
+    // StashDB scenes when the profile-mixin toggle is on. Null when
+    // not set in Stash; sorts to the end in that case.
+    date: string | null;
     o_counter: number | null;
     play_count: number | null;
     paths: { screenshot: string; preview: string | null };
@@ -629,6 +641,7 @@ const FIND_SCENES_BY_PERFORMER = /* GraphQL */ `
             scenes {
                 id
                 title
+                date
                 o_counter
                 play_count
                 paths {

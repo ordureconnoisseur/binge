@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { SceneCardMenu } from "./SceneCardMenu";
+import { PerformerHoverCard } from "./PerformerHoverCard";
 import type { FeedPerformer, FeedTag, SceneFeedItem } from "./useFeed";
 import { useFilter } from "../filter/FilterContext";
 import { useTab } from "../tabs/TabContext";
@@ -272,25 +274,61 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
                         performers={item.performers}
                         onClick={(id) => openProfile(id)}
                     />
-                    <button
-                        type="button"
-                        className="binge-feed-card-name-btn"
-                        onClick={() =>
-                            primaryPerformer &&
-                            openProfile(primaryPerformer.id)
-                        }
-                        aria-label={primaryPerformer?.name ?? "Performer"}
-                    >
+                    {primaryPerformer ? (
+                        <PerformerHoverCard
+                            name={primaryPerformer.name}
+                            image={primaryPerformer.imagePath}
+                            gender={null}
+                            birthDate={null}
+                            inLibrary
+                            onOpenProfile={() =>
+                                openProfile(primaryPerformer.id)
+                            }
+                        >
+                            <button
+                                type="button"
+                                className="binge-feed-card-name-btn"
+                                onClick={(e) => {
+                                    // Don't let the outer hover-card
+                                    // wrapper also receive the click
+                                    // (it would toggle the popover
+                                    // open while we're navigating
+                                    // away to the profile).
+                                    e.stopPropagation();
+                                    openProfile(primaryPerformer.id);
+                                }}
+                                aria-label={primaryPerformer.name}
+                            >
+                                <span className="binge-feed-card-name">
+                                    {item.performers
+                                        .map((p) => p.name)
+                                        .join(", ") || "Unknown"}
+                                </span>
+                            </button>
+                        </PerformerHoverCard>
+                    ) : (
                         <span className="binge-feed-card-name">
-                            {item.performers
-                                .map((p) => p.name)
-                                .join(", ") || "Unknown"}
+                            Unknown
                         </span>
-                    </button>
+                    )}
                 </div>
                 <span className="binge-feed-card-time">
                     {timeAgo(item.effectiveAt)}
                 </span>
+                <SceneCardMenu
+                    items={[
+                        {
+                            label: "Open in Stash",
+                            sub: "Opens the scene in your Stash UI",
+                            onClick: () =>
+                                window.open(
+                                    `/scenes/${item.sceneId}`,
+                                    "_blank",
+                                    "noopener,noreferrer"
+                                ),
+                        },
+                    ]}
+                />
             </header>
 
             <div
@@ -516,8 +554,13 @@ function FeedCaption({
     );
 }
 
-// Stacked-circle avatar row. Mirrors the Reel's PerformerRow visual
-// pattern at a smaller size — up to 3 avatars, then a "+N" pill.
+// Stacked-circle avatar row. Each avatar gets wrapped in a
+// PerformerHoverCard so hovering it shows the same IG-style mini
+// profile that DiscoveryFeedCard's co-stars expose. Library
+// performers naturally show "In library" + "Open profile" inside
+// the card. Click on the avatar still routes straight to the
+// profile (we stopPropagation so the card-toggle handler at the
+// wrapper level doesn't also fire).
 function AvatarStack({
     performers,
     onClick,
@@ -531,26 +574,34 @@ function AvatarStack({
     return (
         <div className="binge-feed-card-avatar-stack">
             {visible.map((p, i) => (
-                <button
+                <PerformerHoverCard
                     key={p.id}
-                    type="button"
-                    className="binge-feed-card-stack-avatar"
-                    style={{
-                        zIndex: visible.length - i,
-                        ...(p.imagePath
-                            ? { backgroundImage: `url(${p.imagePath})` }
-                            : {}),
-                    }}
-                    onClick={() => onClick(p.id)}
-                    title={p.name}
-                    aria-label={p.name}
+                    name={p.name}
+                    image={p.imagePath}
+                    gender={null}
+                    birthDate={null}
+                    inLibrary
+                    onOpenProfile={() => onClick(p.id)}
                 >
-                    {!p.imagePath && (
-                        <span className="binge-feed-card-stack-initial">
-                            {p.name.charAt(0).toUpperCase()}
-                        </span>
-                    )}
-                </button>
+                    <span
+                        className="binge-feed-card-stack-avatar"
+                        style={{
+                            zIndex: visible.length - i,
+                            position: "relative",
+                            ...(p.imagePath
+                                ? { backgroundImage: `url(${p.imagePath})` }
+                                : {}),
+                        }}
+                        title={p.name}
+                        aria-label={p.name}
+                    >
+                        {!p.imagePath && (
+                            <span className="binge-feed-card-stack-initial">
+                                {p.name.charAt(0).toUpperCase()}
+                            </span>
+                        )}
+                    </span>
+                </PerformerHoverCard>
             ))}
             {overflow > 0 && (
                 <span

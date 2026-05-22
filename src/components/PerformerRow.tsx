@@ -106,7 +106,7 @@ export function PerformerRow({ performers }: PerformerRowProps) {
                 aria-haspopup="dialog"
                 aria-expanded={sheetOpen}
             >
-                {primaryFav ? "Following" : "Follow"}
+                {primaryFav ? "Favourited" : "Favourite"}
             </button>
             {sheetOpen && (
                 <PerformerSheet

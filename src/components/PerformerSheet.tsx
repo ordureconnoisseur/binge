@@ -135,7 +135,7 @@ function PerformerSheetRow({ performer, onClose, onFavoriteChange }: RowProps) {
                 disabled={busy}
                 aria-pressed={favorite}
             >
-                {favorite ? "Following" : "Follow"}
+                {favorite ? "Favourited" : "Favourite"}
             </button>
         </li>
     );

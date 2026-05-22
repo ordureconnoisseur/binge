@@ -2,7 +2,7 @@ import { useTab, type Tab } from "./TabContext";
 
 const TABS: { id: Tab; label: string }[] = [
     { id: "home", label: "Home" },
-    { id: "following", label: "Following" },
+    { id: "following", label: "Favourited" },
     { id: "foryou", label: "For You" },
     { id: "explore", label: "Explore" },
 ];
