@@ -1,0 +1,57 @@
+# On every push to main, build the plugin and mirror the install
+# files into ordureconnoisseur/plugins/plugins/binge/. The plugins
+# repo's own build_site.sh then auto-generates the install zip + index
+# entry, which is what Stash's plugin browser reads.
+#
+# Mirrors the sync pattern used by stash-multiview and stash-refract,
+# but with the extra build step — binge is a Vite SPA, so only the
+# three runtime files (binge.yml + dist/binge.entry.js +
+# dist/index.html) get copied across, not the source tree.
+#
+# Requires the PLUGINS_REPO_TOKEN secret (same PAT used by the other
+# plugin sync workflows) on this repo.
+name: Sync to plugins repo
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Clone plugins repo
+        run: |
+          git clone https://x-access-token:${{ secrets.PLUGINS_REPO_TOKEN }}@github.com/ordureconnoisseur/plugins.git plugins-repo
+
+      - name: Stage plugin files
+        run: |
+          rm -rf plugins-repo/plugins/binge
+          mkdir -p plugins-repo/plugins/binge
+          # Three files: manifest, the Stash-side entry shim, and the
+          # SPA bundle. Same set npm run push:pc deploys to a local
+          # Stash install.
+          cp binge.yml plugins-repo/plugins/binge/
+          cp dist/binge.entry.js plugins-repo/plugins/binge/
+          cp dist/index.html plugins-repo/plugins/binge/
+
+      - name: Commit and push
+        run: |
+          cd plugins-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add plugins/binge/
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "sync: binge $(git -C .. rev-parse --short HEAD)"
+          git push
