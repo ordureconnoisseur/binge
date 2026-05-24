@@ -254,8 +254,11 @@ export function useIncludeStashDB(): boolean {
 // scene grid on a library performer's profile, alongside their
 // library scenes. Separate toggle from the stories integration so
 // users can enable one without the other.
+// Off by default — when looking at a single performer, most users
+// want their library scenes front-and-center and only flip this on
+// when they want to compare against the StashDB catalog.
 export function useIncludeStashDBInProfile(): boolean {
-    return useStoredBool(INCLUDE_STASHDB_IN_PROFILE_KEY, true);
+    return useStoredBool(INCLUDE_STASHDB_IN_PROFILE_KEY, false);
 }
 
 // Reddit integration. On by default; if binge-server is unreachable

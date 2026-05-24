@@ -154,7 +154,7 @@ export function Following() {
     return (
         <div className="binge-tab-scroll" ref={scrollRef}>
             <div className="binge-tab-inner">
-                <h1 className="binge-tab-title">Favourited</h1>
+                <h1 className="binge-tab-title">Following</h1>
 
                 <div className="binge-following-controls">
                     <input

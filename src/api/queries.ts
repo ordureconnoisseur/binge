@@ -774,6 +774,24 @@ export async function findSceneById(id: string): Promise<BingeScene | null> {
     return data.findScene;
 }
 
+// Batch-fetch scenes by id in parallel, preserving the input order
+// (and dropping any that returned null — deleted scenes, etc).
+// Used by the Reel's queue mode (pinnedQueue from TabContext) to
+// render a deterministic ordered list from e.g. a performer profile.
+//
+// Stash's findScenes filter doesn't accept an `ids` array cleanly,
+// so we parallelize single-fetches. For a typical performer grid
+// (~24-60 ids) that's well within reasonable network budgets.
+export async function findScenesByIds(
+    ids: string[]
+): Promise<BingeScene[]> {
+    if (ids.length === 0) return [];
+    const results = await Promise.all(ids.map((id) => findSceneById(id)));
+    const out: BingeScene[] = [];
+    for (const s of results) if (s != null) out.push(s);
+    return out;
+}
+
 // ── Stories: recent scenes (any performer) ──────────────────────────
 
 // Flat row returned by the recent-scenes query. One row per (scene, performer)

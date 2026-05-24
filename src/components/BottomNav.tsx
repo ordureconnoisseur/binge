@@ -10,7 +10,7 @@ const SLOTS: { id: Tab; label: string }[] = [
     { id: "home", label: "Home" },
     { id: "foryou", label: "For You" },
     { id: "explore", label: "Explore" },
-    { id: "following", label: "Favourited" },
+    { id: "following", label: "Following" },
     { id: "menu", label: "Menu" },
 ];
 
