@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-    useHasASR,
+    useHasAdvancedRating,
     useHasMultiview,
     useHasScribe,
 } from "../plugins/PluginContext";
@@ -16,7 +16,7 @@ interface ActionStackProps {
     // Current rating in stars (0–5). Null when no rating.
     ratingStars: number | null;
     onSetRating: (stars: number | null) => void;
-    // When ASR (advanced scene rating) is installed, the rate button
+    // When the Advanced Rating plugin is installed, the rate button
     // opens the full criterion modal instead of the inline strip.
     // The caller is responsible for mounting the modal — this is just
     // the "open it" trigger.
@@ -56,7 +56,7 @@ const MULTIVIEW_HOLD_DURATION_MS = 700;
 //   2. Rate (star icon; tap = open rate strip)
 //   3. Multiview (grid icon; tap = toggle queue, hold = open player)
 //   4. Scribe (pencil icon; tap = open scene page in new tab)
-//   5. Bookmark (favourite scene via the ASR "Favourite ★" tag)
+//   5. Bookmark (favourite scene via the "Favourite ★" tag)
 //
 // Multiview + Scribe only render when their respective Stash plugins
 // are installed AND enabled (see PluginContext).
@@ -78,9 +78,9 @@ export function ActionStack({
 }: ActionStackProps) {
     const hasMultiview = useHasMultiview();
     const hasScribe = useHasScribe();
-    const hasASR = useHasASR();
+    const hasAdvancedRating = useHasAdvancedRating();
     const [rateStripOpen, setRateStripOpen] = useState(false);
-    const useAdvancedRating = hasASR && !!onOpenAdvancedRating;
+    const useAdvancedRating = hasAdvancedRating && !!onOpenAdvancedRating;
 
     return (
         <aside className="binge-actions" aria-label="scene actions">

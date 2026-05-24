@@ -24,10 +24,11 @@ import {
 } from "../rating/mutations";
 import { scoreTagName, type Criterion, type RatingConfig } from "../rating/types";
 
-// Shared criterion-rating modal. Renders ASR's or APR's data model
-// (groups → criteria → 0-5 stars) and writes the same tag scheme
-// they own. Stash's Python hook recomputes rating100 server-side
-// after each update; we re-fetch tags + rating100 to reflect it.
+// Shared criterion-rating modal. Renders the Advanced Rating plugin's
+// data model (groups → criteria → 0-5 stars) for either the scene or
+// the performer domain, and writes the same tag scheme the plugin
+// owns. Stash's Python hook recomputes rating100 server-side after
+// each update; we re-fetch tags + rating100 to reflect it.
 
 export type RatingTarget =
     | { kind: "scene"; id: string }
@@ -53,16 +54,12 @@ type LoadState =
       }
     | { kind: "error"; message: string };
 
-const SCENE_PLUGIN = "advancedSceneRating";
-const PERFORMER_PLUGIN = "advancedPerformerRating";
-
 export function CriterionRatingModal({
     target,
     onClose,
     onRatingChange,
 }: Props) {
-    const pluginId =
-        target.kind === "scene" ? SCENE_PLUGIN : PERFORMER_PLUGIN;
+    const domain = target.kind;
     const [state, setState] = useState<LoadState>({ kind: "loading" });
     const [pendingCriterionId, setPendingCriterionId] = useState<
         string | null
@@ -78,7 +75,7 @@ export function CriterionRatingModal({
         (async () => {
             try {
                 const [config, precision, initial] = await Promise.all([
-                    loadRatingConfig(pluginId),
+                    loadRatingConfig(domain),
                     loadRatingPrecision(),
                     target.kind === "scene"
                         ? fetchSceneTagsAndRating(target.id)
@@ -104,7 +101,7 @@ export function CriterionRatingModal({
         return () => {
             alive = false;
         };
-    }, [pluginId, target.kind, target.id]);
+    }, [domain, target.id]);
 
     // Esc closes (via the same beginClose path so the exit animation plays).
     useEffect(() => {
@@ -127,15 +124,12 @@ export function CriterionRatingModal({
             if (newScore !== null) {
                 newTagId = await findScoreTag(criterion, newScore);
                 if (!newTagId) {
-                    // Tag doesn't exist. Don't auto-create — ASR/APR's
-                    // settings panel owns the parent-tag hierarchy.
+                    // Tag doesn't exist. Don't auto-create — the
+                    // Advanced Rating plugin's settings panel owns
+                    // the parent-tag hierarchy.
                     const name = scoreTagName(criterion, newScore);
                     setMissingTagWarning(
-                        `Score tag "${name}" doesn't exist yet. Open the ${
-                            target.kind === "scene"
-                                ? "Advanced Scene Rating"
-                                : "Advanced Performer Rating"
-                        } plugin's settings panel in Stash once — it'll create the tag hierarchy under the right parent. Then try again here.`
+                        `Score tag "${name}" doesn't exist yet. Open the Advanced Rating plugin's settings panel in Stash once — it'll create the tag hierarchy under the right parent. Then try again here.`
                     );
                     return;
                 }
