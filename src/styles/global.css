@@ -6031,7 +6031,9 @@ body,
     margin-top: 0.3rem;
 }
 .binge-profile-link-chip {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     padding: 0.3rem 0.7rem;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
@@ -6040,11 +6042,115 @@ body,
     font-weight: 600;
     text-decoration: none;
     border: 1px solid rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1;
     transition: background 0.18s ease, border-color 0.18s ease;
 }
 .binge-profile-link-chip:hover {
     background: rgba(255, 255, 255, 0.14);
     border-color: rgba(255, 255, 255, 0.22);
+}
+.binge-profile-link-chip svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    flex: 0 0 auto;
+}
+.binge-profile-link-chip-label {
+    font-weight: 600;
+}
+/* Platform tinting — subtle on hover so the icon still reads as the
+   brand without the chip looking like a hard-coded brand button. */
+.binge-profile-link-chip.is-twitter:hover {
+    background: rgba(29, 161, 242, 0.18);
+    border-color: rgba(29, 161, 242, 0.45);
+}
+.binge-profile-link-chip.is-instagram:hover {
+    background: rgba(225, 48, 108, 0.18);
+    border-color: rgba(225, 48, 108, 0.45);
+}
+.binge-profile-link-chip.is-tiktok:hover {
+    background: rgba(254, 44, 85, 0.18);
+    border-color: rgba(254, 44, 85, 0.45);
+}
+.binge-profile-link-chip.is-reddit:hover {
+    background: rgba(255, 69, 0, 0.18);
+    border-color: rgba(255, 69, 0, 0.45);
+}
+.binge-profile-link-chip.is-onlyfans:hover {
+    background: rgba(0, 175, 240, 0.18);
+    border-color: rgba(0, 175, 240, 0.45);
+}
+.binge-profile-link-chip.is-fansly:hover {
+    background: rgba(36, 169, 245, 0.18);
+    border-color: rgba(36, 169, 245, 0.45);
+}
+
+/* "Other links" popup — centred sheet with backdrop. Mirrors the
+   shape of other binge dialogs (FollowPerformerModal etc) but
+   stripped down since the body is just a URL list. */
+.binge-other-links-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+.binge-other-links-sheet {
+    background: #1a1a1a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 28rem;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+.binge-other-links-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.1rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.binge-other-links-close {
+    background: transparent;
+    border: 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.2rem;
+}
+.binge-other-links-close:hover {
+    color: #fff;
+}
+.binge-other-links-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem 0;
+    overflow-y: auto;
+}
+.binge-other-links-item {
+    display: block;
+    padding: 0.65rem 1.1rem;
+    color: #fff;
+    text-decoration: none;
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+.binge-other-links-item:hover {
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .binge-profile-actions {
@@ -6070,6 +6176,53 @@ body,
     color: var(--text-muted, rgba(255, 255, 255, 0.6));
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     padding-top: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+/* StashDB mix-in toggle pill — sits at the right of the SCENES
+   heading. Off = muted glass, on = pink-tinted with a filled dot,
+   so the active state reads at a glance. */
+.binge-profile-stashdb-toggle {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted, rgba(255, 255, 255, 0.6));
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease,
+        border-color 0.12s ease;
+}
+.binge-profile-stashdb-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
+}
+.binge-profile-stashdb-toggle.is-on {
+    background: rgba(255, 60, 120, 0.18);
+    border-color: rgba(255, 60, 120, 0.5);
+    color: rgba(255, 130, 170, 1);
+}
+.binge-profile-stashdb-toggle.is-on:hover {
+    background: rgba(255, 60, 120, 0.26);
+}
+.binge-profile-stashdb-toggle-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+.binge-profile-stashdb-toggle.is-on .binge-profile-stashdb-toggle-dot {
+    background: rgba(255, 60, 120, 1);
+    box-shadow: 0 0 6px rgba(255, 60, 120, 0.7);
 }
 .binge-profile-scenes-loading {
     min-height: 60px;

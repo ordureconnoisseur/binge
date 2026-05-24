@@ -38,6 +38,17 @@ interface TabContextValue {
     // card; consumed and cleared by the Reel on its initial render.
     pinFirstSceneId: string | null;
     setPinFirstSceneId: (id: string | null) => void;
+    // One-shot "open the reel with this fixed queue of scenes" intent.
+    // When set, the reel renders exactly these scenes in this order,
+    // starting at `startIndex`, with no pagination — the user can
+    // swipe through the queue and bottoms out at the last scene.
+    //
+    // Used by PerformerSceneGrid (and other surfaces that have a
+    // predetermined order) — gives the user a deterministic "play
+    // these in order from here" experience, vs. pinFirstSceneId
+    // which is "pin this then random-fill the rest of the filter".
+    pinnedQueue: { ids: string[]; startIndex: number } | null;
+    setPinnedQueue: (q: { ids: string[]; startIndex: number } | null) => void;
     // Active reel mode. "chained" is only ever set by an Explore tile
     // tap; any user-driven filter chip while in chained mode snaps it
     // back to "random". See [Reel.tsx] reset effect.
@@ -83,6 +94,9 @@ export function TabProvider({ children }: { children: ReactNode }) {
     const [tab, setTabRaw] = useState<Tab>(() => readTabFromHash() ?? "home");
     const [tabBarVisible, setTabBarVisible] = useState(true);
     const [pinFirstSceneId, setPinFirstSceneId] = useState<string | null>(null);
+    const [pinnedQueue, setPinnedQueue] = useState<
+        { ids: string[]; startIndex: number } | null
+    >(null);
     const [reelMode, setReelMode] = useState<ReelMode>("random");
 
     // On first paint, make sure the hash reflects the resolved tab —
@@ -139,10 +153,19 @@ export function TabProvider({ children }: { children: ReactNode }) {
             setTabBarVisible,
             pinFirstSceneId,
             setPinFirstSceneId,
+            pinnedQueue,
+            setPinnedQueue,
             reelMode,
             setReelMode,
         }),
-        [tab, setTab, tabBarVisible, pinFirstSceneId, reelMode]
+        [
+            tab,
+            setTab,
+            tabBarVisible,
+            pinFirstSceneId,
+            pinnedQueue,
+            reelMode,
+        ]
     );
 
     return <TabContext.Provider value={value}>{children}</TabContext.Provider>;

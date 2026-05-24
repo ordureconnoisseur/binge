@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { buildSceneFilter, findSceneById, findScenes } from "../api/queries";
+import {
+    buildSceneFilter,
+    findSceneById,
+    findScenes,
+    findScenesByIds,
+} from "../api/queries";
 import { transformObjectFilter } from "../api/savedFilterTransform";
 import type { BingeScene } from "../api/queries";
 import { SceneSlide } from "./SceneSlide";
@@ -76,6 +81,8 @@ export function Reel() {
     const {
         pinFirstSceneId,
         setPinFirstSceneId,
+        pinnedQueue,
+        setPinnedQueue,
         reelMode,
         setReelMode,
         setTab,
@@ -221,7 +228,54 @@ export function Reel() {
         const token = ++fetchTokenRef.current;
         setState({ kind: "loading" });
         const pin = pinFirstSceneId;
+        const queue = pinnedQueue;
         playedSeenRef.current = new Set();
+
+        // Queue path: deterministic ordered playlist, no
+        // pagination — the reel renders exactly these scenes in
+        // this order and bottoms out at the last one. Used by
+        // PerformerSceneGrid so tapping a scene plays the grid in
+        // sequence rather than dropping into a random feed.
+        if (queue) {
+            chainAlgoRef.current = null;
+            findScenesByIds(queue.ids)
+                .then((scenes) => {
+                    if (token !== fetchTokenRef.current) return;
+                    setState({
+                        kind: "ready",
+                        scenes,
+                        total: scenes.length,
+                        page: 1,
+                        hasMore: false,
+                    });
+                    const idx = Math.min(
+                        Math.max(0, queue.startIndex),
+                        Math.max(0, scenes.length - 1)
+                    );
+                    setActiveIndex(idx);
+                    setOOverrides({});
+                    setRatingOverrides({});
+                    setCollectionOverrides({});
+                    // Defer scroll until the slides are laid out —
+                    // before commit, scrollHeight is still 0 and
+                    // scrollTo floors to top.
+                    window.requestAnimationFrame(() => {
+                        const el = scrollRef.current;
+                        if (!el) return;
+                        el.scrollTo({
+                            top: idx * el.clientHeight,
+                            behavior: "auto",
+                        });
+                    });
+                    setPinnedQueue(null);
+                })
+                .catch((err: Error) => {
+                    if (token !== fetchTokenRef.current) return;
+                    setState({ kind: "error", message: err.message });
+                    setPinnedQueue(null);
+                });
+            return;
+        }
 
         if (reelMode === "chained" && pin) {
             // Chained path: fetch the pinned scene, build the algo,

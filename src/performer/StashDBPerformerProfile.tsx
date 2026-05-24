@@ -11,6 +11,7 @@ import {
 import { usePerformerProfile } from "./PerformerProfileContext";
 import { FollowPerformerModal } from "../home/FollowPerformerModal";
 import { AddSceneModal } from "../home/AddSceneModal";
+import { PerformerLinks } from "./PerformerLinks";
 
 // Profile page for a StashDB performer the user hasn't added to their
 // library yet. **Reuses the exact same class names and layout** as
@@ -216,21 +217,9 @@ export function StashDBPerformerProfile({
                                 </p>
                             )}
                             <BioAttrs performer={state.performer} />
-                            {state.performer.urls.length > 0 && (
-                                <div className="binge-profile-links">
-                                    {state.performer.urls.map((u) => (
-                                        <a
-                                            key={u.url}
-                                            href={u.url}
-                                            target="_blank"
-                                            rel="noreferrer noopener"
-                                            className="binge-profile-link-chip"
-                                        >
-                                            {u.site || "Link"}
-                                        </a>
-                                    ))}
-                                </div>
-                            )}
+                            <PerformerLinks
+                                urls={state.performer.urls.map((u) => u.url)}
+                            />
                         </section>
 
                         <div className="binge-profile-actions">

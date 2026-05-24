@@ -28,11 +28,17 @@ export function PerformerRow({ performers }: PerformerRowProps) {
 
     if (performers.length === 0) return null;
 
-    // Tapping a bubble opens that performer's profile page (Instagram-style).
-    // Filter mutation only happens if the user then picks a scene card inside
-    // the profile, or hits Follow → manually navigates to their reel.
+    // Tapping a bubble — single performer goes straight to that
+    // profile; multi-performer opens the PerformerSheet picker so
+    // the user can choose which one to drill into (and see/toggle
+    // each performer's favourite in-place). Matches the iOS
+    // PerformerPickerSheet pattern.
     const handleClick = (performer: BingeScene["performers"][number]) => {
-        openProfile(performer.id);
+        if (performers.length > 1) {
+            setSheetOpen(true);
+        } else {
+            openProfile(performer.id);
+        }
     };
 
     const handleSheetFavoriteChange = (id: string, value: boolean) => {

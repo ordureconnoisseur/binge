@@ -12,7 +12,10 @@ import {
     getStashDBScenesForPerformer,
     type StashDBScene,
 } from "../api/stashdb";
-import { useIncludeStashDBInProfile } from "../home/pluginSettings";
+import {
+    setIncludeStashDBInProfile,
+    useIncludeStashDBInProfile,
+} from "../home/pluginSettings";
 import { AddSceneModal } from "../home/AddSceneModal";
 
 interface PerformerSceneGridProps {
@@ -68,6 +71,13 @@ export function PerformerSceneGrid({
         cover: string | null;
         stashboxUrl: string;
     } | null>(null);
+
+    // True when this performer is actually linked to a stashdb
+    // entry — gates the toggle pill in the heading. No link →
+    // nothing to fetch, so hide the control entirely.
+    const isStashDBLinked = Boolean(
+        performer.stash_ids?.some((s) => s.endpoint === STASHDB_ENDPOINT)
+    );
 
     // Reset when the performer changes (re-opening the profile for another id).
     useEffect(() => {
@@ -183,17 +193,43 @@ export function PerformerSceneGrid({
             tags: [],
             studios: [],
         });
-        // Tell the Reel to open with this exact scene as slide 0; remaining
-        // slides come from the normal random filter feed.
+        // Tell the Reel to open with this exact scene as slide 0;
+        // remaining slides come from the normal random filter feed.
         setPinFirstSceneId(sceneId);
         setTab("foryou");
         onClose();
     };
 
+    // When the toggle is off the effect above resets
+    // `stashDBScenes` to [], so no separate "effective" view is
+    // needed — fall through with the raw list.
+    const effectiveStashDBScenes = stashDBScenes;
+
     return (
         <section className="binge-profile-scenes">
             <h2 className="binge-profile-scenes-heading">
-                Scenes{count != null ? ` (${count})` : ""}
+                Scenes
+                {count != null
+                    ? ` (${scenes.length}/${count})`
+                    : ""}
+                {isStashDBLinked && (
+                    <button
+                        type="button"
+                        className={
+                            "binge-profile-stashdb-toggle" +
+                            (includeStashDBInProfile ? " is-on" : "")
+                        }
+                        onClick={() =>
+                            setIncludeStashDBInProfile(
+                                !includeStashDBInProfile
+                            )
+                        }
+                        title="Mix StashDB scenes into this performer's grid"
+                    >
+                        <span className="binge-profile-stashdb-toggle-dot" />
+                        StashDB
+                    </button>
+                )}
             </h2>
             {error && (
                 <div className="binge-status binge-status-error">
@@ -206,11 +242,11 @@ export function PerformerSceneGrid({
             {scenes.length === 0 && !loading && !error && (
                 <div className="binge-status">no scenes</div>
             )}
-            {(scenes.length > 0 || stashDBScenes.length > 0) && (
+            {(scenes.length > 0 || effectiveStashDBScenes.length > 0) && (
                 <ul className="binge-profile-scene-grid">
                     {buildCells(
                         scenes,
-                        stashDBScenes,
+                        effectiveStashDBScenes,
                         stashBoxIndex
                     ).map((cell) =>
                         cell.kind === "library" ? (

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { PerformerDetail } from "../api/queries";
+import { PerformerLinks } from "./PerformerLinks";
 
 interface PerformerBioProps {
     performer: PerformerDetail;
@@ -57,39 +58,8 @@ export function PerformerBio({ performer, nameAccessory }: PerformerBioProps) {
             {performer.details && (
                 <p className="binge-profile-details">{performer.details}</p>
             )}
-            {(performer.twitter || performer.instagram || performer.url) && (
-                <div className="binge-profile-links">
-                    {performer.twitter && (
-                        <LinkChip
-                            href={linkUrl("twitter", performer.twitter)}
-                            label="Twitter"
-                        />
-                    )}
-                    {performer.instagram && (
-                        <LinkChip
-                            href={linkUrl("instagram", performer.instagram)}
-                            label="Instagram"
-                        />
-                    )}
-                    {performer.url && (
-                        <LinkChip href={performer.url} label="Website" />
-                    )}
-                </div>
-            )}
+            <PerformerLinks urls={collectUrls(performer)} />
         </section>
-    );
-}
-
-function LinkChip({ href, label }: { href: string; label: string }) {
-    return (
-        <a
-            href={href}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="binge-profile-link-chip"
-        >
-            {label}
-        </a>
     );
 }
 
@@ -99,8 +69,23 @@ function parseBirthYear(birthdate: string | null): number | null {
     return m ? Number(m[1]) : null;
 }
 
-// Stash stores socials as either a handle or full URL — normalize to a full URL.
-function linkUrl(platform: "twitter" | "instagram", value: string): string {
+// Merge the legacy twitter/instagram/url fields with the modern
+// `urls` array into a single list. The legacy fields can hold either
+// a bare handle or a full URL; PerformerLinks handles the URL case
+// itself, so we just need to expand handles before passing through.
+function collectUrls(performer: PerformerDetail): string[] {
+    const out: string[] = [];
+    if (performer.twitter) out.push(expandHandle("twitter", performer.twitter));
+    if (performer.instagram) out.push(expandHandle("instagram", performer.instagram));
+    if (performer.url) out.push(performer.url);
+    if (performer.urls) out.push(...performer.urls);
+    return out;
+}
+
+function expandHandle(
+    platform: "twitter" | "instagram",
+    value: string
+): string {
     if (/^https?:\/\//i.test(value)) return value;
     const handle = value.replace(/^@/, "");
     if (platform === "twitter") return `https://twitter.com/${handle}`;
