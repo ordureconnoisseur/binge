@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { findPerformer, type PerformerDetail } from "../api/queries";
 import { setPerformerFavorite } from "../api/mutations";
-import { useHasAPR } from "../plugins/PluginContext";
+import { useHasAdvancedRating } from "../plugins/PluginContext";
 import { usePerformerProfile } from "./PerformerProfileContext";
 import { StashDBPerformerProfile } from "./StashDBPerformerProfile";
 import { PerformerStatsRow } from "./PerformerStatsRow";
@@ -62,7 +62,7 @@ function LocalPerformerProfile({ localId }: { localId: string }) {
     // effect below to re-run by changing one of its deps.
     const [refreshTick, setRefreshTick] = useState(0);
     const bodyRef = useRef<HTMLDivElement>(null);
-    const hasAPR = useHasAPR();
+    const hasAdvancedRating = useHasAdvancedRating();
     // If this performer is in the stories list, the avatar gets the
     // IG-style gradient ring + becomes a tap-to-open-story trigger.
     // useStories internally caches its fetches so re-mounting in
@@ -230,7 +230,7 @@ function LocalPerformerProfile({ localId }: { localId: string }) {
                         <PerformerBio
                             performer={state.performer}
                             nameAccessory={
-                                hasAPR ? (
+                                hasAdvancedRating ? (
                                     <button
                                         type="button"
                                         className="binge-profile-rate"

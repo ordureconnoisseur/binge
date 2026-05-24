@@ -10,9 +10,7 @@ import { gql } from "../api/graphql";
 
 // Tracks which Stash plugins are installed AND enabled. The binge
 // ActionStack uses this to conditionally render plugin-gated buttons
-// (Multiview / Scribe), and the favourites + rating flows assume
-// nothing about ASR/APR being present — but the same lookup is useful
-// for nearby decisions (e.g. UX copy hints).
+// (Multiview / Scribe / Advanced Rating).
 //
 // Stash's root GraphQL field `plugins { id name enabled }` returns all
 // installed plugins with their enabled flag. We treat "disabled" as
@@ -34,8 +32,7 @@ const PluginContext = createContext<PluginContextValue | null>(null);
 // Known plugin IDs from the user's suite (binge integrates with these
 // specifically). Exported so call sites read the same constants the
 // detection logic does.
-export const PLUGIN_ID_ASR = "advancedSceneRating";
-export const PLUGIN_ID_APR = "advancedPerformerRating";
+export const PLUGIN_ID_ADVANCED_RATING = "advancedRating";
 export const PLUGIN_ID_MULTIVIEW = "multiView";
 export const PLUGIN_ID_SCRIBE = "stashScribe";
 
@@ -98,11 +95,8 @@ export function useHasPlugin(id: string): boolean {
     return usePluginContext().hasPlugin(id);
 }
 
-export function useHasASR(): boolean {
-    return usePluginContext().hasPlugin(PLUGIN_ID_ASR);
-}
-export function useHasAPR(): boolean {
-    return usePluginContext().hasPlugin(PLUGIN_ID_APR);
+export function useHasAdvancedRating(): boolean {
+    return usePluginContext().hasPlugin(PLUGIN_ID_ADVANCED_RATING);
 }
 export function useHasMultiview(): boolean {
     return usePluginContext().hasPlugin(PLUGIN_ID_MULTIVIEW);

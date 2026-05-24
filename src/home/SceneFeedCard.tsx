@@ -9,7 +9,7 @@ import { useMuteState } from "../hooks/useMuteState";
 import { sceneIncrementO } from "../api/mutations";
 import { recordTagInteractions } from "../api/interactedTags";
 import {
-    useHasASR,
+    useHasAdvancedRating,
     useHasMultiview,
     useHasScribe,
 } from "../plugins/PluginContext";
@@ -60,7 +60,7 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
     const { setTab, setPinFirstSceneId, setReelMode } = useTab();
     const { openProfile } = usePerformerProfile();
 
-    const hasASR = useHasASR();
+    const hasAdvancedRating = useHasAdvancedRating();
     const hasMultiview = useHasMultiview();
     const hasScribe = useHasScribe();
 
@@ -402,7 +402,7 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
                         </span>
                     )}
                 </button>
-                {hasASR && (
+                {hasAdvancedRating && (
                     <button
                         type="button"
                         className="binge-feed-card-iconbtn"
