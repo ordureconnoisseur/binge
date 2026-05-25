@@ -60,67 +60,121 @@ export function DiscoveryFeedCard({
     return (
         <article className="binge-discovery-card">
             <header className="binge-discovery-card-header">
-                <PerformerHoverCard
-                    name={item.primaryPerformer.name}
-                    image={item.primaryPerformer.image}
-                    gender={item.primaryPerformer.gender}
-                    birthDate={item.primaryPerformer.birthDate}
-                    inLibrary={item.primaryInLibrary}
-                    onOpenProfile={() =>
-                        item.primaryPerformer.localId
-                            ? openProfile(item.primaryPerformer.localId)
-                            : openStashDBProfile(
-                                  item.primaryPerformer.stashId
-                              )
-                    }
-                    stashDBPerformerId={item.primaryPerformer.stashId}
-                    stashBoxIndex={item.stashBoxIndex}
-                    onFollowed={onFollowed}
-                    controlledFollow={
-                        item.primaryInLibrary
-                            ? undefined
-                            : {
-                                  state: followState,
-                                  onFollow: handleFollow,
-                              }
-                    }
-                >
-                    <span className="binge-discovery-card-header-target">
-                        <span
-                            className="binge-discovery-card-avatar"
-                            style={
-                                item.primaryPerformer.image
-                                    ? {
-                                          backgroundImage: `url(${item.primaryPerformer.image})`,
+                <span className="binge-discovery-card-header-target">
+                    <span className="binge-discovery-card-avatar-stack">
+                        <PerformerHoverCard
+                            name={item.primaryPerformer.name}
+                            image={item.primaryPerformer.image}
+                            gender={item.primaryPerformer.gender}
+                            birthDate={item.primaryPerformer.birthDate}
+                            inLibrary={item.primaryInLibrary}
+                            onOpenProfile={() =>
+                                item.primaryPerformer.localId
+                                    ? openProfile(
+                                          item.primaryPerformer.localId
+                                      )
+                                    : openStashDBProfile(
+                                          item.primaryPerformer.stashId
+                                      )
+                            }
+                            stashDBPerformerId={
+                                item.primaryPerformer.stashId
+                            }
+                            stashBoxIndex={item.stashBoxIndex}
+                            onFollowed={onFollowed}
+                            controlledFollow={
+                                item.primaryInLibrary
+                                    ? undefined
+                                    : {
+                                          state: followState,
+                                          onFollow: handleFollow,
                                       }
-                                    : undefined
                             }
                         >
-                            {!item.primaryPerformer.image && (
-                                <span className="binge-discovery-card-initial">
-                                    {item.primaryPerformer.name
-                                        .charAt(0)
-                                        .toUpperCase()}
-                                </span>
+                            <span
+                                className="binge-discovery-card-avatar"
+                                style={
+                                    item.primaryPerformer.image
+                                        ? {
+                                              backgroundImage: `url(${item.primaryPerformer.image})`,
+                                          }
+                                        : undefined
+                                }
+                            >
+                                {!item.primaryPerformer.image && (
+                                    <span className="binge-discovery-card-initial">
+                                        {item.primaryPerformer.name
+                                            .charAt(0)
+                                            .toUpperCase()}
+                                    </span>
+                                )}
+                            </span>
+                        </PerformerHoverCard>
+                        {/* Additional library co-performers stacked
+                            alongside the primary's avatar — matches
+                            iOS's AvatarStack treatment. Unlinked
+                            co-performers stay in the @mention row. */}
+                        {item.coPerformers
+                            .filter((cp) => cp.localId !== null)
+                            .slice(0, 3)
+                            .map((cp) => (
+                                <PerformerHoverCard
+                                    key={cp.stashId}
+                                    name={cp.name}
+                                    image={cp.image}
+                                    gender={cp.gender}
+                                    birthDate={cp.birthDate}
+                                    inLibrary
+                                    onOpenProfile={() =>
+                                        openProfile(cp.localId!)
+                                    }
+                                    stashDBPerformerId={cp.stashId}
+                                    stashBoxIndex={item.stashBoxIndex}
+                                    onFollowed={onFollowed}
+                                >
+                                    <span
+                                        className="binge-discovery-card-avatar binge-discovery-card-avatar-extra"
+                                        style={
+                                            cp.image
+                                                ? {
+                                                      backgroundImage: `url(${cp.image})`,
+                                                  }
+                                                : undefined
+                                        }
+                                        title={cp.name}
+                                    >
+                                        {!cp.image && (
+                                            <span className="binge-discovery-card-initial">
+                                                {cp.name
+                                                    .charAt(0)
+                                                    .toUpperCase()}
+                                            </span>
+                                        )}
+                                    </span>
+                                </PerformerHoverCard>
+                            ))}
+                    </span>
+                    <span className="binge-discovery-card-header-text">
+                        <span className="binge-discovery-card-name">
+                            {headerNames(item)}
+                        </span>
+                        <span className="binge-discovery-card-sub">
+                            <span
+                                className={
+                                    "binge-discovery-card-pill is-" +
+                                    item.source
+                                }
+                            >
+                                {item.source === "costar"
+                                    ? "DISCOVER"
+                                    : "TRENDING"}
+                            </span>
+                            {item.releaseDate && (
+                                <> · {item.releaseDate}</>
                             )}
                         </span>
-                        <span className="binge-discovery-card-header-text">
-                            <span className="binge-discovery-card-name">
-                                {item.primaryPerformer.name}
-                            </span>
-                            <span className="binge-discovery-card-sub">
-                                {item.primaryInLibrary ? (
-                                    <>Featured on StashDB</>
-                                ) : (
-                                    <>New on StashDB</>
-                                )}
-                                {item.releaseDate && (
-                                    <> · {item.releaseDate}</>
-                                )}
-                            </span>
-                        </span>
                     </span>
-                </PerformerHoverCard>
+                </span>
                 {!item.primaryInLibrary && (
                     <button
                         type="button"
@@ -215,44 +269,53 @@ export function DiscoveryFeedCard({
                     </div>
                 )}
 
-                {item.coPerformers.length > 0 && (
-                    <div className="binge-discovery-card-coperformers">
-                        <span className="binge-discovery-card-with">
-                            with
-                        </span>
-                        {item.coPerformers.map((cp, idx) => (
-                            <span
-                                key={cp.stashId}
-                                className="binge-discovery-card-coperformer"
-                            >
-                                <PerformerHoverCard
-                                    name={cp.name}
-                                    image={cp.image}
-                                    gender={cp.gender}
-                                    birthDate={cp.birthDate}
-                                    inLibrary={cp.localId !== null}
-                                    onOpenProfile={() =>
-                                        cp.localId
-                                            ? openProfile(cp.localId)
-                                            : openStashDBProfile(cp.stashId)
-                                    }
-                                    stashDBPerformerId={cp.stashId}
-                                    stashBoxIndex={item.stashBoxIndex}
-                                    onFollowed={onFollowed}
-                                >
-                                    <span className="binge-performer-mention">
-                                        @{cp.name}
-                                    </span>
-                                </PerformerHoverCard>
-                                {idx < item.coPerformers.length - 1 && (
-                                    <span className="binge-discovery-card-co-sep">
-                                        ,{" "}
-                                    </span>
-                                )}
+                {/* @mention row carries ONLY unlinked
+                    co-performers. Library co-performers are
+                    rendered as additional avatars in the header
+                    stack above (matches iOS treatment so library
+                    people always show as icons, never as @s). */}
+                {(() => {
+                    const unlinked = item.coPerformers.filter(
+                        (cp) => cp.localId === null
+                    );
+                    if (unlinked.length === 0) return null;
+                    return (
+                        <div className="binge-discovery-card-coperformers">
+                            <span className="binge-discovery-card-with">
+                                with
                             </span>
-                        ))}
-                    </div>
-                )}
+                            {unlinked.map((cp, idx) => (
+                                <span
+                                    key={cp.stashId}
+                                    className="binge-discovery-card-coperformer"
+                                >
+                                    <PerformerHoverCard
+                                        name={cp.name}
+                                        image={cp.image}
+                                        gender={cp.gender}
+                                        birthDate={cp.birthDate}
+                                        inLibrary={false}
+                                        onOpenProfile={() =>
+                                            openStashDBProfile(cp.stashId)
+                                        }
+                                        stashDBPerformerId={cp.stashId}
+                                        stashBoxIndex={item.stashBoxIndex}
+                                        onFollowed={onFollowed}
+                                    >
+                                        <span className="binge-performer-mention">
+                                            @{cp.name}
+                                        </span>
+                                    </PerformerHoverCard>
+                                    {idx < unlinked.length - 1 && (
+                                        <span className="binge-discovery-card-co-sep">
+                                            ,{" "}
+                                        </span>
+                                    )}
+                                </span>
+                            ))}
+                        </div>
+                    );
+                })()}
 
                 <a
                     href={item.stashboxUrl}
@@ -296,4 +359,15 @@ export function DiscoveryFeedCard({
             )}
         </article>
     );
+}
+
+/// Comma-joined names matching the avatar stack: primary +
+/// library coperformers in their original order. Falls back to
+/// just the primary's name when no library coperformers are
+/// present. Mirrors iOS's `headerNames`.
+function headerNames(item: DiscoveryFeedItemWrapped): string {
+    const libraryCo = item.coPerformers.filter((cp) => cp.localId !== null);
+    if (libraryCo.length === 0) return item.primaryPerformer.name;
+    return [item.primaryPerformer.name, ...libraryCo.map((cp) => cp.name)]
+        .join(", ");
 }

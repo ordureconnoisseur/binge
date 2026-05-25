@@ -16,6 +16,7 @@ import { SettingsPage } from "./tabs/SettingsPage";
 import { PerformerProfileProvider } from "./performer/PerformerProfileContext";
 import { PerformerProfile } from "./performer/PerformerProfile";
 import { StoryViewerProvider } from "./home/StoryViewerContext";
+import { ScribeProvider } from "./scribe/ScribeContext";
 import { StoryViewer } from "./home/StoryViewer";
 import { FilterSheet } from "./filter/FilterSheet";
 import { DebugOverlay } from "./debug/DebugOverlay";
@@ -131,6 +132,7 @@ function App() {
                 <TabProvider>
                     <PerformerProfileProvider>
                         <StoryViewerProvider>
+                            <ScribeProvider>
                             <div
                                 className={
                                     refractActive
@@ -164,6 +166,7 @@ function App() {
                             <StoryViewer />
                             <DebugMaybe />
                             <FilterAutoClear />
+                            </ScribeProvider>
                         </StoryViewerProvider>
                     </PerformerProfileProvider>
                 </TabProvider>

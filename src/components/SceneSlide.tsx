@@ -30,6 +30,7 @@ import { SceneDetailsSheet } from "./SceneDetailsSheet";
 import { CriterionRatingModal } from "./CriterionRatingModal";
 import { MoreSheet } from "./MoreSheet";
 import { useAutoScroll } from "../home/pluginSettings";
+import { useScribeModal } from "../scribe/ScribeContext";
 
 interface SceneSlideProps {
     scene: BingeScene;
@@ -395,15 +396,13 @@ export function SceneSlide({
     };
 
     // ── Scribe ───────────────────────────────────────────────────
-    // Scribe doesn't expose a deep-link URL for its modal; opening
-    // the scene's Stash page puts the user where Scribe's injected
-    // button lives (in the scene-page toolbar).
+    // Opens binge's inline Scribe modal — same plugin backend
+    // (runPluginOperation → stashScribe.py → Ollama), same storage
+    // format (custom_fields.stashScribe_review + Advanced-Rating tag
+    // scores), so reviews authored here roundtrip with stash-scribe.
+    const scribeModal = useScribeModal();
     const handleOpenScribe = () => {
-        window.open(
-            `/scenes/${scene.id}`,
-            "_blank",
-            "noopener,noreferrer"
-        );
+        scribeModal.openScene(scene.id);
     };
 
     // Single-vs-double-tap discriminator. First tap arms a 280ms timer; a

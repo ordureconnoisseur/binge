@@ -224,7 +224,7 @@ function LocalPerformerProfile({ localId }: { localId: string }) {
                             <PerformerStatsRow
                                 sceneCount={state.performer.scene_count}
                                 oCounter={state.performer.o_counter}
-                                galleryCount={state.performer.gallery_count}
+                                rating100={state.performer.rating100}
                             />
                         </section>
                         <PerformerBio
