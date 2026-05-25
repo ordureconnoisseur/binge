@@ -554,6 +554,10 @@ export interface PerformerDetail {
     scene_count: number | null;
     gallery_count: number | null;
     o_counter: number | null;
+    // 0–100 rating. Surfaced as the third stat in the profile
+    // header (replaces galleries — galleries are rarely populated
+    // on most Stash setups and rating is more glanceable).
+    rating100: number | null;
     // `twitter` / `instagram` / `url` are @deprecated in current Stash in
     // favor of `urls: [String!]`. Keeping the deprecated fields populated
     // is the simplest path for v0; we'll migrate to `urls` if/when they
@@ -585,6 +589,7 @@ const FIND_PERFORMER = /* GraphQL */ `
             scene_count
             gallery_count
             o_counter
+            rating100
             twitter
             instagram
             url

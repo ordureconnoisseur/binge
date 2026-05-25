@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useSheetClose } from "../hooks/useSheetClose";
+import { useHasScribe } from "../plugins/PluginContext";
+import { useScribeModal } from "../scribe/ScribeContext";
 
 interface PerformerMoreSheetProps {
     performerId: string;
@@ -28,8 +30,15 @@ export function PerformerMoreSheet({
         return () => document.removeEventListener("keydown", handler);
     }, [beginClose]);
 
+    const hasScribe = useHasScribe();
+    const scribeModal = useScribeModal();
+
     const handleRefresh = () => {
         onRefresh();
+        beginClose();
+    };
+    const handleWriteReview = () => {
+        scribeModal.openPerformer(performerId);
         beginClose();
     };
     const handleOpenInStash = () => {
@@ -56,6 +65,20 @@ export function PerformerMoreSheet({
             >
                 <div className="binge-sheet-handle" aria-hidden="true" />
                 <ul className="binge-more-sheet-list">
+                    {hasScribe && (
+                        <li>
+                            <button
+                                type="button"
+                                className="binge-more-sheet-row"
+                                onClick={handleWriteReview}
+                            >
+                                <span className="binge-more-sheet-row-label">
+                                    Write review
+                                </span>
+                                <CommentIcon />
+                            </button>
+                        </li>
+                    )}
                     <li>
                         <button
                             type="button"
@@ -84,6 +107,24 @@ export function PerformerMoreSheet({
             </div>
         </div>,
         document.body
+    );
+}
+
+function CommentIcon() {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            <path d="M 20.656 17.008 a 9.993 9.993 0 1 0 -3.59 3.615 L 22 22 Z" />
+        </svg>
     );
 }
 

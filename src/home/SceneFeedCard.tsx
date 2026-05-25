@@ -34,6 +34,7 @@ import {
     subscribeCollections,
 } from "../api/collections";
 import { timeAgo } from "./timeAgo";
+import { useScribeModal } from "../scribe/ScribeContext";
 
 interface SceneFeedCardProps {
     item: SceneFeedItem;
@@ -116,12 +117,9 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
     const handleToggleMV = () => {
         setInMVQueue(toggleMultiviewQueueScene(item.sceneId));
     };
+    const scribeModal = useScribeModal();
     const handleOpenScribe = () => {
-        window.open(
-            `/scenes/${item.sceneId}`,
-            "_blank",
-            "noopener,noreferrer"
-        );
+        scribeModal.openScene(item.sceneId);
     };
     const handleToggleCollection = async (tagName: string) => {
         const next = !inCollections[tagName];
@@ -436,8 +434,8 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
                         type="button"
                         className="binge-feed-card-iconbtn"
                         onClick={handleOpenScribe}
-                        aria-label="Open in Stash for Scribe"
-                        title="Write review (opens scene page)"
+                        aria-label="Write review with Scribe"
+                        title="Write review"
                     >
                         <PencilIcon />
                     </button>
