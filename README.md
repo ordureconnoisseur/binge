@@ -1,128 +1,97 @@
 # Binge
 
-An Instagram + TikTok-shaped browsing layer for [Stash](https://github.com/stashapp/stash). Vertical reel, stories row, performer profiles, an Explore page, and a StashDB-powered discovery surface that lets you Follow performers + Add scenes you don't have yet — all backed by Stash's existing GraphQL API.
+An Instagram-shaped social + discovery layer for [Stash](https://github.com/stashapp/stash). Vertical reel, stories, performer profiles, StashDB-powered discovery — all backed by Stash's existing GraphQL API. Web plugin; native [iOS port](https://github.com/ordureconnoisseur/binge-ios) tracks feature-parity.
 
-> _Hero screenshot — see [Screenshots](#screenshots-to-capture) at the bottom for what to drop here._
+<!-- TODO: 01-hero — reel slide in action (video/GIF preferred, 16:9). The signature shot. -->
 
 ---
 
 ## Highlights
 
-- **Vertical reel** — TikTok-style swipe-through scene viewer with double-tap-to-like, action stack carrying rating, saved collections, multiview + scribe handoffs.
-- **Home stories + feed** — IG-style stories row of performers with new content (library + StashDB releases + optional Reddit) on top of a paginated scene feed.
-- **Performer profiles** — full-screen profile pages with bio, stats, scene grid, image grid, and a smart social-link row with icons for Twitter/Instagram/TikTok/Reddit/OnlyFans/Fansly + a popup for everything else. Library + StashDB-only variants share the same layout.
-- **StashDB discovery** — DISCOVER (co-stars) and TRENDING cards surface scenes you don't have. Follow performers with a Stash-style editable scrape modal. Add their scenes to your library the same way.
-- **Mobile-first** — bottom nav, hover-card mini-profiles, performer name `@mention` text links throughout. Touch + desktop parity.
+- **Vertical reel** — swipe-through scenes, double-tap-to-like, action stack (rating, multiview, scribe, save, ⋯).
+- **Home stories + feed** — IG-style stories row of performers with new content (library + StashDB + optional Reddit) above a paginated scene feed. Bulk imports collapse into single pack cards.
+- **Performer profiles** — bio, stats, scene grid, image grid, social-link strip with branded icons for Twitter / Instagram / TikTok / Reddit / OnlyFans / Fansly + a 🔗 popup for the rest. Library + StashDB-only variants share the layout.
+- **StashDB discovery** — DISCOVER + TRENDING cards in Home; Follow performers + Add scenes you don't have, both via Stash-style scrape modals.
+- **Mobile-first** — bottom nav, hover-card mini-profiles, performer `@mention` links. Touch + desktop parity.
 
 ---
 
 ## What it does
 
 ### Reel · For You
-TikTok-style vertical scrolling through scenes. Tap to play/pause, double-tap to like (increments Stash's O-counter), swipe to advance. The right-side action stack carries: **Heart · Rate · Multiview · Scribe · Bookmark · ⋯** (Open in Stash, Auto-scroll toggle).
+Vertical swipe through scenes. Tap to play/pause, double-tap to like, swipe to advance. Right-side action stack: **Heart · Rate · Multiview · Scribe · Bookmark · ⋯**. Filter chips at top constrain the random feed by performer / tag / studio and persist as you scroll.
 
-Filter chips at the top let you constrain the random feed by performer / tag / studio. The chips persist as you scroll.
+<!-- TODO: 18-reel-more-menu — reel ⋯ menu (Auto-scroll + Open in Stash) -->
 
 ### Home
-Two halves stacked:
+**Stories row** of performers with fresh content (library scenes within your lookback + StashDB new releases + Reddit posts when binge-server is reachable). Tap a bubble → IG-style story viewer with auto-advance and a "Watch full scene" CTA into the reel.
 
-1. **Stories row** — horizontal scroll of performer bubbles, one per favourited performer with new content in your lookback window. Sources merge:
-    - Library scenes (created or released in the last N days)
-    - StashDB new releases (for performers with linked stash_ids you don't already own)
-    - Reddit posts (when [binge-server](https://github.com/ordureconnoisseur/binge-server) is running)
-2. **Scene feed** — IG-style post cards. Each card has a preview video, the performer header (avatar + hover-card on name), title with expandable description + hashtag row, ⋯ menu (Open in Stash), action row (Like / Rate / Multiview / Scribe / Save / Watch full scene).
+**Scene feed** of IG-style cards: preview video, performer header (avatar + hover-card), title + expandable description + hashtags, action row. Bulk imports of one performer collapse into a single **Pack card** with a 3×3 mosaic — keeps one prolific performer from dominating the feed.
 
-**Discovery cards mix in.** Scenes from StashDB you don't have show up as feed cards with a coloured **DISCOVER** (co-stars, orange) or **TRENDING** (StashDB trending, pink) pill, an avatar stack of every library performer on the scene, and inline `@mention` text links for any unfollowed co-performers. Tap **+ Follow** for one-tap onboarding, or **⋯ → Add scene to library** to scrape + create the scene locally.
+**Discovery cards** mix in. StashDB scenes you don't own appear with a coloured **DISCOVER** (co-stars) or **TRENDING** pill, an avatar stack of library performers on the scene, and `@mention` text links for unfollowed co-performers. Tap **+ Follow** for one-tap onboarding or **⋯ → Add scene to library** to scrape + create locally.
+
+<!-- TODO: 02-home — stories row + feed cards -->
+<!-- TODO: 03-discovery-card — single card with pill + avatar stack + Follow + @mentions -->
+<!-- TODO: 20-pack-card — Pack feed card (3×3 mosaic + story ring) -->
+<!-- TODO: 21-story-viewer — story viewer mid-playback (progress strip + CTA) -->
 
 ### Explore
-Search scenes, browse a grid, discover performers.
+Search bar (Stash's `q` filter), recent-tag chips (from your interaction history), tile grid of scenes. A **Discover Performers** bubble row at top scrolls through StashDB's recent-activity performers (filtered to your enabled genders). Tap → profile.
 
-- **Discover Performers bar** sits at the top — horizontal scroll of StashDB's recent-activity female performers. Bubbles ringed green when already in your library; tap → opens their profile (library or StashDB-only as appropriate).
-- **Search bar** queries Stash via the standard `q` filter.
-- **Recent tag chips** — derived from your interaction history (likes, opens) with a fallback to tags from your recently-liked scenes.
-- **Tile grid** of scenes matching the active filters.
+<!-- TODO: 08-explore-discover-bar — Discover Performers bubble row -->
+<!-- TODO: 09-explore-full — full Explore page -->
 
-### Following
-Performers you've toggled `favorite` on, sortable by their most recent activity. Search, jump into any performer's profile, or use this as a curated index of your library.
+### Following · Saved
+Following lists performers you've favourited, sorted by recent activity. Saved holds your collections (Watch Later, Favourite ★, and any custom ones); each opens a 3-column grid.
 
-### Saved
-Personal collections — "Watch Later", "Favourite ★", and any custom ones you've made. Each collection opens a 3-column grid (Explore-style) instead of dropping you straight into the reel.
+<!-- TODO: 17-saved — collection 3-column grid -->
 
 ### Performer profile
-Full-screen page mirroring Instagram's profile layout:
+Full-screen page mirroring Instagram's profile layout: avatar (with binge's pink→purple→blue story ring on new content), bio, stats, **social-link row**, Favourite/Follow action, Scenes + Images tabs. StashDB-only profiles get a **+ Follow** button instead of the favourite toggle, plus a Stash-style scrape modal. Hash-routed: `#/p/<localId>` and `#/sdbp/<stashDBId>` — both deep-linkable.
 
-- Topbar with back button + name (Favourited-tick if applicable, StashDB pill if it's an unfollowed performer)
-- Hero row: avatar (with IG-gradient story ring when they have new content) + stats (**scenes / orgasms / rating** — or scenes / in-library / aliases for StashDB-only)
-- Bio: name (link → opens in Stash or StashDB), aliases, country · birth year · hair · eyes, details, and a **social-link row** — see below
-- Actions: **Favourite** toggle (library) or **+ Follow** button (StashDB-only)
-- Tabs: Scenes / Images
-- Scenes grid — library scenes mixed with StashDB-only scenes (toggleable per-profile from the heading pill). StashDB tiles wear a corner badge and open AddSceneModal on tap.
-
-Hash-routed: `#/p/<localId>` for library performers, `#/sdbp/<stashDBId>` for StashDB-only. Both deep-linkable + browser-back-friendly.
+<!-- TODO: 04-profile-library — library profile (bio + social + stats + grid) -->
+<!-- TODO: 05-profile-stashdb — StashDB-only profile (Follow + badged tiles) -->
+<!-- TODO: 06-profile-mixin — library profile with StashDB mixin enabled -->
 
 ---
 
 ## StashDB discovery
 
-Three interlocking surfaces, all gated by a single Settings toggle (default ON, no-op without a configured StashDB API key):
+Single Settings toggle, default ON, no-op without a StashDB API key. Three surfaces:
 
-### 1. Discovery cards in the Home feed
-Two seeds funnel into a single de-duped scene list, each tagged with a coloured pill so you know where it came from:
+1. **Home discovery cards** — DISCOVER (recent StashDB scenes featuring a performer you favourite, with an unfollowed co-star as the headliner) + TRENDING (`sort: TRENDING` against StashDB). Both pills brand-pink; the label is the differentiator.
+2. **Follow modal** — Tap **+ Follow** anywhere → Stash-style sheet with the StashDB performer record + image carousel pre-filled. Submit → `performerCreate` with a `stash_ids` link so future merges resolve.
+3. **Add scene modal** — On any discovery card, **⋯ → Add scene to library** scrapes title / code / director / date / urls / cover, resolves performer + studio `stash_ids` to local IDs, submits `sceneCreate`.
 
-- **DISCOVER** (orange) — recent StashDB scenes featuring at least one performer you already favourite. Any other female performer on those scenes becomes a candidate.
-- **TRENDING** (pink) — `sort: TRENDING` against StashDB (the same query that powers their homepage's Trending Scenes section). Ranks by recent activity, not release date.
+**Performer-profile mixin** (off by default): toggle the StashDB pill in any library profile's scenes heading to interleave that performer's unowned StashDB scenes into the grid. Mixed-in tiles wear a blue badge and open AddSceneModal on tap.
 
-Each card represents ONE scene. The header shows an **avatar stack** of every library performer on the scene (overlapping circles, click any one to jump straight to their profile), headlined by:
-1. A library performer if any are on the scene (no Follow needed — they're already there).
-2. Otherwise the **most popular** unfollowed female performer (highest `scene_count`).
+<!-- TODO: 10-follow-modal — open FollowPerformerModal with scraped data + carousel -->
+<!-- TODO: 11-add-scene-modal — open AddSceneModal with cover carousel + chips -->
 
-Co-performers that aren't in your library appear as inline `@mention` text links in the card body; hovering (or tapping on mobile) opens their mini-profile card with Follow + Open profile inline.
+### Social links
 
-### 2. Follow modal
-Tap **+ Follow** anywhere — Stash-style "Add to library" sheet opens. Auto-fetches the full StashDB performer record + image carousel, pre-fills an editable form that mirrors Stash's own `PerformerEditPanel` field set exactly (name, gender, birthdate, country, height, measurements, fake_tits, career years, tattoos, piercings, URLs, etc.). Submit → `performerCreate` with a `stash_ids` link so future merges auto-resolve.
+Bio row carries a smart link strip. Known platforms (Twitter, Instagram, TikTok, Reddit, OnlyFans, Fansly) get branded pills; everything else collapses into a 🔗 N popup. Reads from Stash's deprecated `twitter`/`instagram`/`url` fields and the modern `urls[]` array, de-duped and host-normalised.
 
-### 3. Add scene to library
-On any discovery card, **⋯ → Add scene to library** opens AddSceneModal — same shape as the performer modal, but for scenes. Scrapes title, code, director, date, urls, cover image carousel from StashDB; resolves performer + studio `stash_ids` to local IDs before submitting `sceneCreate`. After Add, the scene drops out of the discovery feed and shows up via the library path on next refresh.
+<!-- TODO: 07-other-links-popup — 🔗 N popup with miscellaneous URLs -->
 
-### Performer-profile mixin (toggleable)
-When viewing a library performer's profile, you can interleave scenes from their StashDB catalogue that you don't already own into the grid (sorted by release date). StashDB-only tiles wear a blue badge and open AddSceneModal on tap. Off by default — flip the **StashDB** pill in the scenes-section heading on any performer who has a linked stash_id, or set the global default in Settings.
+### Hover cards
 
-### Social links on profiles
-The bio row carries a smart link strip. Known platforms get their own coloured pill with the brand glyph:
+Hover (desktop) or tap (mobile) any performer name or avatar → mini-profile pops up with avatar, name, gender · age, "In library" (green) or "StashDB" (blue) pill, **Open profile** + (for StashDB-only) **Follow**. Available on discovery cards, library scene cards, and Discover Performers bubbles.
 
-- **Twitter / X** (incl. x.com, t.co)
-- **Instagram** (incl. instagr.am)
-- **TikTok**
-- **Reddit**
-- **OnlyFans**
-- **Fansly**
-
-Everything else collapses into a single `🔗 N` pill that opens a centred popup listing the URLs verbatim — keeps the bio tidy when a performer has half a dozen miscellaneous sites linked. Works on library + StashDB-only profiles. Reads from Stash's deprecated `twitter`/`instagram`/`url` fields *and* the modern `urls[]` array, de-duped and host-normalised so subdomains all match.
+<!-- TODO: 12-hovercard — in-library + StashDB hover cards side-by-side -->
 
 ---
 
-### Performer hover cards
-Hover (desktop) or tap (mobile) almost any performer name or avatar in binge → IG-style mini-profile pops up:
+## Mobile
 
-- Avatar, name, gender · age
-- "In library" (green) or "StashDB" (blue) pill
-- **Open profile** button (jumps to the appropriate profile page)
-- **Follow** button (only on StashDB-only performers; opens the same FollowPerformerModal as elsewhere)
+At ≤720px:
 
-Available on: discovery cards (primary + co-stars), library scene cards (avatars + name button), Discover Performers bar bubbles.
+- **Bottom nav** replaces the top tab bar — five slots, IG-style icons, auto-hides on reel scroll-down.
+- **Floating chrome** — home/burger top-right on Home, filter pill on For You.
+- **Menu page** lists Saved + Settings as cards.
+- Sheets use Stash's native bottom-sheet pattern with detents. `safe-area-inset-bottom` respected.
 
----
-
-## Mobile UI
-
-At ≤720px viewports:
-
-- **Bottom nav** replaces the top tab bar. Five slots: Home · For You · Explore · Following · Menu. IG-style icons (filled when active).
-- **Auto-hides** on scroll-down through the reel; reappears on scroll-up. Same gesture as Instagram Reels.
-- Floating top-right buttons for context: home/burger on Home, filter gear on For You.
-- **Menu page** — "More" surface listing Saved + Settings as bordered cards.
-- Sheets (Save / Rate / Follow / Add Scene) all use Stash's native bottom-sheet pattern with detents.
-- iOS `safe-area-inset-bottom` respected throughout.
+<!-- TODO: 13-mobile-home / 14-mobile-reel / 15-mobile-menu / 16-mobile-nav -->
 
 ---
 
@@ -132,69 +101,63 @@ Detected at runtime — install whichever you want; binge degrades gracefully wh
 
 | Plugin | What it adds |
 |-|-|
-| [Refract](https://github.com/ordureconnoisseur/stash-refract) | Tints binge's accent colour to match your refract palette (opt-in toggle) |
-| [stash-multiview](https://github.com/ordureconnoisseur/stash-multiview) | 4-cell grid button in the action stack — tap to queue, hold to open the player |
-| [stash-advanced-rating](https://github.com/ordureconnoisseur/stash-advanced-rating) | Replaces the basic 0-5 star rating with binge's native criterion modal (scene reel + performer profile) |
-| [stash-scribe](https://github.com/ordureconnoisseur/stash-scribe) | Adds the Scribe pencil icon to the action stack |
-
-### Optional: binge-server (Reddit posts in stories)
-
-If you want new Reddit posts from performers' accounts to show up in the stories row, run [binge-server](https://github.com/ordureconnoisseur/binge-server) — a small Go daemon that polls Reddit on your behalf. Without it, stories show library + StashDB content only.
+| [Refract](https://github.com/ordureconnoisseur/stash-refract) | Tints binge's accent to match your refract palette (opt-in toggle) |
+| [stash-multiview](https://github.com/ordureconnoisseur/stash-multiview) | 4-cell grid button in the action stack — tap to queue, hold to open |
+| [stash-advanced-rating](https://github.com/ordureconnoisseur/stash-advanced-rating) | Per-criterion 0–5 rating modal in reel + profile |
+| [stash-scribe](https://github.com/ordureconnoisseur/stash-scribe) | Scribe pencil → LLM-powered review writing |
+| [binge-server](https://github.com/ordureconnoisseur/binge-server) | Reddit posts in the stories row (separate Go daemon) |
 
 ---
 
 ## Install
 
-binge is published to [`ordureconnoisseur/plugins`](https://github.com/ordureconnoisseur/plugins) — add that as a source in **Stash → Settings → Plugins → Available Plugins → Add Source** with this URL:
+Add this URL as a source in **Stash → Settings → Plugins → Available Plugins → Add Source**:
 
 ```
 https://ordureconnoisseur.github.io/plugins/index.yml
 ```
 
-Then install **Binge** from the list. An infinity-symbol button appears in Stash's main nav — click it.
+Install **Binge** from the list. An infinity-symbol button appears in Stash's main nav — click it.
 
-### Manual install
+### Manual
 
 ```bash
-# Download the latest release zip from
-# https://github.com/ordureconnoisseur/binge/releases
 unzip binge-vX.Y.Z.zip -d ~/.stash/plugins/binge/
+# then: Stash → Settings → Plugins → Reload Plugins
 ```
 
-Then **Stash → Settings → Plugins → Reload Plugins**.
-
-binge stores all of its preferences in `localStorage` under `binge.*`; nothing in Stash's own config gets touched.
+Preferences live in `localStorage` under `binge.*` — nothing in Stash's own config gets touched.
 
 ---
 
 ## Settings
 
-Open binge → ⋯ → Settings (desktop) or Menu → Settings (mobile). All preferences stored locally per-browser:
+Open binge → ⋯ → Settings (desktop) or Menu → Settings (mobile).
 
 | Setting | Default | Notes |
 |-|-|-|
-| **Stream type** | Auto | Auto / Direct / MP4 / WebM / HLS — matches Stash's transcode options |
-| **Show galleries in feed** | On | Mix galleries into the Home feed |
-| **Recent window** | 30 days | How far back "new" means for stories + feed. 7 / 14 / 30 / 60 / 90 / 180 / 365 |
-| **Include StashDB new releases in stories** | On | Surface new releases for performers with linked stash_ids. No-op without a configured StashDB API key. |
-| **Mix StashDB scenes into performer profiles** | **Off** | Interleave StashDB scenes you don't own into library performer profile grids. Also flip-able per-profile from the scenes-heading pill. |
-| **Include Reddit posts in stories** | On | Requires binge-server running (silent no-op otherwise) |
-| **binge-server URL** | `http://localhost:7878` | Override if running remotely |
-| **binge-server configuration** | — | Auto-detects your Stash API key + accepts a Reddit cookie. Visible only when binge-server is reachable. |
-| **Follow refract accent** | Off | Mirror refract's accent palette into binge |
-| **Auto-scroll** | Off | In the reel's ⋯ menu — advance to next scene when current ends |
-| **Show debug overlay** | Off | Per-slide debug HUD; toggle via the `\` hotkey in the reel |
+| Genders to surface | Female + Trans female | Five toggles. Drives discovery feed + Discover Performers row. |
+| Stream type | Auto | Auto / Direct / MP4 / WebM / HLS |
+| Show galleries in feed | On | Mix galleries into Home |
+| Recent window | 30 days | How far back "new" means. 7 / 14 / 30 / 60 / 90 / 180 / 365 |
+| Include StashDB new releases | On | In stories + Home. No-op without a StashDB API key. |
+| Mix StashDB into profiles | Off | Also flip-able per-profile from the scenes-heading pill |
+| Include Reddit posts | On | Requires binge-server reachable (silent no-op otherwise) |
+| binge-server URL | `http://localhost:7878` | Override if remote |
+| binge-server configuration | — | Auto-detects your Stash API key + accepts a Reddit cookie. Visible only when binge-server is reachable. |
+| Follow refract accent | Off | Mirror refract's accent palette into binge |
+| Auto-scroll | Off | Advance to next scene when current ends (reel ⋯ menu) |
+| Show debug overlay | Off | Per-slide debug HUD; `\` hotkey in reel |
 
 ---
 
 ## Architecture
 
-- **Vite + React 19 + TypeScript** bundled to a single-file SPA (`dist/index.html`) that Stash serves from `/plugin/binge/assets/index.html`. The plugin shim `binge.entry.js` injects the nav button.
-- **All data through Stash's GraphQL** (`/graphql`, same-origin cookie auth). No backend of binge's own.
-- **StashDB queries hit `https://stashdb.org/graphql` directly** with the user's API key (read from Stash's stashbox config). Caches at 12h TTL in localStorage.
-- **Hash routing**: `#/home`, `#/foryou`, `#/explore`, `#/following`, `#/saved`, `#/settings`, `#/menu`, `#/p/<localId>`, `#/sdbp/<stashDBId>` — direct deep-links + browser back work.
-- **No build-time plugin coupling**. ASR/APR/multiview/scribe/refract presence detected via `plugins { id enabled }` and gated through React context.
-- **No build-time refract integration**. Refract's tokens picked up at runtime via a `body.stash-liquid-glass` check; binge's accent CSS variable cascades from there.
+- **Vite + React 19 + TypeScript** bundled to a single-file SPA (`dist/index.html`) that Stash serves from `/plugin/binge/assets/index.html`. `binge.entry.js` injects the nav button.
+- **All Stash data via GraphQL** (`/graphql`, same-origin cookie auth). No backend of binge's own.
+- **StashDB direct** — queries `https://stashdb.org/graphql` with the user's API key (read from Stash's stashbox config). 12h localStorage cache.
+- **Hash routing** — `#/home`, `#/foryou`, `#/explore`, `#/following`, `#/saved`, `#/settings`, `#/menu`, `#/p/<id>`, `#/sdbp/<id>`. Direct deep-links + browser back.
+- **Runtime plugin detection** — ASR / scribe / multiview / refract presence queried at boot, gated through React context.
 
 ---
 
@@ -204,14 +167,14 @@ Open binge → ⋯ → Settings (desktop) or Menu → Settings (mobile). All pre
 git clone https://github.com/ordureconnoisseur/binge.git
 cd binge
 npm install
-npm run dev     # Vite dev server (SPA only — runs alone but no Stash data)
+npm run dev     # Vite dev (SPA only — no Stash data)
 npm run build   # produces dist/index.html
-npm run push    # build + deploy via scripts/push.sh (your own)
+npm run push    # build + deploy via scripts/push.sh (write your own)
 ```
 
-Stack: **Vite + React 19 + TypeScript + TanStack Virtual** (reel virtualization).
+Stack: Vite · React 19 · TypeScript · TanStack Virtual (reel virtualization).
 
-Local deploy helper: `scripts/push.sh` is gitignored — write your own one-liner. Minimal version:
+Minimal `scripts/push.sh`:
 
 ```bash
 #!/usr/bin/env bash
@@ -220,51 +183,19 @@ scp binge.yml dist/binge.entry.js dist/index.html \
     user@host:'/path/to/stash/plugins/binge/'
 ```
 
-Then `chmod +x scripts/push.sh` and `npm run push` builds-and-deploys in one go.
-
 ---
 
 ## License
 
 MIT. See [LICENSE](./LICENSE).
 
----
+<!-- Capture targets: dark mode, 1440×900 desktop, 390×844 mobile. Upload via:
+     gh release upload media-assets <file> --repo ordureconnoisseur/binge
+     Stable URL: github.com/ordureconnoisseur/binge/releases/download/media-assets/<file>
 
-## Screenshots to capture
-
-For the README's visual gallery — what to grab, in priority order:
-
-### Hero (top of README)
-1. **Reel slide in action** (video preferred) — a scene playing, action stack visible on the right, performer info bottom-left. The signature shot. Wide aspect (16:9 or 21:9) ideal for the hero.
-
-### Core features (interspersed in sections above)
-2. **Home — stories row + feed cards** — captures both halves of Home in one screenshot. Some bubbles ringed, a couple of scene cards visible.
-3. **Home — discovery card** — close-up of a single discovery feed card showing the coloured **DISCOVER** or **TRENDING** pill, the **avatar stack** of library performers on the scene, the cover image, the `+ Follow` pill, and the `@mention` co-star row at the bottom. Capture one of each pill type (orange + pink) side-by-side if possible.
-4. **Library performer profile** — bio + stats (scenes / orgasms / rating) + scene grid for a performer you have lots of scenes for. Make sure the **social-link row** is populated — pick one with Twitter / Instagram / OnlyFans pills visible.
-5. **StashDB-only performer profile** — same layout, but with the blue "StashDB" pill next to the name + the `+ Follow` button + StashDB scene tiles with corner badges.
-6. **Library profile with StashDB mixin** — scene grid showing both library tiles AND StashDB-only tiles (badge-marked) interleaved, with the green **StashDB** pill in the scenes-section heading toggled on.
-7. **Other-links popup** — open the `🔗 N` chip on a performer with several misc URLs; capture the centred popup listing them.
-8. **Explore — Discover Performers bar** — the top section, focused screenshot of the horizontal bubble row.
-9. **Explore — full page** — the bubble row + search bar + tag chips + tile grid below.
-
-### Modals + popups
-10. **FollowPerformerModal** — open form showing the carousel-displayed photo, name field, all the editable fields. Two side-by-side variants if possible: one with full StashDB data scraped, one mid-edit.
-11. **AddSceneModal** — open form for adding a StashDB scene. Cover carousel + performer chips + editable fields.
-12. **PerformerHoverCard** — mini-profile pop-up. Two variants:
-    - "In library" (green pill, Open profile button)
-    - "StashDB" (blue pill, Follow + Open profile buttons)
-
-### Mobile
-13. **Mobile Home** — full screen with bottom nav visible.
-14. **Mobile reel** — full-screen scene, bottom nav hiding state.
-15. **Mobile Menu page** — the "More" surface with Saved + Settings rows.
-16. **Mobile bottom nav close-up** — the 5 icons (Home · For You · Explore · Following · Menu), one active.
-
-### Optional polish
-17. **Saved tab** — a collection's 3-column grid.
-18. **Reel ⋯ menu open** — showing the Auto-scroll toggle + Open in Stash.
-19. **Settings page** — scrolled to show the StashDB section, with both toggles visible.
-
-For each: prefer dark-mode (binge's default), 1440×900 viewport for desktop shots, 390×844 (iPhone 14 Pro) for mobile. Crop tight — full-bleed UI looks better than browser chrome.
-
-Recommended host: upload to the existing **`media-assets` GitHub Release** on the binge repo via `gh release upload media-assets <file>`, then link the asset URL inline. Keeps the repo small and gives stable CDN URLs.
+     01-hero / 02-home / 03-discovery-card / 04-profile-library / 05-profile-stashdb
+     06-profile-mixin / 07-other-links-popup / 08-explore-discover-bar / 09-explore-full
+     10-follow-modal / 11-add-scene-modal / 12-hovercard
+     13-mobile-home / 14-mobile-reel / 15-mobile-menu / 16-mobile-nav
+     17-saved / 18-reel-more-menu / 19-settings / 20-pack-card / 21-story-viewer
+-->
