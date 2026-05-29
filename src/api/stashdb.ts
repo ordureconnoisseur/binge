@@ -495,7 +495,9 @@ export async function getStashDBPerformer(
         images: p.images ?? [],
         urls: (p.urls ?? []).map((u) => ({
             url: u.url,
-            site: u.site.name,
+            // site can be null on a StashDB URL — guard the deref so
+            // one site-less URL doesn't throw the whole record mapping.
+            site: u.site?.name ?? "",
         })),
         tattoos: p.tattoos ?? [],
         piercings: p.piercings ?? [],
@@ -628,7 +630,7 @@ export async function getStashDBScene(
         duration: s.duration,
         urls: (s.urls ?? []).map((u) => ({
             url: u.url,
-            site: u.site.name,
+            site: u.site?.name ?? "",
         })),
         studio: s.studio
             ? { stashId: s.studio.id, name: s.studio.name }
