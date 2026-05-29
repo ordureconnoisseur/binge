@@ -883,32 +883,12 @@ export interface RecentSceneRow {
     performerFavorite: boolean;
 }
 
-// SHOWCASE-FILTER-HACK — tag-ID exclusion list for the README
-// screenshot pass. Mirrors Stash's saved "Showcase" filter (id 9)
-// so the Home feed shows the same curated set as the For You reel
-// during capture. Revert before shipping by removing the `tags:`
-// criterion from FIND_RECENT_SCENES + FIND_SCENES_BY_DATE.
-const SHOWCASE_EXCLUDE_TAG_IDS = [
-    "1985", "646", "647", "350", "1994", "645", "1611", "5",
-    "648", "657", "1984", "660", "667", "2404", "1250", "1094",
-    "1610", "1514", "644", "2259", "1933", "1961", "1942", "1956",
-    "1927", "2073",
-];
-const SHOWCASE_TAGS_CLAUSE = `tags: {
-    value: [${SHOWCASE_EXCLUDE_TAG_IDS.map((id) => `"${id}"`).join(", ")}]
-    excludes: []
-    modifier: EXCLUDES
-    depth: 0
-}
-performer_count: { value: 0, modifier: GREATER_THAN }`;
-
-function buildFindRecentScenesQuery(showcase: boolean): string {
+function buildFindRecentScenesQuery(): string {
     return /* GraphQL */ `
     query RecentScenes($since: String!, $per_page: Int!) {
         findScenes(
             scene_filter: {
                 created_at: { value: $since, modifier: GREATER_THAN }
-                ${showcase ? SHOWCASE_TAGS_CLAUSE : ""}
             }
             filter: {
                 page: 1
@@ -951,13 +931,12 @@ function buildFindRecentScenesQuery(showcase: boolean): string {
 // library-add date. The user has scenes whose `date` is recent but
 // whose `created_at` is months/years old; they wouldn't show up in
 // the created_at-filtered query above. We run both and merge by id.
-function buildFindScenesByDateQuery(showcase: boolean): string {
+function buildFindScenesByDateQuery(): string {
     return /* GraphQL */ `
     query ScenesByDate($since: String!, $per_page: Int!) {
         findScenes(
             scene_filter: {
                 date: { value: $since, modifier: GREATER_THAN }
-                ${showcase ? SHOWCASE_TAGS_CLAUSE : ""}
             }
             filter: {
                 page: 1
@@ -1059,11 +1038,10 @@ function flattenSceneNodes(scenes: RawSceneNode[]): RecentSceneRow[] {
 
 export async function findRecentScenes(
     sinceIso: string,
-    perPage = 500,
-    showcase = false
+    perPage = 500
 ): Promise<RecentSceneRow[]> {
     const data = await gql<{ findScenes: { scenes: RawSceneNode[] } }>(
-        buildFindRecentScenesQuery(showcase),
+        buildFindRecentScenesQuery(),
         { since: sinceIso, per_page: perPage }
     );
     return flattenSceneNodes(data.findScenes.scenes);
@@ -1076,11 +1054,10 @@ export async function findRecentScenes(
 // imported a year ago would be invisible to the Home feed.
 export async function findScenesByDate(
     sinceDate: string,
-    perPage = 500,
-    showcase = false
+    perPage = 500
 ): Promise<RecentSceneRow[]> {
     const data = await gql<{ findScenes: { scenes: RawSceneNode[] } }>(
-        buildFindScenesByDateQuery(showcase),
+        buildFindScenesByDateQuery(),
         { since: sinceDate, per_page: perPage }
     );
     return flattenSceneNodes(data.findScenes.scenes);

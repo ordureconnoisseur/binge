@@ -15,7 +15,6 @@ import {
     useShowGalleries,
     useLookbackDays,
     useIncludeStashDB,
-    useShowcaseMode,
 } from "./pluginSettings";
 import {
     fetchDiscoveryFeedItems,
@@ -285,7 +284,6 @@ export function useFeed(): FeedHookResult {
     const [state, setState] = useState<FeedState>({ kind: "loading" });
     const showGalleries = useShowGalleries();
     const includeStashDB = useIncludeStashDB();
-    const showcase = useShowcaseMode();
 
     useEffect(() => {
         let alive = true;
@@ -317,8 +315,8 @@ export function useFeed(): FeedHookResult {
                     galleriesByDate,
                     discoveryItems,
                 ] = await Promise.all([
-                    getRecentScenes(sinceIso, showcase),
-                    getScenesByDate(sinceDate, showcase),
+                    getRecentScenes(sinceIso),
+                    getScenesByDate(sinceDate),
                     // Skip the gallery queries entirely when the user
                     // has turned them off — saves a round-trip and N
                     // per-gallery image fetches.
@@ -467,7 +465,7 @@ export function useFeed(): FeedHookResult {
         return () => {
             alive = false;
         };
-    }, [lookbackDays, showGalleries, includeStashDB, showcase]);
+    }, [lookbackDays, showGalleries, includeStashDB]);
 
     return { state };
 }

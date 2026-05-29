@@ -8,12 +8,6 @@ export function FilterBar() {
     const { filter, remove, isEmpty, activeSavedFilter, clearSavedFilter } =
         useFilter();
 
-    // Showcase mode hides its own chip — it's auto-applied via
-    // the Settings toggle, not the user clicking a saved filter,
-    // so surfacing it as a removable chip would be confusing.
-    if (activeSavedFilter?.name === "Showcase") {
-        return null;
-    }
     // Saved-filter mode: one chip showing the saved filter's name.
     // Tapping it clears the saved filter and returns to no-filter.
     if (activeSavedFilter) {
