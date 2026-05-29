@@ -322,12 +322,17 @@ export function useFeed(): FeedHookResult {
         // created_at (TimestampCriterionInput). Need both shapes.
         const sinceDate = sinceIso.slice(0, 10);
 
-        // Repost cutoff uses the CONFIGURED recent window (not the
-        // grown scroll window) so a scene's/pack's repost status is
-        // stable as the user paginates. A scene whose scraped date is
-        // older than this could only have reached the feed via the
-        // recent-created_at query → it's back-catalog you just added.
-        const repostCutoff = new Date(
+        // Start of the CONFIGURED recent window (not the grown
+        // infinite-scroll window). Two uses, both of which must stay
+        // pinned to the user's setting as they paginate:
+        //   1. Repost classification — a scene dated before this could
+        //      only have reached the feed via the recent-created_at
+        //      query, so it's back-catalog you just re-added.
+        //   2. Discovery (discover + trending) window — discovery is a
+        //      "what's hot/new recently" surface, NOT library history,
+        //      so it must NOT widen as you scroll (otherwise loadMore
+        //      keeps pulling in ever-older discover/trending cards).
+        const configuredSinceDate = new Date(
             Date.now() - initialLookbackDays * 24 * 3600 * 1000
         )
             .toISOString()
@@ -367,7 +372,7 @@ export function useFeed(): FeedHookResult {
                     // Failures swallowed inside fetchDiscoveryFeedItems
                     // so a StashDB outage never breaks the feed.
                     includeStashDB
-                        ? fetchDiscoveryFeedItems(sinceDate)
+                        ? fetchDiscoveryFeedItems(configuredSinceDate)
                         : Promise.resolve([] as DiscoveryFeedItem[]),
                 ]);
                 if (!alive) return;
@@ -397,7 +402,7 @@ export function useFeed(): FeedHookResult {
                         // sinking to its years-old release date.
                         const isRepost =
                             r.sceneDate !== null &&
-                            r.sceneDate < repostCutoff;
+                            r.sceneDate < configuredSinceDate;
                         item = {
                             kind: "scene",
                             key: `scene:${r.sceneId}`,
@@ -474,7 +479,7 @@ export function useFeed(): FeedHookResult {
                     Array.from(sceneItems.values()).sort((a, b) =>
                         b.effectiveAt.localeCompare(a.effectiveAt)
                     ),
-                    repostCutoff
+                    configuredSinceDate
                 ).slice(0, cap);
                 // galleryList intentionally NOT pre-sorted — the
                 // merged sort below re-orders the whole list anyway,
