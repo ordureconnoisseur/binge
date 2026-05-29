@@ -3,7 +3,6 @@ import type { BingeScene } from "../api/queries";
 import { ActionStack } from "./ActionStack";
 import { PerformerRow } from "./PerformerRow";
 import { pickStreamUrl } from "../util/pickStream";
-import { getTranscodeType } from "../config";
 import { MuteToggle } from "./MuteToggle";
 import { SceneProgress } from "./SceneProgress";
 import { getPersistedMuted, useMuteState } from "../hooks/useMuteState";
@@ -29,7 +28,7 @@ import { HeartBurst } from "./HeartBurst";
 import { SceneDetailsSheet } from "./SceneDetailsSheet";
 import { CriterionRatingModal } from "./CriterionRatingModal";
 import { MoreSheet } from "./MoreSheet";
-import { useAutoScroll } from "../home/pluginSettings";
+import { useAutoScroll, useTranscodeType } from "../home/pluginSettings";
 import { useScribeModal } from "../scribe/ScribeContext";
 
 interface SceneSlideProps {
@@ -103,6 +102,10 @@ export function SceneSlide({
     onAutoAdvance,
 }: SceneSlideProps) {
     const autoScroll = useAutoScroll();
+    // Reactive — re-points mounted <video> src when the user changes
+    // the stream type in Settings (the old getTranscodeType() read was
+    // non-reactive, so mounted slides kept the stale stream).
+    const transcodeType = useTranscodeType();
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [isActive, setIsActive] = useState(false);
@@ -198,6 +201,30 @@ export function SceneSlide({
     // ignored. Keyed by tagName.
     const collectionBusyRef = useRef<Record<string, boolean>>({});
 
+    // Attempt playback at the user's persisted mute preference, with
+    // the autoplay-policy fallback. Centralised so the IO observer,
+    // the tap handler, and the src-settle effect all behave the same.
+    const playPreferred = (video: HTMLVideoElement) => {
+        const pref = getPersistedMuted();
+        video.muted = pref;
+        void video
+            .play()
+            .then(() => {
+                if (muted !== pref) setMutedSession(pref);
+            })
+            .catch((err: unknown) => {
+                // A play() interrupted by pause()/load() (scroll-away,
+                // src swap) rejects with AbortError — NOT an autoplay
+                // block, so don't flip to muted or force a replay.
+                if ((err as DOMException | null)?.name === "AbortError") {
+                    return;
+                }
+                video.muted = true;
+                if (!muted) setMutedSession(true);
+                void video.play().catch(() => {});
+            });
+    };
+
     // Imperative <video src> management. We do this in a useEffect
     // instead of binding `src` as a React prop because:
     //   (1) we want to defer loading while the reel is mid-scroll —
@@ -214,12 +241,20 @@ export function SceneSlide({
         const video = videoRef.current;
         if (!video) return;
         if (currentlyScrolling) return;
-        const url = pickStreamUrl(scene, getTranscodeType());
+        const url = pickStreamUrl(scene, transcodeType);
         if (video.src !== url) {
             video.src = url;
             video.load();
         }
-    }, [currentlyScrolling, scene.id]);
+        // Kick playback for the active slide once src is settled. If
+        // the IO fired play() mid-scroll (before src was assigned) it
+        // rejected and won't re-fire, so the slide would otherwise sit
+        // frozen on its poster. Guarded by isActive (off-screen slides
+        // stay paused) and paused (don't double-play).
+        if (isActive && video.paused) {
+            playPreferred(video);
+        }
+    }, [currentlyScrolling, scene.id, isActive, transcodeType]);
 
     // Explicit decoder cleanup on unmount. The browser doesn't release
     // hardware decoder slots aggressively — they linger until GC. Calling
@@ -451,20 +486,7 @@ export function SceneSlide({
                         // unmuted — and once it succeeds (user gesture is
                         // typically available by slide #2), we sync the
                         // effective state back to that success.
-                        const pref = getPersistedMuted();
-                        video.muted = pref;
-                        void video
-                            .play()
-                            .then(() => {
-                                if (muted !== pref) setMutedSession(pref);
-                            })
-                            .catch(() => {
-                                video.muted = true;
-                                if (!muted) setMutedSession(true);
-                                void video.play().catch(() => {
-                                    /* still blocked — user can tap to play */
-                                });
-                            });
+                        playPreferred(video);
                     } else {
                         video.pause();
                     }
@@ -497,18 +519,7 @@ export function SceneSlide({
         if (video.paused) {
             // Tap IS a gesture, so we can confidently try the user's
             // preference here even if a prior autoplay failed.
-            const pref = getPersistedMuted();
-            video.muted = pref;
-            void video
-                .play()
-                .then(() => {
-                    if (muted !== pref) setMutedSession(pref);
-                })
-                .catch(() => {
-                    video.muted = true;
-                    if (!muted) setMutedSession(true);
-                    void video.play().catch(() => {});
-                });
+            playPreferred(video);
         } else {
             video.pause();
         }

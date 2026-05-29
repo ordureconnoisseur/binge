@@ -249,10 +249,24 @@ export function Reel() {
                         page: 1,
                         hasMore: false,
                     });
-                    const idx = Math.min(
-                        Math.max(0, queue.startIndex),
-                        Math.max(0, scenes.length - 1)
+                    // startIndex indexes the ORIGINAL id list, but
+                    // findScenesByIds can drop deleted scenes (and
+                    // isn't guaranteed to preserve order), so locate
+                    // the tapped scene by id in the fetched list
+                    // rather than trusting the raw index — otherwise a
+                    // missing earlier scene shifts everything and the
+                    // reel opens on the wrong scene.
+                    const targetId = queue.ids[queue.startIndex];
+                    const found = scenes.findIndex(
+                        (s) => s.id === targetId
                     );
+                    const idx =
+                        found >= 0
+                            ? found
+                            : Math.min(
+                                  Math.max(0, queue.startIndex),
+                                  Math.max(0, scenes.length - 1)
+                              );
                     setActiveIndex(idx);
                     setOOverrides({});
                     setRatingOverrides({});
