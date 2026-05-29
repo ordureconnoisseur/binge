@@ -32,9 +32,15 @@ export function BingeStartupSplash() {
     }, []);
 
     // Max safety cutoff — fires no matter what so a slow or
-    // dead Stash doesn't trap the user behind the splash.
+    // dead Stash doesn't trap the user behind the splash. Only
+    // promotes from "hold": this []-deps timer is never re-cleared
+    // (the component returns null but stays mounted), so without the
+    // guard it would re-show an already-dismissed splash at MAX_HOLD.
     useEffect(() => {
-        const t = setTimeout(() => setPhase("fade"), MAX_HOLD_MS);
+        const t = setTimeout(
+            () => setPhase((p) => (p === "hold" ? "fade" : p)),
+            MAX_HOLD_MS
+        );
         return () => clearTimeout(t);
     }, []);
 

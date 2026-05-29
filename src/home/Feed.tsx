@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useFeed, type FeedItem } from "./useFeed";
 import { SceneFeedCard } from "./SceneFeedCard";
@@ -48,10 +48,30 @@ export function Feed({ scrollContainerRef }: FeedProps) {
     const [scrollMargin, setScrollMargin] = useState(0);
 
     const rawItems = state.kind === "ready" ? state.items : [];
-    const items = rawItems.filter((it) => {
-        const cat = feedCategory(it);
-        return cat === null || !hidden.has(cat);
-    });
+    const items = useMemo(
+        () =>
+            rawItems.filter((it) => {
+                const cat = feedCategory(it);
+                return cat === null || !hidden.has(cat);
+            }),
+        [rawItems, hidden]
+    );
+
+    // Date-ordered list of every scene id in the home feed (skips
+    // gallery + discovery rows). Passed to SceneFeedCard so the
+    // "Watch full scene" CTA can drop the user into the reel
+    // pre-populated with the home timeline, starting at the tapped
+    // scene — same UX as the iOS port. Memoized so the array stays
+    // referentially stable and doesn't bust every card's props.
+    const feedSceneIds = useMemo(
+        () =>
+            items
+                .filter((it): it is Extract<typeof it, { kind: "scene" }> =>
+                    it.kind === "scene"
+                )
+                .map((it) => it.sceneId),
+        [items]
+    );
 
     // The feed isn't at the top of its scroll container — there's a
     // page title and the stories row above it. Tell the virtualizer
@@ -122,17 +142,6 @@ export function Feed({ scrollContainerRef }: FeedProps) {
             </section>
         );
     }
-
-    // Date-ordered list of every scene id in the home feed (skips
-    // gallery + discovery rows). Passed to SceneFeedCard so the
-    // "Watch full scene" CTA can drop the user into the reel
-    // pre-populated with the home timeline, starting at the
-    // tapped scene — same UX as the iOS port.
-    const feedSceneIds = items
-        .filter((it): it is Extract<typeof it, { kind: "scene" }> =>
-            it.kind === "scene"
-        )
-        .map((it) => it.sceneId);
 
     return (
         <section
