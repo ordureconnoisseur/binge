@@ -754,8 +754,6 @@ function lookbackLabel(days: number): string {
     if (days === 30) return "Last 30 days";
     if (days === 60) return "Last 60 days";
     if (days === 90) return "Last 90 days";
-    if (days === 180) return "Last 6 months";
-    if (days === 365) return "Last year";
     return `Last ${days} days`;
 }
 
