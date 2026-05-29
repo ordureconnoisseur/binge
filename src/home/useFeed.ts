@@ -15,6 +15,7 @@ import {
     useShowGalleries,
     useLookbackDays,
     useIncludeStashDB,
+    useShowcaseMode,
 } from "./pluginSettings";
 import {
     fetchDiscoveryFeedItems,
@@ -28,6 +29,12 @@ export interface FeedPerformer {
     id: string;
     name: string;
     imagePath: string | null;
+    /// True when the performer is marked Favourite in Stash. The
+    /// feed card uses this to swap the verified-mark colour next
+    /// to the primary performer's name (pink = favourite, blue =
+    /// in library but not favourited). Every feed performer is by
+    /// definition in the library, so the badge always renders.
+    favorite: boolean;
 }
 
 export interface FeedTag {
@@ -51,6 +58,12 @@ export interface SceneFeedItem {
     height: number | null;
     performers: FeedPerformer[];
     tags: FeedTag[];
+    /// True when this is back-catalog you just re-added rather than
+    /// genuinely new content — its scraped release date is older than
+    /// your configured recent window, so it only reached the feed via
+    /// the recent-`created_at` query. The card surfaces it by import
+    /// time (not the old date) and shows a "reposted" mark.
+    isRepost: boolean;
 }
 
 // One gallery-as-post. `images` is the first MAX_GALLERY_IMAGES of the
@@ -82,10 +95,39 @@ export interface DiscoveryFeedItemWrapped extends DiscoveryFeedItem {
     kind: "discovery";
 }
 
+/// Bulk-import card — represents many scenes added to the same
+/// performer within a short window (e.g. a 221-scene OnlyFans
+/// pack imported in one go). Without this, every scene gets its
+/// own card and dominates the feed; collapsing into one item
+/// preserves the "this is new" signal without burying everything
+/// else. Tap opens a sheet with the full scene list.
+export interface PackFeedItem {
+    kind: "pack";
+    key: string;
+    primaryPerformer: FeedPerformer;
+    scenes: SceneFeedItem[];
+    sceneCount: number;
+    /// Newest createdAt in the batch — used for "added X ago"
+    /// labels. ISO string.
+    createdAt: string;
+    /// Drives the merged feed sort. Set to the newest createdAt
+    /// (import time), NOT the scraped release date, so a freshly
+    /// imported batch of old-dated back-catalog still surfaces at
+    /// the top of the feed.
+    effectiveAt: string;
+    /// True when this is back-catalog you just re-added rather than
+    /// genuinely new content — i.e. even the newest scene's scraped
+    /// release date falls outside your configured recent window. The
+    /// card swaps its "added N new scenes" label for "reposted" and
+    /// shows a repost glyph on the avatar.
+    isRepost: boolean;
+}
+
 export type FeedItem =
     | SceneFeedItem
     | GalleryFeedItem
-    | DiscoveryFeedItemWrapped;
+    | DiscoveryFeedItemWrapped
+    | PackFeedItem;
 
 export type FeedState =
     | { kind: "loading" }
@@ -105,6 +147,108 @@ const MAX_LOOKBACK_DAYS = 365;
 // represented when one dominates by recency.
 function perTypeLimit(lookbackDays: number): number {
     return Math.min(200, lookbackDays);
+}
+
+/// Maximum feed cards from a single primary performer that
+/// ISN'T already collapsed into a Pack. Without this, a
+/// merge-sort of recent scenes lets one prolific performer take
+/// over the feed even if there's no obvious batch import.
+const MAX_FEED_CARDS_PER_PERFORMER = 3;
+/// Minimum cluster size to qualify as a "pack" (batch import).
+/// 8 is large enough that two-or-three scenes added together
+/// don't get treated as a pack.
+const PACK_MIN_SIZE = 8;
+/// All scenes in a pack must share createdAt values within this
+/// window — captures the "imported in one go" signal. A full day
+/// rather than an hour because a large scan (hundreds of files,
+/// hashing + preview generation) can spread scene-record creation
+/// across hours; an hour-tight window would fragment one import
+/// into several sub-packs (or drop it below PACK_MIN_SIZE entirely).
+const PACK_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function assemblePacksAndCap(
+    scenes: SceneFeedItem[],
+    repostCutoff: string
+): FeedItem[] {
+    // `repostCutoff` (YYYY-MM-DD) is computed by the caller from the
+    // configured recent window — not the grown infinite-scroll window —
+    // so a pack's repost status doesn't flip as the user scrolls. A
+    // pack is a "repost" when even its newest scene's scraped release
+    // date is older than that cutoff.
+
+    // Group by primary performer.
+    const byPrimary = new Map<string, SceneFeedItem[]>();
+    for (const s of scenes) {
+        const pid = s.performers[0]?.id;
+        if (!pid) continue;
+        const list = byPrimary.get(pid);
+        if (list) list.push(s);
+        else byPrimary.set(pid, [s]);
+    }
+
+    // For each performer, look at how many of their scenes were
+    // created within a tight window of their most recent one.
+    // If that count exceeds PACK_MIN_SIZE → batch import.
+    const packPerformers = new Set<string>();
+    const out: FeedItem[] = [];
+    for (const [pid, list] of byPrimary) {
+        const sortedByCreated = [...list].sort((a, b) =>
+            b.createdAt.localeCompare(a.createdAt)
+        );
+        const newest = new Date(sortedByCreated[0].createdAt).getTime();
+        const inWindow = sortedByCreated.filter(
+            (s) =>
+                newest - new Date(s.createdAt).getTime() <=
+                PACK_WINDOW_MS
+        );
+        if (inWindow.length < PACK_MIN_SIZE) continue;
+        const primary = sortedByCreated[0].performers[0];
+        // Newest scraped release date across the batch. If even that
+        // is older than the recent-window cutoff, the whole pack is
+        // back-catalog → "reposted". Scenes with no date don't count
+        // as evidence either way.
+        let newestDate: string | null = null;
+        for (const s of inWindow) {
+            if (s.date && (newestDate === null || s.date > newestDate)) {
+                newestDate = s.date;
+            }
+        }
+        const isRepost = newestDate !== null && newestDate < repostCutoff;
+        out.push({
+            kind: "pack",
+            key: `pack:${pid}:${sortedByCreated[0].createdAt}`,
+            primaryPerformer: primary,
+            scenes: inWindow,
+            sceneCount: inWindow.length,
+            createdAt: sortedByCreated[0].createdAt,
+            // Sort by IMPORT time, not scraped release date. A pack
+            // is "a batch you just added," so back-catalog with old
+            // scraped dates must still surface at the top of the feed
+            // (and the card's "X ago" label must read the add time,
+            // not the years-old release date).
+            effectiveAt: sortedByCreated[0].createdAt,
+            isRepost,
+        });
+        packPerformers.add(pid);
+    }
+
+    // For everyone else, walk the original (effectiveAt-sorted)
+    // list and apply the per-performer cap. Skip any scene whose
+    // primary is already in a pack — those are consolidated.
+    const counts = new Map<string, number>();
+    for (const s of scenes) {
+        const pid = s.performers[0]?.id;
+        if (!pid) {
+            out.push(s);
+            continue;
+        }
+        if (packPerformers.has(pid)) continue;
+        const c = counts.get(pid) ?? 0;
+        if (c >= MAX_FEED_CARDS_PER_PERFORMER) continue;
+        counts.set(pid, c + 1);
+        out.push(s);
+    }
+    return out;
 }
 // Max images per gallery in the carousel — the rest live behind the
 // "View gallery →" panel and open in the existing ImageLightbox.
@@ -148,6 +292,7 @@ export function useFeed(): FeedHookResult {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const showGalleries = useShowGalleries();
     const includeStashDB = useIncludeStashDB();
+    const showcase = useShowcaseMode();
 
     // When the user picks a new lookback in plugin settings, snap the
     // current window back to that value so the feed re-fetches with
@@ -177,6 +322,17 @@ export function useFeed(): FeedHookResult {
         // created_at (TimestampCriterionInput). Need both shapes.
         const sinceDate = sinceIso.slice(0, 10);
 
+        // Repost cutoff uses the CONFIGURED recent window (not the
+        // grown scroll window) so a scene's/pack's repost status is
+        // stable as the user paginates. A scene whose scraped date is
+        // older than this could only have reached the feed via the
+        // recent-created_at query → it's back-catalog you just added.
+        const repostCutoff = new Date(
+            Date.now() - initialLookbackDays * 24 * 3600 * 1000
+        )
+            .toISOString()
+            .slice(0, 10);
+
         (async () => {
             try {
                 // 4 parallel fetches: two filters × two content types.
@@ -193,8 +349,8 @@ export function useFeed(): FeedHookResult {
                     galleriesByDate,
                     discoveryItems,
                 ] = await Promise.all([
-                    getRecentScenes(sinceIso),
-                    getScenesByDate(sinceDate),
+                    getRecentScenes(sinceIso, showcase),
+                    getScenesByDate(sinceDate, showcase),
                     // Skip the gallery queries entirely when the user
                     // has turned them off — saves a round-trip and N
                     // per-gallery image fetches.
@@ -234,6 +390,14 @@ export function useFeed(): FeedHookResult {
                 for (const r of sceneRows) {
                     let item = sceneItems.get(r.sceneId);
                     if (!item) {
+                        // A scene with an old scraped date that's still
+                        // in the feed must have come via the recent-
+                        // created_at query → back-catalog re-add. Sort
+                        // it by import time so it surfaces instead of
+                        // sinking to its years-old release date.
+                        const isRepost =
+                            r.sceneDate !== null &&
+                            r.sceneDate < repostCutoff;
                         item = {
                             kind: "scene",
                             key: `scene:${r.sceneId}`,
@@ -244,11 +408,14 @@ export function useFeed(): FeedHookResult {
                             screenshot: r.sceneScreenshot,
                             createdAt: r.sceneCreatedAt,
                             date: r.sceneDate,
-                            effectiveAt: r.sceneDate ?? r.sceneCreatedAt,
+                            effectiveAt: isRepost
+                                ? r.sceneCreatedAt
+                                : r.sceneDate ?? r.sceneCreatedAt,
                             width: r.sceneWidth,
                             height: r.sceneHeight,
                             performers: [],
                             tags: r.sceneTags,
+                            isRepost,
                         };
                         sceneItems.set(r.sceneId, item);
                     }
@@ -256,6 +423,7 @@ export function useFeed(): FeedHookResult {
                         id: r.performerId,
                         name: r.performerName,
                         imagePath: r.performerImagePath,
+                        favorite: r.performerFavorite,
                     });
                 }
 
@@ -290,6 +458,7 @@ export function useFeed(): FeedHookResult {
                             id: p.id,
                             name: p.name,
                             imagePath: p.image_path,
+                            favorite: p.favorite,
                         })),
                         paths: g.paths,
                     })
@@ -301,11 +470,12 @@ export function useFeed(): FeedHookResult {
                 // the slots — e.g., a recent gallery import scan
                 // stamps every gallery with today's created_at, which
                 // would otherwise push every scene out of the feed.
-                const sceneList = Array.from(sceneItems.values())
-                    .sort((a, b) =>
+                const sceneList: FeedItem[] = assemblePacksAndCap(
+                    Array.from(sceneItems.values()).sort((a, b) =>
                         b.effectiveAt.localeCompare(a.effectiveAt)
-                    )
-                    .slice(0, cap);
+                    ),
+                    repostCutoff
+                ).slice(0, cap);
                 // galleryList intentionally NOT pre-sorted — the
                 // merged sort below re-orders the whole list anyway,
                 // and galleryItems is small enough that the cap step
@@ -342,7 +512,7 @@ export function useFeed(): FeedHookResult {
         return () => {
             alive = false;
         };
-    }, [lookbackDays, showGalleries, includeStashDB]);
+    }, [lookbackDays, showGalleries, includeStashDB, showcase]);
 
     const loadMore = useCallback(() => {
         setLookbackDays((d) =>

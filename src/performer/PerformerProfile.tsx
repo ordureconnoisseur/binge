@@ -11,8 +11,9 @@ import { PerformerSceneGrid } from "./PerformerSceneGrid";
 import { PerformerImageGrid } from "./PerformerImageGrid";
 import { CriterionRatingModal } from "../components/CriterionRatingModal";
 import { PerformerMoreSheet } from "./PerformerMoreSheet";
-import { useStories } from "../home/useStories";
+import { useSharedStories } from "../home/StoriesContext";
 import { useStoryViewer } from "../home/StoryViewerContext";
+import { BingeLoading } from "../components/BingeLoading";
 
 type ProfileTab = "scenes" | "photos";
 
@@ -68,7 +69,7 @@ function LocalPerformerProfile({ localId }: { localId: string }) {
     // useStories internally caches its fetches so re-mounting in
     // PerformerProfile doesn't re-hit the network if Home already
     // populated.
-    const stories = useStories();
+    const stories = useSharedStories();
     const storyViewer = useStoryViewer();
     const storyIndex =
         stories.state.kind === "ready" && currentId
@@ -183,11 +184,16 @@ function LocalPerformerProfile({ localId }: { localId: string }) {
                 </button>
                 <span className="binge-profile-topbar-name">
                     {state.kind === "ready" ? state.performer.name : ""}
-                    {state.kind === "ready" && favorite && (
+                    {state.kind === "ready" && (
                         <span
-                            className="binge-profile-verified"
-                            aria-label="Favourited"
-                            title="Favourited"
+                            className={
+                                "binge-profile-verified" +
+                                (favorite ? " is-favorite" : "")
+                            }
+                            aria-label={
+                                favorite ? "Favourited" : "In library"
+                            }
+                            title={favorite ? "Favourited" : "In library"}
                         >
                             <VerifiedIcon />
                         </span>
@@ -204,9 +210,7 @@ function LocalPerformerProfile({ localId }: { localId: string }) {
                 </button>
             </header>
             <div className="binge-profile-body" ref={bodyRef}>
-                {state.kind === "loading" && (
-                    <div className="binge-status">loading…</div>
-                )}
+                {state.kind === "loading" && <BingeLoading minHeight="50vh" />}
                 {state.kind === "error" && (
                     <div className="binge-status binge-status-error">
                         error: {state.message}
@@ -399,15 +403,20 @@ function MoreIcon() {
     );
 }
 
-function VerifiedIcon() {
+// Instagram's actual verified-badge geometry — a 12-pointed
+// starburst with a checkmark inset. Authored on a 40×40 canvas.
+// Exported so SceneFeedCard (and any future surface) can reuse
+// it without duplicating the path data.
+export function VerifiedIcon() {
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
+            viewBox="0 0 40 40"
             fill="currentColor"
+            fillRule="evenodd"
             aria-hidden="true"
         >
-            <path d="M12 2l2.39 2.45 3.4-.43.95 3.3 3.26 1.1-1.34 3.18L22 14.6l-2.7 2.1.43 3.4-3.3.95L15.05 24 12 22.5 8.95 24 7.6 21.05l-3.3-.95.43-3.4L2 14.6l1.34-3 -1.34-3.18 3.26-1.1.95-3.3 3.4.43L12 2zm-1.2 13.6l5.66-5.66-1.4-1.4-4.26 4.24-2.1-2.1-1.4 1.4 3.5 3.52z" />
+            <path d="M 19.998 3.094 L 14.638 0 l -2.972 5.15 H 5.432 v 6.354 L 0 14.64 L 3.094 20 L 0 25.359 l 5.432 3.137 v 5.905 h 5.975 L 14.638 40 l 5.36 -3.094 L 25.358 40 l 3.232 -5.6 h 6.162 v -6.01 L 40 25.359 L 36.905 20 L 40 14.641 l -5.248 -3.03 v -6.46 h -6.419 L 25.358 0 l -5.36 3.094 Z m 7.415 11.225 l 2.254 2.287 l -11.43 11.5 l -6.835 -6.93 l 2.244 -2.258 l 4.587 4.581 l 9.18 -9.18 Z" />
         </svg>
     );
 }

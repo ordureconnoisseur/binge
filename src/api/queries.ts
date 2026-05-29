@@ -221,6 +221,9 @@ const FIND_TAG_BY_NAME = /* GraphQL */ `
             tags {
                 id
                 name
+                parents {
+                    id
+                }
             }
         }
     }
@@ -229,9 +232,16 @@ const FIND_TAG_BY_NAME = /* GraphQL */ `
 export async function findTagByName(name: string): Promise<{
     id: string;
     name: string;
+    parents: { id: string }[];
 } | null> {
     const data = await gql<{
-        findTags: { tags: { id: string; name: string }[] };
+        findTags: {
+            tags: {
+                id: string;
+                name: string;
+                parents: { id: string }[];
+            }[];
+        };
     }>(FIND_TAG_BY_NAME, { name });
     return data.findTags.tags[0] ?? null;
 }
@@ -779,6 +789,53 @@ export async function findSceneById(id: string): Promise<BingeScene | null> {
     return data.findScene;
 }
 
+// Tech-details fetch for the SceneDetailsSheet's "Technical"
+// section. Kept separate from the heavy BingeScene selection so
+// we don't pull these fields on every reel slide — only when
+// the user actually expands the details sheet. Mirrors the
+// iOS SceneDetailsSheet's tech block.
+export interface SceneFileDetails {
+    path: string | null;
+    width: number | null;
+    height: number | null;
+    duration: number | null;
+    size: number | null;
+    video_codec: string | null;
+    audio_codec: string | null;
+    frame_rate: number | null;
+    bit_rate: number | null;
+}
+
+export async function fetchSceneFileDetails(
+    sceneId: string
+): Promise<SceneFileDetails | null> {
+    const data = await gql<{
+        findScene: {
+            files: SceneFileDetails[];
+        } | null;
+    }>(
+        /* GraphQL */ `
+            query SceneFileDetails($id: ID!) {
+                findScene(id: $id) {
+                    files {
+                        path
+                        width
+                        height
+                        duration
+                        size
+                        video_codec
+                        audio_codec
+                        frame_rate
+                        bit_rate
+                    }
+                }
+            }
+        `,
+        { id: sceneId }
+    );
+    return data.findScene?.files?.[0] ?? null;
+}
+
 // Batch-fetch scenes by id in parallel, preserving the input order
 // (and dropping any that returned null — deleted scenes, etc).
 // Used by the Reel's queue mode (pinnedQueue from TabContext) to
@@ -826,11 +883,32 @@ export interface RecentSceneRow {
     performerFavorite: boolean;
 }
 
-const FIND_RECENT_SCENES = /* GraphQL */ `
+// SHOWCASE-FILTER-HACK — tag-ID exclusion list for the README
+// screenshot pass. Mirrors Stash's saved "Showcase" filter (id 9)
+// so the Home feed shows the same curated set as the For You reel
+// during capture. Revert before shipping by removing the `tags:`
+// criterion from FIND_RECENT_SCENES + FIND_SCENES_BY_DATE.
+const SHOWCASE_EXCLUDE_TAG_IDS = [
+    "1985", "646", "647", "350", "1994", "645", "1611", "5",
+    "648", "657", "1984", "660", "667", "2404", "1250", "1094",
+    "1610", "1514", "644", "2259", "1933", "1961", "1942", "1956",
+    "1927", "2073",
+];
+const SHOWCASE_TAGS_CLAUSE = `tags: {
+    value: [${SHOWCASE_EXCLUDE_TAG_IDS.map((id) => `"${id}"`).join(", ")}]
+    excludes: []
+    modifier: EXCLUDES
+    depth: 0
+}
+performer_count: { value: 0, modifier: GREATER_THAN }`;
+
+function buildFindRecentScenesQuery(showcase: boolean): string {
+    return /* GraphQL */ `
     query RecentScenes($since: String!, $per_page: Int!) {
         findScenes(
             scene_filter: {
                 created_at: { value: $since, modifier: GREATER_THAN }
+                ${showcase ? SHOWCASE_TAGS_CLAUSE : ""}
             }
             filter: {
                 page: 1
@@ -867,16 +945,19 @@ const FIND_RECENT_SCENES = /* GraphQL */ `
         }
     }
 `;
+}
 
 // Same row shape, but filtered by scene release date instead of
 // library-add date. The user has scenes whose `date` is recent but
 // whose `created_at` is months/years old; they wouldn't show up in
 // the created_at-filtered query above. We run both and merge by id.
-const FIND_SCENES_BY_DATE = /* GraphQL */ `
+function buildFindScenesByDateQuery(showcase: boolean): string {
+    return /* GraphQL */ `
     query ScenesByDate($since: String!, $per_page: Int!) {
         findScenes(
             scene_filter: {
                 date: { value: $since, modifier: GREATER_THAN }
+                ${showcase ? SHOWCASE_TAGS_CLAUSE : ""}
             }
             filter: {
                 page: 1
@@ -913,6 +994,7 @@ const FIND_SCENES_BY_DATE = /* GraphQL */ `
         }
     }
 `;
+}
 
 // Fetch scenes added to the library newer than `sinceIso`, regardless of
 // performer. Returns a flattened list — one row per scene/performer pair —
@@ -977,10 +1059,11 @@ function flattenSceneNodes(scenes: RawSceneNode[]): RecentSceneRow[] {
 
 export async function findRecentScenes(
     sinceIso: string,
-    perPage = 500
+    perPage = 500,
+    showcase = false
 ): Promise<RecentSceneRow[]> {
     const data = await gql<{ findScenes: { scenes: RawSceneNode[] } }>(
-        FIND_RECENT_SCENES,
+        buildFindRecentScenesQuery(showcase),
         { since: sinceIso, per_page: perPage }
     );
     return flattenSceneNodes(data.findScenes.scenes);
@@ -993,10 +1076,11 @@ export async function findRecentScenes(
 // imported a year ago would be invisible to the Home feed.
 export async function findScenesByDate(
     sinceDate: string,
-    perPage = 500
+    perPage = 500,
+    showcase = false
 ): Promise<RecentSceneRow[]> {
     const data = await gql<{ findScenes: { scenes: RawSceneNode[] } }>(
-        FIND_SCENES_BY_DATE,
+        buildFindScenesByDateQuery(showcase),
         { since: sinceDate, per_page: perPage }
     );
     return flattenSceneNodes(data.findScenes.scenes);

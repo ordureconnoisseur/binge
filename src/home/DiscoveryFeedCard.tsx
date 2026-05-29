@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
 import {
     PerformerHoverCard,
@@ -8,6 +8,7 @@ import { FollowPerformerModal } from "./FollowPerformerModal";
 import { AddSceneModal } from "./AddSceneModal";
 import { SceneCardMenu } from "./SceneCardMenu";
 import type { DiscoveryFeedItemWrapped } from "./useFeed";
+import { VerifiedIcon } from "../performer/PerformerProfile";
 
 interface DiscoveryFeedCardProps {
     item: DiscoveryFeedItemWrapped;
@@ -68,6 +69,7 @@ export function DiscoveryFeedCard({
                             gender={item.primaryPerformer.gender}
                             birthDate={item.primaryPerformer.birthDate}
                             inLibrary={item.primaryInLibrary}
+                            favorite={item.primaryPerformer.favorite}
                             onOpenProfile={() =>
                                 item.primaryPerformer.localId
                                     ? openProfile(
@@ -125,6 +127,7 @@ export function DiscoveryFeedCard({
                                     gender={cp.gender}
                                     birthDate={cp.birthDate}
                                     inLibrary
+                                    favorite={cp.favorite}
                                     onOpenProfile={() =>
                                         openProfile(cp.localId!)
                                     }
@@ -156,7 +159,7 @@ export function DiscoveryFeedCard({
                     </span>
                     <span className="binge-discovery-card-header-text">
                         <span className="binge-discovery-card-name">
-                            {headerNames(item)}
+                            <HeaderNames item={item} />
                         </span>
                         <span className="binge-discovery-card-sub">
                             <span
@@ -365,9 +368,49 @@ export function DiscoveryFeedCard({
 /// library coperformers in their original order. Falls back to
 /// just the primary's name when no library coperformers are
 /// present. Mirrors iOS's `headerNames`.
-function headerNames(item: DiscoveryFeedItemWrapped): string {
+// Primary + every in-library co-performer, comma-joined. Each
+// in-library performer gets the verified-mark badge inline:
+// blue for in-library, pink for favourite. Mirrors the home
+// feed card's name row so the chrome is consistent across
+// library + StashDB-sourced cards.
+function HeaderNames({ item }: { item: DiscoveryFeedItemWrapped }) {
     const libraryCo = item.coPerformers.filter((cp) => cp.localId !== null);
-    if (libraryCo.length === 0) return item.primaryPerformer.name;
-    return [item.primaryPerformer.name, ...libraryCo.map((cp) => cp.name)]
-        .join(", ");
+    const all = [
+        {
+            name: item.primaryPerformer.name,
+            inLibrary: item.primaryInLibrary,
+            favorite: item.primaryPerformer.favorite,
+        },
+        ...libraryCo.map((cp) => ({
+            name: cp.name,
+            inLibrary: true,
+            favorite: cp.favorite,
+        })),
+    ];
+    return (
+        <>
+            {all.map((p, idx) => (
+                <Fragment key={idx}>
+                    {idx > 0 && ", "}
+                    {p.name}
+                    {p.inLibrary && (
+                        <span
+                            className={
+                                "binge-feed-card-verified" +
+                                (p.favorite ? " is-favorite" : "")
+                            }
+                            aria-label={
+                                p.favorite ? "Favourited" : "In library"
+                            }
+                            title={
+                                p.favorite ? "Favourited" : "In library"
+                            }
+                        >
+                            <VerifiedIcon />
+                        </span>
+                    )}
+                </Fragment>
+            ))}
+        </>
+    );
 }

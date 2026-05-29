@@ -1,5 +1,10 @@
 import { findTagByName, findTagsContaining } from "./queries";
-import { sceneUpdate, tagCreate, tagDestroy } from "./mutations";
+import {
+    sceneUpdate,
+    tagCreate,
+    tagDestroy,
+    tagSetParents,
+} from "./mutations";
 
 // "Save to ..." folder system. Each collection is a Stash tag; the
 // bookmark sheet lists all known collections + lets the user create new
@@ -21,6 +26,17 @@ import { sceneUpdate, tagCreate, tagDestroy } from "./mutations";
 export const COLLECTION_TAG_SUFFIX = " 📁";
 const FAVOURITES_TAG_NAME = "Favourite ★";
 const DEFAULT_WATCH_LATER_TAG_NAME = `Watch Later${COLLECTION_TAG_SUFFIX}`;
+// Parent under which every binge-managed collection tag is
+// nested in Stash's tag tree. Keeps the user's tag list tidy:
+// instead of N flat "<name> 📁" tags scattered alphabetically,
+// they live in a single hierarchy. Name has no " 📁" suffix so
+// it isn't itself listed as a collection in the SaveSheet, but
+// is namespaced with the plugin name so its purpose is obvious.
+//
+// `Favourite ★` is explicitly NOT reparented — it's owned by the
+// Advanced Rating plugin and binge only borrows it for the
+// Favourites collection. Moving it would break ASR's hierarchy.
+const COLLECTIONS_PARENT_TAG_NAME = "binge Collections";
 
 export type CollectionIconName = "favourite" | "watchLater" | "generic";
 
@@ -104,20 +120,79 @@ export function getCollections(): Promise<CollectionDef[]> {
     return cachedCollectionsPromise;
 }
 
-// Resolve every collection's tag id. Lazy-creates any default tag that
-// doesn't exist yet in Stash. Returns Map<tagName, tagId>.
+// Find-or-create the parent tag every binge collection lives
+// under. Created with no children initially — children get the
+// parent_ids link set on their own creation (or via reparent for
+// existing tags that pre-date the hierarchy). ignore_auto_tag is
+// on because the parent is organizational, not metadata.
+let cachedParentIdPromise: Promise<string> | null = null;
+function ensureCollectionsParentTagId(): Promise<string> {
+    if (cachedParentIdPromise) return cachedParentIdPromise;
+    cachedParentIdPromise = (async () => {
+        const existing = await findTagByName(COLLECTIONS_PARENT_TAG_NAME);
+        if (existing) return existing.id;
+        const created = await tagCreate(
+            COLLECTIONS_PARENT_TAG_NAME,
+            true
+        );
+        return created.id;
+    })().catch((err) => {
+        cachedParentIdPromise = null;
+        throw err;
+    });
+    return cachedParentIdPromise;
+}
+
+// Resolve every collection's tag id. Lazy-creates any default tag
+// that doesn't exist yet in Stash AND nests every binge-managed
+// collection tag under the "binge Collections" parent (creating
+// the parent if missing). Existing tags that pre-date the
+// hierarchy get reparented in place on first run — a one-time
+// migration the user doesn't see.
 export function getCollectionTagIds(): Promise<Map<string, string>> {
     if (cachedTagIdsPromise) return cachedTagIdsPromise;
     cachedTagIdsPromise = (async () => {
         const collections = await getCollections();
+        const parentId = await ensureCollectionsParentTagId();
         const map = new Map<string, string>();
         for (const c of collections) {
             const existing = await findTagByName(c.tagName);
+            // Favourite ★ is owned by Advanced Rating — leave its
+            // hierarchy alone so we don't yank it out of ASR's
+            // parent tree.
+            const reparent = c.tagName !== FAVOURITES_TAG_NAME;
             if (existing) {
+                if (
+                    reparent &&
+                    !existing.parents.some((p) => p.id === parentId)
+                ) {
+                    // Append the binge-collections parent without
+                    // dropping any others the user has set up.
+                    const next = Array.from(
+                        new Set([
+                            ...existing.parents.map((p) => p.id),
+                            parentId,
+                        ])
+                    );
+                    try {
+                        await tagSetParents(existing.id, next);
+                    } catch (err) {
+                        console.warn(
+                            "[binge] reparent of " +
+                                c.tagName +
+                                " failed",
+                            err
+                        );
+                    }
+                }
                 map.set(c.tagName, existing.id);
                 continue;
             }
-            const created = await tagCreate(c.tagName, true);
+            const created = await tagCreate(
+                c.tagName,
+                true,
+                reparent ? [parentId] : undefined
+            );
             map.set(c.tagName, created.id);
         }
         return map;
@@ -128,20 +203,34 @@ export function getCollectionTagIds(): Promise<Map<string, string>> {
     return cachedTagIdsPromise;
 }
 
-// Create a new user collection from a display name. The Stash tag is
-// `<displayName> 📁`. After creation we wipe the caches so the next
-// read picks up the new collection, then notify subscribers so any
-// open SaveSheet re-renders.
+// Create a new user collection from a display name. The Stash tag
+// is `<displayName> 📁`, nested under the "binge Collections"
+// parent so it joins the rest of the hierarchy. After creation we
+// wipe the caches so the next read picks up the new collection,
+// then notify subscribers so any open SaveSheet re-renders.
 export async function createCollection(
     displayName: string
 ): Promise<CollectionDef> {
     const trimmed = displayName.trim();
     if (!trimmed) throw new Error("Collection name cannot be empty");
     const tagName = `${trimmed}${COLLECTION_TAG_SUFFIX}`;
+    const parentId = await ensureCollectionsParentTagId();
     // Avoid duplicate creation if the user races: find first.
     const existing = await findTagByName(tagName);
     if (!existing) {
-        await tagCreate(tagName, true);
+        await tagCreate(tagName, true, [parentId]);
+    } else if (
+        !existing.parents.some((p) => p.id === parentId)
+    ) {
+        // Tag existed without the parent (e.g. pre-migration);
+        // reparent in place.
+        const next = Array.from(
+            new Set([
+                ...existing.parents.map((p) => p.id),
+                parentId,
+            ])
+        );
+        await tagSetParents(existing.id, next);
     }
     cachedCollectionsPromise = null;
     cachedTagIdsPromise = null;

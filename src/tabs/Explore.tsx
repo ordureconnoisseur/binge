@@ -311,7 +311,7 @@ export function Explore() {
                                 onClick={() => setActiveTag(t)}
                                 title={t.tagName}
                             >
-                                {t.tagName}
+                                #{t.tagName}
                             </button>
                         ))}
                     </div>

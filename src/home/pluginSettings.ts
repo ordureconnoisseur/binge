@@ -10,8 +10,10 @@ import { useEffect, useState } from "react";
 // localStorage changes — so flipping a toggle in the Stash settings
 // tab live-updates the open binge tab without a reload.
 
+const ALLOWED_GENDERS_KEY = "binge.allowedGenders";
 const SHOW_GALLERIES_KEY = "binge.showGalleries";
 const SHOW_DEBUG_KEY = "binge.showDebug";
+const SHOWCASE_MODE_KEY = "binge.showcaseMode";
 const INCLUDE_STASHDB_KEY = "binge.includeStashDB";
 const INCLUDE_STASHDB_IN_PROFILE_KEY = "binge.includeStashDBInProfile";
 const INCLUDE_REDDIT_KEY = "binge.includeReddit";
@@ -234,12 +236,168 @@ function useStoredFreeString(key: string, defaultValue: string): string {
     return value;
 }
 
+// StashDB gender enum subset surfaced as a user-pickable filter on
+// the home discovery feed + Explore's Discover Performers bar. The
+// 5 user-facing values; INTERSEX is dropped from the picker since
+// stashdb tags it rarely and most users don't want it as a primary
+// surface filter (still reachable via Stash itself).
+export type Gender =
+    | "FEMALE"
+    | "MALE"
+    | "TRANSGENDER_FEMALE"
+    | "TRANSGENDER_MALE"
+    | "NON_BINARY";
+export const ALL_GENDERS: ReadonlyArray<Gender> = [
+    "FEMALE",
+    "MALE",
+    "TRANSGENDER_FEMALE",
+    "TRANSGENDER_MALE",
+    "NON_BINARY",
+];
+// Default matches binge's historical behaviour: female + trans
+// female only. Pre-existing users see no behaviour change until
+// they explicitly add other genders.
+const DEFAULT_ALLOWED_GENDERS: ReadonlySet<Gender> = new Set([
+    "FEMALE",
+    "TRANSGENDER_FEMALE",
+]);
+
+function readGenderSet(): Set<Gender> {
+    try {
+        const stored = localStorage.getItem(ALLOWED_GENDERS_KEY);
+        if (stored === null) return new Set(DEFAULT_ALLOWED_GENDERS);
+        const parts = stored
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s): s is Gender =>
+                (ALL_GENDERS as ReadonlyArray<string>).includes(s)
+            );
+        // Empty stored value is a real user choice ("show nothing").
+        // Don't fall through to the default — respect the user's
+        // intent, even if it leaves the discovery surfaces empty.
+        return new Set(parts);
+    } catch {
+        return new Set(DEFAULT_ALLOWED_GENDERS);
+    }
+}
+
+function useStoredGenderSet(): ReadonlySet<Gender> {
+    const [value, setValue] = useState<Set<Gender>>(() => readGenderSet());
+    useEffect(() => {
+        const update = () => setValue(readGenderSet());
+        const localHandler = (changedKey: string) => {
+            if (changedKey === ALLOWED_GENDERS_KEY) update();
+        };
+        const storageHandler = (e: StorageEvent) => {
+            if (e.key === ALLOWED_GENDERS_KEY) update();
+        };
+        listeners.add(localHandler);
+        window.addEventListener("storage", storageHandler);
+        return () => {
+            listeners.delete(localHandler);
+            window.removeEventListener("storage", storageHandler);
+        };
+    }, []);
+    return value;
+}
+
+export function useAllowedGenders(): ReadonlySet<Gender> {
+    return useStoredGenderSet();
+}
+
+export function readAllowedGenders(): ReadonlySet<Gender> {
+    return readGenderSet();
+}
+
+export function setAllowedGenders(values: ReadonlySet<Gender>): void {
+    // Preserve ALL_GENDERS canonical order on serialisation so the
+    // stored value is stable across writes (helps diff tools and
+    // anyone inspecting localStorage).
+    const ordered = ALL_GENDERS.filter((g) => values.has(g));
+    writeString(ALLOWED_GENDERS_KEY, ordered.join(","));
+}
+
+// ── Home-feed category filter ───────────────────────────────────────
+// Lets the user hide whole categories of Home-feed cards via the filter
+// menu next to the "Home" title. Stored as a comma-separated list of
+// HIDDEN categories (empty = show everything, the default). Galleries
+// are intentionally NOT a category here — they have their own
+// "Show galleries" toggle.
+export type FeedCategory = "discover" | "trending" | "posts" | "reposts";
+export const ALL_FEED_CATEGORIES: ReadonlyArray<FeedCategory> = [
+    "discover",
+    "trending",
+    "posts",
+    "reposts",
+];
+const FEED_HIDDEN_KEY = "binge.feedHidden";
+
+function readFeedHidden(): Set<FeedCategory> {
+    try {
+        const stored = localStorage.getItem(FEED_HIDDEN_KEY);
+        if (!stored) return new Set();
+        const parts = stored
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s): s is FeedCategory =>
+                (ALL_FEED_CATEGORIES as ReadonlyArray<string>).includes(s)
+            );
+        return new Set(parts);
+    } catch {
+        return new Set();
+    }
+}
+
+export function useHiddenFeedCategories(): ReadonlySet<FeedCategory> {
+    const [value, setValue] = useState<Set<FeedCategory>>(() =>
+        readFeedHidden()
+    );
+    useEffect(() => {
+        const update = () => setValue(readFeedHidden());
+        const localHandler = (changedKey: string) => {
+            if (changedKey === FEED_HIDDEN_KEY) update();
+        };
+        const storageHandler = (e: StorageEvent) => {
+            if (e.key === FEED_HIDDEN_KEY) update();
+        };
+        listeners.add(localHandler);
+        window.addEventListener("storage", storageHandler);
+        return () => {
+            listeners.delete(localHandler);
+            window.removeEventListener("storage", storageHandler);
+        };
+    }, []);
+    return value;
+}
+
+export function setHiddenFeedCategories(
+    values: ReadonlySet<FeedCategory>
+): void {
+    // Preserve canonical order so the stored value is stable.
+    const ordered = ALL_FEED_CATEGORIES.filter((c) => values.has(c));
+    writeString(FEED_HIDDEN_KEY, ordered.join(","));
+}
+
 export function useShowGalleries(): boolean {
     return useStoredBool(SHOW_GALLERIES_KEY, true);
 }
 
 export function useShowDebug(): boolean {
     return useStoredBool(SHOW_DEBUG_KEY, false);
+}
+
+/// Showcase mode — auto-applies the user's saved "Showcase"
+/// filter to For You silently (no chip on the reel) so demo /
+/// screenshot recordings start with curated content. Default ON
+/// while the README is being captured; flip off after.
+export function useShowcaseMode(): boolean {
+    return useStoredBool(SHOWCASE_MODE_KEY, true);
+}
+export function readShowcaseMode(): boolean {
+    return readBool(SHOWCASE_MODE_KEY, true);
+}
+export function setShowcaseMode(value: boolean): void {
+    writeBool(SHOWCASE_MODE_KEY, value);
 }
 
 // StashDB integration. On by default; if the user hasn't configured a

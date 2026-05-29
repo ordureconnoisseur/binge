@@ -7,6 +7,7 @@ import {
 } from "../api/stashdb";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
 import { PerformerHoverCard } from "../home/PerformerHoverCard";
+import { useAllowedGenders } from "../home/pluginSettings";
 
 // Horizontal scroll-snap row of StashDB performer bubbles, mirroring
 // the homepage stories row. Mounts at the top of Explore. Data comes
@@ -21,6 +22,7 @@ import { PerformerHoverCard } from "../home/PerformerHoverCard";
 //     uses), with Follow + Open profile buttons inside.
 export function DiscoverPerformersBar() {
     const { openProfile, openStashDBProfile } = usePerformerProfile();
+    const allowedGenders = useAllowedGenders();
     const [state, setState] = useState<
         | { kind: "loading" }
         | { kind: "ready"; performers: BarItem[] }
@@ -30,6 +32,9 @@ export function DiscoverPerformersBar() {
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
 
+    // Stable cache key so flipping a gender toggle re-runs the
+    // effect (the Set reference changes on every render).
+    const genderKey = Array.from(allowedGenders).sort().join(",");
     useEffect(() => {
         let alive = true;
         (async () => {
@@ -41,7 +46,11 @@ export function DiscoverPerformersBar() {
                     return;
                 }
                 const [trending, linked] = await Promise.all([
-                    getTrendingStashDBPerformers(box.api_key, 30),
+                    getTrendingStashDBPerformers(
+                        box.api_key,
+                        30,
+                        Array.from(allowedGenders)
+                    ),
                     getLinkedPerformers(),
                 ]);
                 if (!alive) return;
@@ -62,7 +71,8 @@ export function DiscoverPerformersBar() {
         return () => {
             alive = false;
         };
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [genderKey]);
 
     // Track scroll edges to show/hide chevrons.
     useEffect(() => {

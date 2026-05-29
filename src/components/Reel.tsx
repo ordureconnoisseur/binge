@@ -13,6 +13,7 @@ import { useFilter } from "../filter/FilterContext";
 import { useTab } from "../tabs/TabContext";
 import { createChainAlgo, type ChainAlgo } from "../reel/chainAlgo";
 import { useAutoHideTabBar } from "../hooks/useAutoHideTabBar";
+import { BingeLoading } from "./BingeLoading";
 
 type LoadState =
     | { kind: "loading" }
@@ -503,24 +504,27 @@ export function Reel() {
     // scroll element and never re-wire when .binge-reel later appears —
     // observed as "tab away, come back, nothing loads."
     const scenes = state.kind === "ready" ? state.scenes : [];
-    const statusMessage =
-        state.kind === "loading"
-            ? "loading scenes…"
-            : state.kind === "error"
-              ? `error: ${state.message}`
-              : state.kind === "ready" && state.scenes.length === 0
-                ? "no scenes matched. (any saved filters or chips active?)"
-                : null;
+    const errorOrEmpty =
+        state.kind === "error"
+            ? `error: ${state.message}`
+            : state.kind === "ready" && state.scenes.length === 0
+              ? "no scenes matched. (any saved filters or chips active?)"
+              : null;
     return (
         <div className="binge-reel" ref={scrollRef}>
-            {statusMessage && (
+            {state.kind === "loading" && (
+                <div className="binge-status-overlay binge-reel-loading">
+                    <BingeLoading />
+                </div>
+            )}
+            {errorOrEmpty && (
                 <div
                     className={
                         "binge-status binge-status-overlay" +
                         (state.kind === "error" ? " binge-status-error" : "")
                     }
                 >
-                    {statusMessage}
+                    {errorOrEmpty}
                 </div>
             )}
             <div

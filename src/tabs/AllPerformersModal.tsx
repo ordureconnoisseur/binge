@@ -4,6 +4,7 @@ import {
     type PerformerSummary,
 } from "../api/queries";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
+import { BingeLoading } from "../components/BingeLoading";
 
 interface AllPerformersModalProps {
     onClose: () => void;
@@ -106,7 +107,7 @@ export function AllPerformersModal({ onClose }: AllPerformersModalProps) {
                 </div>
                 <div className="binge-modal-body">
                     {state.kind === "loading" && (
-                        <div className="binge-status">loading…</div>
+                        <BingeLoading minHeight="20vh" />
                     )}
                     {state.kind === "error" && (
                         <div className="binge-status binge-status-error">

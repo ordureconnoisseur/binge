@@ -6,6 +6,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { FollowPerformerModal } from "./FollowPerformerModal";
+import { VerifiedIcon } from "../performer/PerformerProfile";
 
 export type FollowState =
     | { kind: "idle" }
@@ -22,6 +23,12 @@ interface PerformerHoverCardProps {
     // library; controls the "In library" badge and which action
     // button the card renders.
     inLibrary: boolean;
+    // Whether the library performer is marked Favourite — drives
+    // the inline verified-mark colour (pink = favourite, blue =
+    // library only). Ignored when inLibrary is false. Defaults to
+    // false when omitted (caller may not have the info to hand,
+    // e.g. discovery cards that build from StashDB data).
+    favorite?: boolean;
 
     // For library performers — opens the binge performer profile.
     onOpenProfile?: () => void;
@@ -58,6 +65,7 @@ export function PerformerHoverCard({
     gender,
     birthDate,
     inLibrary,
+    favorite = false,
     onOpenProfile,
     stashDBPerformerId,
     stashBoxIndex,
@@ -275,6 +283,28 @@ export function PerformerHoverCard({
                             <div className="binge-performer-hovercard-text">
                                 <span className="binge-performer-hovercard-name">
                                     {name}
+                                    {inLibrary && (
+                                        <span
+                                            className={
+                                                "binge-feed-card-verified" +
+                                                (favorite
+                                                    ? " is-favorite"
+                                                    : "")
+                                            }
+                                            aria-label={
+                                                favorite
+                                                    ? "Favourited"
+                                                    : "In library"
+                                            }
+                                            title={
+                                                favorite
+                                                    ? "Favourited"
+                                                    : "In library"
+                                            }
+                                        >
+                                            <VerifiedIcon />
+                                        </span>
+                                    )}
                                 </span>
                                 <span className="binge-performer-hovercard-meta">
                                     {[

@@ -699,38 +699,70 @@ export interface StashDBTrendingPerformer {
 export async function getTrendingStashDBPerformers(
     apiKey: string,
     perPage: number = 30,
-    gender: string = "FEMALE"
+    genders: ReadonlyArray<string> = ["FEMALE"]
 ): Promise<StashDBTrendingPerformer[]> {
-    const data = await postStashDB<{
-        queryPerformers: {
-            count: number;
-            performers: {
-                id: string;
-                name: string;
-                gender: string | null;
-                birth_date: string | null;
-                images: { url: string }[];
-                scene_count: number;
-            }[];
-        };
-    }>(apiKey, QUERY_TRENDING_PERFORMERS, {
-        input: {
-            gender,
-            sort: "LAST_SCENE",
-            direction: "DESC",
-            page: 1,
-            per_page: perPage,
-        },
-    });
-    if (!data?.queryPerformers?.performers) return [];
-    return data.queryPerformers.performers.map((p) => ({
-        id: p.id,
-        name: p.name,
-        gender: p.gender ?? null,
-        birthDate: p.birth_date ?? null,
-        image: p.images?.[0]?.url ?? null,
-        sceneCount: p.scene_count,
-    }));
+    if (genders.length === 0) return [];
+    // queryPerformers takes a single `gender` enum (or omitted for
+    // all). Fire one request per selected gender in parallel and
+    // dedupe by id. Interleave to keep early slots gender-balanced
+    // rather than dumping one gender's entire page first — Explore's
+    // Discover row reads better with mixed leading bubbles.
+    const perGender = await Promise.all(
+        genders.map(async (gender) => {
+            try {
+                const data = await postStashDB<{
+                    queryPerformers: {
+                        count: number;
+                        performers: {
+                            id: string;
+                            name: string;
+                            gender: string | null;
+                            birth_date: string | null;
+                            images: { url: string }[];
+                            scene_count: number;
+                        }[];
+                    };
+                }>(apiKey, QUERY_TRENDING_PERFORMERS, {
+                    input: {
+                        gender,
+                        sort: "LAST_SCENE",
+                        direction: "DESC",
+                        page: 1,
+                        per_page: perPage,
+                    },
+                });
+                return data?.queryPerformers?.performers ?? [];
+            } catch (err) {
+                console.warn(
+                    `[binge] trending performers fetch for ${gender} failed`,
+                    err
+                );
+                return [];
+            }
+        })
+    );
+    const seen = new Set<string>();
+    const merged: StashDBTrendingPerformer[] = [];
+    // Round-robin across gender buckets so each gender gets a fair
+    // shot at the front of the row. Stop once we've filled perPage.
+    const maxLen = Math.max(...perGender.map((g) => g.length), 0);
+    for (let i = 0; i < maxLen && merged.length < perPage; i++) {
+        for (const bucket of perGender) {
+            const p = bucket[i];
+            if (!p || seen.has(p.id)) continue;
+            seen.add(p.id);
+            merged.push({
+                id: p.id,
+                name: p.name,
+                gender: p.gender ?? null,
+                birthDate: p.birth_date ?? null,
+                image: p.images?.[0]?.url ?? null,
+                sceneCount: p.scene_count,
+            });
+            if (merged.length >= perPage) break;
+        }
+    }
+    return merged;
 }
 
 export async function getStashDBScenesForPerformer(

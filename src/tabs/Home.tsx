@@ -1,7 +1,8 @@
 import { useRef } from "react";
 import { StoriesRow } from "../home/StoriesRow";
 import { Feed } from "../home/Feed";
-import { useStories } from "../home/useStories";
+import { FeedFilterMenu } from "../home/FeedFilterMenu";
+import { useSharedStories } from "../home/StoriesContext";
 import { useAutoHideTabBar } from "../hooks/useAutoHideTabBar";
 
 // Home is the landing surface — IG-style stories at the top, vertical
@@ -14,13 +15,16 @@ import { useAutoHideTabBar } from "../hooks/useAutoHideTabBar";
 export function Home() {
     const scrollRef = useRef<HTMLDivElement>(null);
     useAutoHideTabBar(scrollRef);
-    const stories = useStories();
+    const stories = useSharedStories();
 
     return (
         <div className="binge-tab-scroll" ref={scrollRef}>
             <div className="binge-tab-inner">
                 <div className="binge-tab-title-row">
-                    <h1 className="binge-tab-title">Home</h1>
+                    <div className="binge-tab-title-group">
+                        <h1 className="binge-tab-title">Home</h1>
+                        <FeedFilterMenu />
+                    </div>
                     <button
                         type="button"
                         className={

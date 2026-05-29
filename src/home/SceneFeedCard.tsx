@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { SceneCardMenu } from "./SceneCardMenu";
 import { PerformerHoverCard } from "./PerformerHoverCard";
+import { Fragment } from "react";
 import type { FeedPerformer, FeedTag, SceneFeedItem } from "./useFeed";
+import { VerifiedIcon } from "../performer/PerformerProfile";
+import { useSharedStories } from "./StoriesContext";
+import { useStoryViewer } from "./StoryViewerContext";
 import { useFilter } from "../filter/FilterContext";
 import { useTab } from "../tabs/TabContext";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
@@ -23,6 +27,7 @@ import {
     PencilIcon,
     StarIcon,
     BookmarkIcon,
+    RepostIcon,
 } from "../components/ActionStack";
 import { CriterionRatingModal } from "../components/CriterionRatingModal";
 import { MutedIcon, UnmutedIcon } from "../components/MuteToggle";
@@ -38,6 +43,12 @@ import { useScribeModal } from "../scribe/ScribeContext";
 
 interface SceneFeedCardProps {
     item: SceneFeedItem;
+    /// Date-sorted list of every scene id in the home feed.
+    /// "Watch full scene" now drops the user into the reel
+    /// pre-populated with this list, starting at this card's
+    /// scene — they walk through the home timeline rather than
+    /// landing in a filter-scoped reel.
+    feedSceneIds: string[];
 }
 
 // Scene-as-post IG-style card. Preview WebM auto-plays muted when ≥60%
@@ -45,10 +56,14 @@ interface SceneFeedCardProps {
 // the media to toggle play/pause; double-click to like; tap the header
 // avatar/name to open that performer's profile.
 //
-// The CTA "Watch full scene →" is the primary navigation off this card
-// — it drops into the existing reel flow (filter to performer + pin
-// this scene at slot 0).
-export function SceneFeedCard({ item }: SceneFeedCardProps) {
+// The CTA "Watch full scene →" drops into the reel with the WHOLE
+// home feed pre-loaded as a deterministic queue (no filter, no
+// chained algo) — the user keeps walking the home timeline,
+// starting at the tapped scene. Same UX as the iOS port.
+export function SceneFeedCard({
+    item,
+    feedSceneIds,
+}: SceneFeedCardProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -58,8 +73,24 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
     const oBusyRef = useRef(false);
 
     const { replace } = useFilter();
-    const { setTab, setPinFirstSceneId, setReelMode } = useTab();
+    const {
+        setTab,
+        setPinFirstSceneId,
+        setReelMode,
+        setPinnedQueue,
+    } = useTab();
     const { openProfile } = usePerformerProfile();
+    const { open: openStoryViewer } = useStoryViewer();
+    const storiesState = useSharedStories();
+    // Set of localIds with an active story right now. Used by the
+    // avatar stack to render the gradient ring + route the tap to
+    // the story viewer instead of the profile.
+    const storyPerformerIds: Set<string> =
+        storiesState.state.kind === "ready"
+            ? new Set(
+                  storiesState.state.stories.map((s) => s.performerId)
+              )
+            : new Set();
 
     const hasAdvancedRating = useHasAdvancedRating();
     const hasMultiview = useHasMultiview();
@@ -244,23 +275,27 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
     };
 
     const handleWatchFullScene = () => {
-        if (!primaryPerformer) return;
-        // Feed CTA is a deterministic filter-driven entry — explicitly
-        // not chained. Reset in case the user was previously in
-        // chained mode via Explore.
+        // Home → reel timeline jump. Hands the reel the home
+        // feed's ordered scene id list + the index of this
+        // card's scene; the reel's pinnedQueue path renders them
+        // verbatim, in order, no pagination. User walks the
+        // timeline forward/back from where they tapped.
+        //
+        // Previously this was filter-scoped (replace filter to
+        // primary performer + pin first scene). That dropped the
+        // user out of the date-ordered timeline and into a
+        // random feed of one performer's scenes — surprising on
+        // a date-ordered home page. Same change shipped on iOS.
         setReelMode("random");
-        replace({
-            performers: [
-                {
-                    id: primaryPerformer.id,
-                    name: primaryPerformer.name,
-                    image_path: primaryPerformer.imagePath,
-                },
-            ],
-            tags: [],
-            studios: [],
-        });
-        setPinFirstSceneId(item.sceneId);
+        // Clear any stale chained-mode filter so the reel reads
+        // the pinned queue cleanly.
+        replace({ performers: [], tags: [], studios: [] });
+        const startIndex = Math.max(
+            0,
+            feedSceneIds.indexOf(item.sceneId)
+        );
+        setPinFirstSceneId(null);
+        setPinnedQueue({ ids: feedSceneIds, startIndex });
         setTab("foryou");
     };
 
@@ -270,7 +305,29 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
                 <div className="binge-feed-card-author">
                     <AvatarStack
                         performers={item.performers}
+                        isRepost={item.isRepost}
                         onClick={(id) => openProfile(id)}
+                        onOpenStory={(performerId) => {
+                            // Tap on an avatar whose performer
+                            // has a current story → drop straight
+                            // into their story instead of the
+                            // profile. Matches the iOS post-card
+                            // story-tap path.
+                            if (storiesState.state.kind !== "ready") {
+                                openProfile(performerId);
+                                return;
+                            }
+                            const list = storiesState.state.stories;
+                            const idx = list.findIndex(
+                                (s) => s.performerId === performerId
+                            );
+                            if (idx >= 0) {
+                                openStoryViewer(list, idx);
+                            } else {
+                                openProfile(performerId);
+                            }
+                        }}
+                        storyPerformerIds={storyPerformerIds}
                     />
                     {primaryPerformer ? (
                         <PerformerHoverCard
@@ -279,6 +336,7 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
                             gender={null}
                             birthDate={null}
                             inLibrary
+                            favorite={primaryPerformer.favorite}
                             onOpenProfile={() =>
                                 openProfile(primaryPerformer.id)
                             }
@@ -298,9 +356,32 @@ export function SceneFeedCard({ item }: SceneFeedCardProps) {
                                 aria-label={primaryPerformer.name}
                             >
                                 <span className="binge-feed-card-name">
-                                    {item.performers
-                                        .map((p) => p.name)
-                                        .join(", ") || "Unknown"}
+                                    {item.performers.map((p, idx) => (
+                                        <Fragment key={p.id}>
+                                            {idx > 0 && ", "}
+                                            {p.name}
+                                            <span
+                                                className={
+                                                    "binge-feed-card-verified" +
+                                                    (p.favorite
+                                                        ? " is-favorite"
+                                                        : "")
+                                                }
+                                                aria-label={
+                                                    p.favorite
+                                                        ? "Favourited"
+                                                        : "In library"
+                                                }
+                                                title={
+                                                    p.favorite
+                                                        ? "Favourited"
+                                                        : "In library"
+                                                }
+                                            >
+                                                <VerifiedIcon />
+                                            </span>
+                                        </Fragment>
+                                    ))}
                                 </span>
                             </button>
                         </PerformerHoverCard>
@@ -562,36 +643,55 @@ function FeedCaption({
 function AvatarStack({
     performers,
     onClick,
+    onOpenStory,
+    storyPerformerIds,
+    isRepost = false,
 }: {
     performers: FeedPerformer[];
     onClick: (performerId: string) => void;
+    /// Tap routed here when this performer has a current story.
+    /// Caller looks the story up and opens the viewer; if no
+    /// matching story is found, expected to fall back to onClick.
+    onOpenStory?: (performerId: string) => void;
+    /// localIds with an active story right now — drives the
+    /// gradient ring + the alternate tap route.
+    storyPerformerIds?: ReadonlySet<string>;
+    /// When true, the PRIMARY (first) avatar gets the repost badge —
+    /// matching the pack card's avatar treatment for back-catalog
+    /// re-adds.
+    isRepost?: boolean;
 }) {
     if (performers.length === 0) return null;
     const visible = performers.slice(0, 3);
     const overflow = performers.length - visible.length;
     return (
         <div className="binge-feed-card-avatar-stack">
-            {visible.map((p, i) => (
-                <PerformerHoverCard
-                    key={p.id}
-                    name={p.name}
-                    image={p.imagePath}
-                    gender={null}
-                    birthDate={null}
-                    inLibrary
-                    onOpenProfile={() => onClick(p.id)}
-                >
+            {visible.map((p, i) => {
+                const hasStory =
+                    !!storyPerformerIds?.has(p.id) && !!onOpenStory;
+                const handleTap = hasStory
+                    ? () => onOpenStory!(p.id)
+                    : () => onClick(p.id);
+                const avatarNode = (
                     <span
                         className="binge-feed-card-stack-avatar"
                         style={{
                             zIndex: visible.length - i,
                             position: "relative",
                             ...(p.imagePath
-                                ? { backgroundImage: `url(${p.imagePath})` }
+                                ? {
+                                      backgroundImage: `url(${p.imagePath})`,
+                                  }
                                 : {}),
                         }}
                         title={p.name}
                         aria-label={p.name}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleTap();
+                        }}
+                        role="button"
+                        tabIndex={0}
                     >
                         {!p.imagePath && (
                             <span className="binge-feed-card-stack-initial">
@@ -599,8 +699,53 @@ function AvatarStack({
                             </span>
                         )}
                     </span>
-                </PerformerHoverCard>
-            ))}
+                );
+                const ringedNode = hasStory ? (
+                    <span
+                        className="binge-feed-card-stack-story-ring"
+                        style={{ zIndex: visible.length - i }}
+                    >
+                        {avatarNode}
+                    </span>
+                ) : (
+                    avatarNode
+                );
+                // Repost badge sits only on the primary (first)
+                // avatar. Wrapped so the badge escapes the avatar's
+                // overflow:hidden clip.
+                const node =
+                    isRepost && i === 0 ? (
+                        <span
+                            className="binge-feed-card-stack-avatar-wrap"
+                            style={{ zIndex: visible.length - i }}
+                        >
+                            {ringedNode}
+                            <span
+                                className="binge-feed-card-stack-repost-badge"
+                                aria-label="Reposted"
+                                title="Reposted — back-catalog you re-added"
+                            >
+                                <RepostIcon />
+                            </span>
+                        </span>
+                    ) : (
+                        ringedNode
+                    );
+                return (
+                    <PerformerHoverCard
+                        key={p.id}
+                        name={p.name}
+                        image={p.imagePath}
+                        gender={null}
+                        birthDate={null}
+                        inLibrary
+                        favorite={p.favorite}
+                        onOpenProfile={() => onClick(p.id)}
+                    >
+                        {node}
+                    </PerformerHoverCard>
+                );
+            })}
             {overflow > 0 && (
                 <span
                     className="binge-feed-card-stack-avatar binge-feed-card-stack-overflow"

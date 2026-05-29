@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { type Story as StoryData, type StoriesResult } from "./useStories";
 import { Story } from "./Story";
 import { useStoryViewer } from "./StoryViewerContext";
+import { BingeLoading } from "../components/BingeLoading";
 
 // Horizontal scroller of performers in your library with new scenes.
 // Tap → opens the IG-style StoryViewer at that performer; the viewer's
@@ -52,7 +53,7 @@ export function StoriesRow({ stories }: { stories: StoriesResult }) {
     if (state.kind === "loading" && !refreshing) {
         return (
             <section className="binge-stories-row binge-stories-row-loading">
-                <div className="binge-stories-empty">loading stories…</div>
+                <BingeLoading compact />
             </section>
         );
     }
