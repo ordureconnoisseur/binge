@@ -138,19 +138,14 @@ export type FeedState =
 // widening: "how far back" is the setting, and the whole window is
 // fetched at once (the virtualizer only renders the cards on screen, so
 // a long list is cheap to display). To see further back, raise the
-// setting. Scenes are NOT capped — bulk imports collapse into packs and
-// the per-performer cap bounds the rest, so the card count stays sane.
+// setting. Bulk imports from one performer collapse into a single pack
+// card; everyone else's recent scenes all show (no per-performer cap).
 
 // Galleries DO keep a fixed cap, because each gallery card triggers its
 // own image round-trips — uncapped, a gallery-heavy window would fan out
 // into hundreds of parallel fetches. Galleries past this don't surface.
 const MAX_GALLERY_CARDS = 100;
 
-/// Maximum feed cards from a single primary performer that
-/// ISN'T already collapsed into a Pack. Without this, a
-/// merge-sort of recent scenes lets one prolific performer take
-/// over the feed even if there's no obvious batch import.
-const MAX_FEED_CARDS_PER_PERFORMER = 3;
 /// Minimum cluster size to qualify as a "pack" (batch import).
 /// 8 is large enough that two-or-three scenes added together
 /// don't get treated as a pack.
@@ -163,7 +158,7 @@ const PACK_MIN_SIZE = 8;
 /// into several sub-packs (or drop it below PACK_MIN_SIZE entirely).
 const PACK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-function assemblePacksAndCap(
+function assemblePacks(
     scenes: SceneFeedItem[],
     repostCutoff: string
 ): FeedItem[] {
@@ -229,10 +224,10 @@ function assemblePacksAndCap(
         packPerformers.add(pid);
     }
 
-    // For everyone else, walk the original (effectiveAt-sorted)
-    // list and apply the per-performer cap. Skip any scene whose
-    // primary is already in a pack — those are consolidated.
-    const counts = new Map<string, number>();
+    // A performer who formed a pack is represented by that pack card,
+    // so skip their loose individual scenes — otherwise a bulk-import
+    // performer would flood the feed with a pack AND dozens of cards.
+    // Everyone else shows all their scenes in the window (no cap).
     for (const s of scenes) {
         const pid = s.performers[0]?.id;
         if (!pid) {
@@ -240,9 +235,6 @@ function assemblePacksAndCap(
             continue;
         }
         if (packPerformers.has(pid)) continue;
-        const c = counts.get(pid) ?? 0;
-        if (c >= MAX_FEED_CARDS_PER_PERFORMER) continue;
-        counts.set(pid, c + 1);
         out.push(s);
     }
     return out;
@@ -432,11 +424,10 @@ export function useFeed(): FeedHookResult {
                     })
                 );
 
-                // Assemble packs + apply the per-performer cap. No
-                // total slice — the whole window is shown (packs and the
-                // per-performer cap keep the count sane; the virtualizer
-                // renders only what's on screen).
-                const sceneList: FeedItem[] = assemblePacksAndCap(
+                // Assemble packs (bulk imports → one pack card). No
+                // total slice — the whole window is shown; the
+                // virtualizer renders only what's on screen.
+                const sceneList: FeedItem[] = assemblePacks(
                     Array.from(sceneItems.values()).sort((a, b) =>
                         b.effectiveAt.localeCompare(a.effectiveAt)
                     ),
