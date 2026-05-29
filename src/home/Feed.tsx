@@ -42,10 +42,9 @@ interface FeedProps {
 // viewport are mounted. Avoids 50+ <video> elements + carousels piling
 // up in the DOM as the user infinite-scrolls.
 export function Feed({ scrollContainerRef }: FeedProps) {
-    const { state, loadMore, isLoadingMore, hasMore } = useFeed();
+    const { state } = useFeed();
     const hidden = useHiddenFeedCategories();
     const feedRef = useRef<HTMLElement>(null);
-    const sentinelRef = useRef<HTMLDivElement>(null);
     const [scrollMargin, setScrollMargin] = useState(0);
 
     const rawItems = state.kind === "ready" ? state.items : [];
@@ -96,27 +95,6 @@ export function Feed({ scrollContainerRef }: FeedProps) {
         getItemKey: (i) => items[i]?.key ?? i,
     });
 
-    // Infinite-scroll trigger. Uses the same IntersectionObserver
-    // pattern as before; the sentinel sits AFTER the virtualizer's
-    // tall spacer so it lives at the natural end of the content.
-    useEffect(() => {
-        const el = sentinelRef.current;
-        if (!el) return;
-        if (state.kind !== "ready") return;
-        if (!hasMore) return;
-        if (isLoadingMore) return;
-        const observer = new IntersectionObserver(
-            (entries) => {
-                for (const entry of entries) {
-                    if (entry.isIntersecting) loadMore();
-                }
-            },
-            { rootMargin: "600px 0px" }
-        );
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, [state.kind, hasMore, isLoadingMore, loadMore]);
-
     if (state.kind === "loading") {
         return (
             <section className="binge-feed binge-feed-loading">
@@ -139,7 +117,7 @@ export function Feed({ scrollContainerRef }: FeedProps) {
                 <div className="binge-feed-empty">
                     {rawItems.length > 0
                         ? "everything's filtered out — adjust the filter."
-                        : "nothing new in the last 30 days."}
+                        : "nothing new in your recent window."}
                 </div>
             </section>
         );
@@ -211,9 +189,8 @@ export function Feed({ scrollContainerRef }: FeedProps) {
                 );
             })}
 
-            {/* Sentinel + status row positioned at the end of the
-                virtualized region. Absolute so it sits flush with
-                whatever totalSize works out to. */}
+            {/* End-of-feed marker positioned at the end of the
+                virtualized region. */}
             <div
                 className="binge-feed-tail"
                 style={{
@@ -223,20 +200,9 @@ export function Feed({ scrollContainerRef }: FeedProps) {
                     right: 0,
                 }}
             >
-                {hasMore && (
-                    <div
-                        ref={sentinelRef}
-                        className="binge-feed-sentinel"
-                        aria-hidden="true"
-                    >
-                        {isLoadingMore ? "loading more…" : ""}
-                    </div>
-                )}
-                {!hasMore && (
-                    <div className="binge-feed-empty">
-                        you've reached the end · {items.length} items
-                    </div>
-                )}
+                <div className="binge-feed-empty">
+                    you've reached the end · {items.length} items
+                </div>
             </div>
         </section>
     );

@@ -44,6 +44,11 @@ function emptySlot<T>(): Slot<T> {
     return { promise: null, key: null, expiresAt: 0 };
 }
 
+// per_page: -1 = no clip. The Home feed shows the whole window in one
+// shot (no infinite-scroll widening), and the window is capped at 90
+// days, so this is bounded by the user's import rate over that span.
+const FEED_PER_PAGE = -1;
+
 export function getRecentScenes(
     sinceIso: string,
     showcase = false
@@ -51,7 +56,7 @@ export function getRecentScenes(
     // Cache key includes showcase so flipping the Settings
     // toggle mid-session invalidates the cached filtered set.
     return get(scenesByCreatedSlot, `${sinceIso}|sc:${showcase}`, () =>
-        findRecentScenes(sinceIso, 500, showcase)
+        findRecentScenes(sinceIso, FEED_PER_PAGE, showcase)
     );
 }
 export function getScenesByDate(
@@ -59,7 +64,7 @@ export function getScenesByDate(
     showcase = false
 ): Promise<RecentSceneRow[]> {
     return get(scenesByDateSlot, `${sinceDate}|sc:${showcase}`, () =>
-        findScenesByDate(sinceDate, 500, showcase)
+        findScenesByDate(sinceDate, FEED_PER_PAGE, showcase)
     );
 }
 export function getRecentGalleries(

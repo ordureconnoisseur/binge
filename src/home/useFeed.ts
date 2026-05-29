@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     findImagesByGallery,
     type PerformerImageCard,
@@ -134,20 +134,18 @@ export type FeedState =
     | { kind: "ready"; items: FeedItem[] }
     | { kind: "error"; message: string };
 
-// Initial lookback window on Home mount is read from plugin settings
-// via useLookbackDays(). Each `loadMore()` widens this by
-// LOOKBACK_INCREMENT_DAYS — infinite scroll grows the window rather
-// than paging through fixed-size chunks, which keeps the dedupe logic
-// trivial (every fetch is a superset of the previous).
-const LOOKBACK_INCREMENT_DAYS = 30;
-// Hard ceiling so a runaway scroller doesn't query years of history.
-const MAX_LOOKBACK_DAYS = 365;
-// Per-type cap scales with the lookback so the feed isn't artificially
-// truncated as the user paginates. Keeps both content types
-// represented when one dominates by recency.
-function perTypeLimit(lookbackDays: number): number {
-    return Math.min(200, lookbackDays);
-}
+// The feed shows a single FIXED window — the user's configured recent
+// window (useLookbackDays, capped at 90 days). No infinite-scroll
+// widening: "how far back" is the setting, and the whole window is
+// fetched at once (the virtualizer only renders the cards on screen, so
+// a long list is cheap to display). To see further back, raise the
+// setting. Scenes are NOT capped — bulk imports collapse into packs and
+// the per-performer cap bounds the rest, so the card count stays sane.
+
+// Galleries DO keep a fixed cap, because each gallery card triggers its
+// own image round-trips — uncapped, a gallery-heavy window would fan out
+// into hundreds of parallel fetches. Galleries past this don't surface.
+const MAX_GALLERY_CARDS = 100;
 
 /// Maximum feed cards from a single primary performer that
 /// ISN'T already collapsed into a Pack. Without this, a
@@ -280,63 +278,28 @@ function isNoiseGallery(paths: string[]): boolean {
 
 export interface FeedHookResult {
     state: FeedState;
-    loadMore: () => void;
-    isLoadingMore: boolean;
-    hasMore: boolean;
 }
 
 export function useFeed(): FeedHookResult {
-    const initialLookbackDays = useLookbackDays();
+    const lookbackDays = useLookbackDays();
     const [state, setState] = useState<FeedState>({ kind: "loading" });
-    const [lookbackDays, setLookbackDays] = useState(initialLookbackDays);
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const showGalleries = useShowGalleries();
     const includeStashDB = useIncludeStashDB();
     const showcase = useShowcaseMode();
-
-    // When the user picks a new lookback in plugin settings, snap the
-    // current window back to that value so the feed re-fetches with
-    // the new horizon (rather than retaining a wider window from a
-    // previous load-more chain).
-    useEffect(() => {
-        setLookbackDays(initialLookbackDays);
-    }, [initialLookbackDays]);
-    // Heuristic: if a widened-window fetch returns the same total count
-    // as the previous one, we've hit the end of the user's history —
-    // stop offering loadMore.
-    const prevTotalRef = useRef(0);
-    const hasMoreRef = useRef(true);
 
     useEffect(() => {
         let alive = true;
         const sinceIso = new Date(
             Date.now() - lookbackDays * 24 * 3600 * 1000
         ).toISOString();
-        // "Initial" = the user's configured starting window; subsequent
-        // loadMore() bumps widen past it.
-        const isInitial = lookbackDays === initialLookbackDays;
-        if (!isInitial) setIsLoadingMore(true);
 
         // Stash's date fields are YYYY-MM-DD strings (DateCriterionInput),
         // distinct from the full-precision ISO timestamps used for
-        // created_at (TimestampCriterionInput). Need both shapes.
+        // created_at (TimestampCriterionInput). Need both shapes. This
+        // is also the boundary used for repost classification (a scene
+        // dated before it reached the feed via the created_at query, so
+        // it's back-catalog) and for the discovery window.
         const sinceDate = sinceIso.slice(0, 10);
-
-        // Start of the CONFIGURED recent window (not the grown
-        // infinite-scroll window). Two uses, both of which must stay
-        // pinned to the user's setting as they paginate:
-        //   1. Repost classification — a scene dated before this could
-        //      only have reached the feed via the recent-created_at
-        //      query, so it's back-catalog you just re-added.
-        //   2. Discovery (discover + trending) window — discovery is a
-        //      "what's hot/new recently" surface, NOT library history,
-        //      so it must NOT widen as you scroll (otherwise loadMore
-        //      keeps pulling in ever-older discover/trending cards).
-        const configuredSinceDate = new Date(
-            Date.now() - initialLookbackDays * 24 * 3600 * 1000
-        )
-            .toISOString()
-            .slice(0, 10);
 
         (async () => {
             try {
@@ -372,7 +335,7 @@ export function useFeed(): FeedHookResult {
                     // Failures swallowed inside fetchDiscoveryFeedItems
                     // so a StashDB outage never breaks the feed.
                     includeStashDB
-                        ? fetchDiscoveryFeedItems(configuredSinceDate)
+                        ? fetchDiscoveryFeedItems(sinceDate)
                         : Promise.resolve([] as DiscoveryFeedItem[]),
                 ]);
                 if (!alive) return;
@@ -402,7 +365,7 @@ export function useFeed(): FeedHookResult {
                         // sinking to its years-old release date.
                         const isRepost =
                             r.sceneDate !== null &&
-                            r.sceneDate < configuredSinceDate;
+                            r.sceneDate < sinceDate;
                         item = {
                             kind: "scene",
                             key: `scene:${r.sceneId}`,
@@ -433,10 +396,12 @@ export function useFeed(): FeedHookResult {
                 }
 
                 // Fetch the first N images for each gallery in
-                // parallel. Capped (grows with lookback) to avoid an
-                // explosion of round-trips on huge libraries.
-                const cap = perTypeLimit(lookbackDays);
-                const cappedGalleryRows = galleryRows.slice(0, cap);
+                // parallel. Capped at a fixed number to bound the
+                // per-gallery image round-trips on gallery-heavy windows.
+                const cappedGalleryRows = galleryRows.slice(
+                    0,
+                    MAX_GALLERY_CARDS
+                );
                 const galleryImageLists = await Promise.all(
                     cappedGalleryRows.map((g) =>
                         findImagesByGallery(
@@ -469,22 +434,16 @@ export function useFeed(): FeedHookResult {
                     })
                 );
 
-                // Cap each type INDEPENDENTLY (sorted DESC by
-                // effectiveAt) before merging. Without this, whichever
-                // type happens to have more recent timestamps wins all
-                // the slots — e.g., a recent gallery import scan
-                // stamps every gallery with today's created_at, which
-                // would otherwise push every scene out of the feed.
+                // Assemble packs + apply the per-performer cap. No
+                // total slice — the whole window is shown (packs and the
+                // per-performer cap keep the count sane; the virtualizer
+                // renders only what's on screen).
                 const sceneList: FeedItem[] = assemblePacksAndCap(
                     Array.from(sceneItems.values()).sort((a, b) =>
                         b.effectiveAt.localeCompare(a.effectiveAt)
                     ),
-                    configuredSinceDate
-                ).slice(0, cap);
-                // galleryList intentionally NOT pre-sorted — the
-                // merged sort below re-orders the whole list anyway,
-                // and galleryItems is small enough that the cap step
-                // (which the scene side does) doesn't apply here.
+                    sinceDate
+                );
 
                 const wrappedDiscovery: DiscoveryFeedItemWrapped[] =
                     discoveryItems.map((d) => ({ kind: "discovery", ...d }));
@@ -495,13 +454,6 @@ export function useFeed(): FeedHookResult {
                     ...wrappedDiscovery,
                 ].sort((a, b) => b.effectiveAt.localeCompare(a.effectiveAt));
 
-                // End-of-history detection: if widening the window
-                // didn't add any new items, the user has scrolled past
-                // everything Stash has.
-                if (!isInitial && all.length === prevTotalRef.current) {
-                    hasMoreRef.current = false;
-                }
-                prevTotalRef.current = all.length;
                 setState({ kind: "ready", items: all });
             } catch (err) {
                 if (!alive) return;
@@ -509,8 +461,6 @@ export function useFeed(): FeedHookResult {
                     kind: "error",
                     message: err instanceof Error ? err.message : String(err),
                 });
-            } finally {
-                if (alive) setIsLoadingMore(false);
             }
         })();
 
@@ -519,16 +469,7 @@ export function useFeed(): FeedHookResult {
         };
     }, [lookbackDays, showGalleries, includeStashDB, showcase]);
 
-    const loadMore = useCallback(() => {
-        setLookbackDays((d) =>
-            Math.min(d + LOOKBACK_INCREMENT_DAYS, MAX_LOOKBACK_DAYS)
-        );
-    }, []);
-
-    const hasMore =
-        hasMoreRef.current && lookbackDays < MAX_LOOKBACK_DAYS;
-
-    return { state, loadMore, isLoadingMore, hasMore };
+    return { state };
 }
 
 // Dedupe scene rows by sceneId. Rows are scene/performer pairs, so a

@@ -38,10 +38,12 @@ export const ALLOWED_TRANSCODE: ReadonlyArray<TranscodeType> = [
     "hls",
 ];
 
-// Allowed lookback window values (in days). Mirrored in
-// binge.entry.js's settings panel dropdown — keep these in sync.
+// Allowed lookback window values (in days). Rendered by the
+// SettingsPage lookback dropdown. Capped at 90: the Home feed fetches
+// the whole window at once (no infinite-scroll widening), so the
+// window size bounds the fetch.
 export const ALLOWED_LOOKBACK_DAYS: ReadonlyArray<number> = [
-    7, 14, 30, 60, 90, 180, 365,
+    7, 14, 30, 60, 90,
 ];
 const DEFAULT_LOOKBACK_DAYS = 30;
 
