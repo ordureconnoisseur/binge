@@ -51,7 +51,7 @@ const HEART_HOLD_DURATION_MS = 1500;
 // Multiview long-press → open player.
 const MULTIVIEW_HOLD_DURATION_MS = 700;
 
-// Right-side TikTok/Instagram-style vertical action column. Top-to-bottom:
+// Right-side Instagram-style vertical action column. Top-to-bottom:
 //   1. Heart (O-counter; tap = like, hold = unlike)
 //   2. Rate (star icon; tap = open rate strip)
 //   3. Multiview (grid icon; tap = toggle queue, hold = open player)
@@ -477,7 +477,7 @@ function BookmarkButton({
 // ── Icons ────────────────────────────────────────────────────────────
 
 // Icon paths are Lucide-derived (lucide.dev — ISC). Stroke 2.2 reads
-// as solid enough to match IG/TikTok's action-stack weight without
+// as solid enough to match Instagram's action-stack weight without
 // looking chunky. Filled variants use stroke 0 to avoid the double-
 // edge artefact you get when stroke + fill both draw the same path.
 const ICON_STROKE = 1.5;
@@ -579,6 +579,30 @@ export function MoreIcon() {
             <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none" />
             <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
             <circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none" />
+        </svg>
+    );
+}
+
+// Repost / loop-arrows glyph. Uses currentColor so callers set the
+// fill — white on the pack avatar's gradient disc, brand-pink for the
+// inline "reposted" mark on a scene card. Sized by its container
+// (width/height 100%).
+export function RepostIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            width="100%"
+            height="100%"
+            aria-hidden="true"
+            focusable="false"
+        >
+            <path
+                d="M 19.998 9.497 a 1 1 0 0 0 -1 1 v 4.228 a 3.274 3.274 0 0 1 -3.27 3.27 h -5.313 l 1.791 -1.787 a 1 1 0 0 0 -1.412 -1.416 L 7.29 18.287 a 1.004 1.004 0 0 0 -0.294 0.707 v 0.001 c 0 0.023 0.012 0.042 0.013 0.065 a 0.923 0.923 0 0 0 0.281 0.643 l 3.502 3.504 a 1 1 0 0 0 1.414 -1.414 l -1.797 -1.798 h 5.318 a 5.276 5.276 0 0 0 5.27 -5.27 v -4.228 a 1 1 0 0 0 -1 -1 Z m -6.41 -3.496 l -1.795 1.795 a 1 1 0 1 0 1.414 1.414 l 3.5 -3.5 a 1.003 1.003 0 0 0 0 -1.417 l -3.5 -3.5 a 1 1 0 0 0 -1.414 1.414 l 1.794 1.794 H 8.27 A 5.277 5.277 0 0 0 3 9.271 V 13.5 a 1 1 0 0 0 2 0 V 9.271 a 3.275 3.275 0 0 1 3.271 -3.27 Z"
+                fill="currentColor"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }

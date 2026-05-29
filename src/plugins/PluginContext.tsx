@@ -95,6 +95,14 @@ export function useHasPlugin(id: string): boolean {
     return usePluginContext().hasPlugin(id);
 }
 
+/// Becomes true once the plugins-enumeration GraphQL query lands.
+/// Used by BingeStartupSplash as the "Stash is reachable" signal
+/// so the splash dismisses on real readiness instead of a fixed
+/// timer. False during the initial handshake.
+export function usePluginLoaded(): boolean {
+    return usePluginContext().loaded;
+}
+
 export function useHasAdvancedRating(): boolean {
     return usePluginContext().hasPlugin(PLUGIN_ID_ADVANCED_RATING);
 }

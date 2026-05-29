@@ -15,6 +15,7 @@ import { useFilter } from "../filter/FilterContext";
 import { useTab } from "./TabContext";
 import { useAutoHideTabBar } from "../hooks/useAutoHideTabBar";
 import { SceneCardGrid } from "../components/SceneCardGrid";
+import { BingeLoading } from "../components/BingeLoading";
 
 // IG-style "Saved" page. Grid of collection tiles with cover
 // thumbnails (latest scene tagged with the collection). Per-tile
@@ -202,7 +203,7 @@ export function SavedPage() {
                         emptyMessage="No scenes saved to this collection yet."
                     />
                 ) : (
-                    <div className="binge-status">resolving collection…</div>
+                    <BingeLoading minHeight="60vh" />
                 )}
             </div>
         );

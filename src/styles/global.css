@@ -9,8 +9,14 @@
     --glass-bg: rgba(0, 0, 0, 0.5);
     --glass-border: rgba(255, 255, 255, 0.12);
     --glass-blur: blur(24px);
-    --accent: #f97316;
-    --accent-rgb: 249, 115, 22;
+    /* Brand accent — IG-style pink. Used for follow CTAs, active
+       toggles, discovery card chrome, story ring strokes, etc.
+       Blue (the `binge-feed-card-hashtag` / `binge-performer-mention`
+       colour) is reserved for link-shaped text and is intentionally
+       NOT themed off --accent — links stay blue across refract
+       themes too, matching IG's universal link blue. */
+    --accent: #f472b6;
+    --accent-rgb: 244, 114, 182;
     --radius: 16px;
 }
 
@@ -1904,6 +1910,48 @@ body,
     min-width: 13rem;
     cursor: pointer;
 }
+
+/* 5-button gender toggle strip — sits in the Settings row's
+   control slot. Active state filled with the brand accent so a
+   glance reveals which genders are surfaced. */
+.binge-settings-gender-row {
+    display: inline-flex;
+    gap: 6px;
+}
+.binge-settings-gender-btn {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition:
+        background 120ms ease,
+        color 120ms ease,
+        border-color 120ms ease,
+        transform 80ms ease;
+}
+.binge-settings-gender-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+.binge-settings-gender-btn:active {
+    transform: scale(0.95);
+}
+.binge-settings-gender-btn.is-active {
+    background: var(--accent, #f472b6);
+    border-color: var(--accent, #f472b6);
+    color: #fff;
+}
+.binge-settings-gender-btn.is-active:hover {
+    /* Slight darken on hover — keeps the active state visually
+       stable so the user can confirm which toggles are on. */
+    filter: brightness(0.92);
+}
 .binge-settings-select:focus {
     outline: 2px solid rgba(255, 255, 255, 0.25);
     outline-offset: 1px;
@@ -3271,6 +3319,114 @@ body,
     to { transform: rotate(360deg); }
 }
 
+/* ── Home feed filter ─────────────────────────────────────────────── */
+/* Title + filter button share a left-aligned group so the funnel sits
+   right next to "Home"; the refresh button stays pushed to the right by
+   the title-row's space-between. */
+.binge-tab-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.binge-feed-filter {
+    position: relative;
+    display: inline-flex;
+}
+.binge-feed-filter-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0.3rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: color 0.15s ease;
+}
+.binge-feed-filter-btn:hover,
+.binge-feed-filter-btn.is-active {
+    color: #fff;
+}
+.binge-feed-filter-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.3);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+/* Small accent dot when any category is hidden. */
+.binge-feed-filter-dot {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: linear-gradient(
+        135deg,
+        #f472b6 0%,
+        #a855f7 50%,
+        #6aa9ff 100%
+    );
+    border: 1.5px solid var(--bg-0, #0a0a0a);
+    box-sizing: border-box;
+}
+.binge-feed-filter-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 50;
+    min-width: 168px;
+    padding: 6px;
+    background: var(--bg-2, #1a1a1f);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(20px) saturate(140%);
+}
+.binge-feed-filter-heading {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.4);
+    padding: 4px 8px 6px;
+}
+.binge-feed-filter-item {
+    appearance: none;
+    background: transparent;
+    border: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.binge-feed-filter-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+.binge-feed-filter-item.is-on {
+    color: #fff;
+}
+/* Check column — fixed width so labels align whether or not the
+   check is rendered. The check itself shows in the brand accent. */
+.binge-feed-filter-check {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #c084fc;
+}
+
 .binge-story {
     appearance: none;
     background: transparent;
@@ -3303,13 +3459,14 @@ body,
     width: 74px;
     height: 74px;
     border-radius: 50%;
+    /* binge's identity gradient — pink (--accent) → purple →
+       blue (bingeLink). Replaces the IG-quote pink→orange ring
+       so the ring matches the rest of the two-tone palette. */
     background: linear-gradient(
         45deg,
-        #f09433 0%,
-        #e6683c 25%,
-        #dc2743 50%,
-        #cc2366 75%,
-        #bc1888 100%
+        #f472b6 0%,
+        #a855f7 50%,
+        #6aa9ff 100%
     );
     padding: 3px;
     display: block;
@@ -3800,7 +3957,8 @@ body,
     border-radius: 50%;
     background-color: rgba(255, 255, 255, 0.1);
     background-size: cover;
-    background-position: center;
+    /* Bias upward to match the performer-circle sweep. */
+    background-position: center top;
     display: grid;
     place-items: center;
     flex: 0 0 38px;
@@ -3876,15 +4034,12 @@ body,
     color: #fff;
     line-height: 1.5;
 }
-.binge-discovery-card-pill.is-costar {
-    /* IG-accent orange (#f97316) — keeps the existing brand
-       accent for "scenes featuring your performers". */
-    background: rgba(249, 115, 22, 0.85);
-}
+.binge-discovery-card-pill.is-costar,
 .binge-discovery-card-pill.is-trending {
-    /* Pink — matches the `bingeLike` accent already used on
-       Trending elsewhere (e.g. iOS). */
-    background: rgba(244, 114, 182, 0.85);
+    /* Both pills use the brand pink — the label text
+       (DISCOVER vs TRENDING) is the differentiator. Two pinks
+       was visually noisy; one pink + clear copy reads cleaner. */
+    background: rgba(var(--accent-rgb), 0.85);
 }
 .binge-discovery-card-trigger {
     appearance: none;
@@ -4053,7 +4208,9 @@ body,
     border-radius: 50%;
     background-color: rgba(255, 255, 255, 0.08);
     background-size: cover;
-    background-position: center;
+    /* Match the rest of the performer-circle sweep — bias upward
+       so the face stays in frame inside the 56px circle. */
+    background-position: center top;
     flex: 0 0 56px;
     display: grid;
     place-items: center;
@@ -4628,6 +4785,15 @@ body,
     flex: 1 1 auto;
     min-width: 0;
 }
+/* Pack cards wrap the SINGLE avatar in a hovercard too (regular
+   scene cards stack multiple avatars without per-avatar hovercards).
+   That extra trigger inherits the rule above and also grows to
+   fill — pushing the name off to the right. Pin the avatar's
+   trigger to content width so only the name trigger expands. */
+.binge-feed-card-author
+    > .binge-hovercard-trigger:has(.binge-pack-card-avatar) {
+    flex: 0 0 auto;
+}
 
 .binge-feed-card-name-btn {
     appearance: none;
@@ -4644,6 +4810,32 @@ body,
     outline: 2px solid rgba(var(--accent-rgb, 244, 114, 182), 0.5);
     outline-offset: 2px;
     border-radius: 4px;
+}
+
+/* Verified-mark inline next to the primary performer's name in
+   the home post card header. Three states match the profile
+   topbar's badge:
+   - default (in library)      → IG-blue
+   - .is-favorite (favourited) → brand pink, soft glow
+   - not in library            → no markup rendered
+   Sized down to 13px to fit the 14px header text without
+   dominating. */
+.binge-feed-card-verified {
+    display: inline-grid;
+    place-items: center;
+    width: 13px;
+    height: 13px;
+    margin: 0 0.18em 0 0.25em;
+    vertical-align: -1px;
+    color: #3897F0;
+}
+.binge-feed-card-verified.is-favorite {
+    color: rgba(244, 114, 182, 1);
+    filter: drop-shadow(0 0 4px rgba(244, 114, 182, 0.55));
+}
+.binge-feed-card-verified svg {
+    width: 100%;
+    height: 100%;
 }
 
 /* Stacked overlapping avatars in the header. Mirrors the Reel's
@@ -4687,10 +4879,42 @@ body,
     line-height: 0;
 }
 .binge-feed-card-stack-avatar:hover,
-.binge-feed-card-stack-avatar:focus-visible {
+.binge-feed-card-stack-avatar:focus-visible,
+.binge-feed-card-stack-story-ring:hover .binge-feed-card-stack-avatar {
     transform: translateY(-1px);
     outline: none;
     z-index: 10 !important;
+}
+
+/* Gradient story ring wrapper — only present when the performer
+   has an active story. Same pink → purple → blue ring as the
+   home stories row, sized down to fit the 38px avatar. Tap routed
+   to the story viewer (see SceneFeedCard's onOpenStory handler);
+   profile lookup happens via the hover card's Open profile CTA. */
+.binge-feed-card-stack-story-ring {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: 50%;
+    background: linear-gradient(
+        45deg,
+        #f472b6 0%,
+        #a855f7 50%,
+        #6aa9ff 100%
+    );
+    box-sizing: border-box;
+    position: relative;
+}
+/* Avatar inside the ring is sized DOWN to 34px so the ring's outer
+   diameter (avatar + 2px gradient padding each side) lands at 38px —
+   exactly a bare avatar's footprint. Without this the ringed bubble
+   renders 4px larger than ringless ones in the same stack. Border
+   dropped; the gradient ring is the separator now. */
+.binge-feed-card-stack-story-ring > .binge-feed-card-stack-avatar {
+    width: 34px;
+    height: 34px;
+    border: none;
 }
 .binge-feed-card-stack-initial {
     font-size: 0.7rem;
@@ -5737,11 +5961,20 @@ body,
     gap: 0.35rem;
 }
 
+/* Three-state verified mark next to the performer name in the
+   profile top bar:
+   - default (in library, not favourited) → IG-blue, no glow
+   - `.is-favorite` (favourited)          → brand pink, pink glow
+   StashDB-only profiles never render this span at all, so the
+   "not in library" case has no badge by absence. */
 .binge-profile-verified {
     display: inline-grid;
     place-items: center;
     width: 16px;
     height: 16px;
+    color: #3897F0;
+}
+.binge-profile-verified.is-favorite {
     color: rgba(244, 114, 182, 1);
     filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.55));
 }
@@ -5848,9 +6081,11 @@ body,
     transition: transform 0.18s ease, border-color 0.18s ease;
 }
 .binge-discover-bubble-img.is-in-library {
-    /* Green ring for performers already in the user's library —
-       same colour family as the "In library" pill on hover cards. */
-    border-color: rgba(80, 200, 120, 0.55);
+    /* IG-verified blue (`#3897F0`) for performers already in the
+       user's library — matches the verified badge colour on
+       in-library names. Green was inconsistent with the rest of
+       the palette. */
+    border-color: rgba(56, 151, 240, 0.7);
 }
 .binge-discover-bubble:hover .binge-discover-bubble-img,
 .binge-discover-bubble:focus-visible .binge-discover-bubble-img {
@@ -5954,7 +6189,12 @@ body,
     border-radius: 999px;
     background-color: rgba(255, 255, 255, 0.06);
     background-size: cover;
-    background-position: center;
+    /* Slight upward bias — most performer headshots have the face
+       in the upper third of the frame; a centered crop drops the
+       face below the circle's vertical centre. Matches the story
+       bubble's `center top` treatment but less aggressive (96px
+       circle has more vertical room to play with than 64px). */
+    background-position: center 20%;
     border: 1px solid rgba(255, 255, 255, 0.18);
     display: grid;
     place-items: center;
@@ -5970,13 +6210,14 @@ body,
     appearance: none;
     border: none;
     padding: 3px;
+    /* binge identity gradient — kept in sync with .binge-story-ring
+       so every "performer has new content" affordance reads as the
+       same design element. */
     background: linear-gradient(
         45deg,
-        #f09433 0%,
-        #e6683c 25%,
-        #dc2743 50%,
-        #cc2366 75%,
-        #bc1888 100%
+        #f472b6 0%,
+        #a855f7 50%,
+        #6aa9ff 100%
     );
     border-radius: 50%;
     cursor: pointer;
@@ -6471,6 +6712,55 @@ body,
    ────────────────────────────────────────────────────────────────────── */
 .binge-details-sheet {
     padding-bottom: 1.5rem;
+}
+
+/* Technical details block at the bottom of the scene sheet —
+   path, resolution, codecs etc. Mirrors the iOS sheet's TECHNICAL
+   section so the two clients show the same data. Scroll within
+   the sheet to reach it; below-the-fold for casual browsing. */
+.binge-details-tech {
+    margin: 1rem 1.25rem 0;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.binge-details-tech-heading {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+    margin-bottom: 0.6rem;
+}
+.binge-details-tech-list {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+.binge-details-tech-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.binge-details-tech-label {
+    margin: 0;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+}
+.binge-details-tech-value {
+    margin: 0;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.88);
+    overflow-wrap: anywhere;
+    user-select: text;
+}
+.binge-details-tech-value.is-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
 }
 
 .binge-details-meta {
@@ -7355,4 +7645,288 @@ body,
     .binge-scribe-score-row {
         grid-template-columns: 7rem 1fr 2rem 1.4rem;
     }
+}
+
+/* ── In-context loading indicator ─────────────────────────────────────
+   Stroked infinity with a coloured segment that traces around the
+   figure-8 (classic "spinner" pattern, infinity-shaped). Stays in one
+   visual identity across surface containers + the cold-start splash.
+
+   The animation runs on the segment path's stroke-dashoffset: a fixed
+   short dash + long gap, sliding round the path's normalised length-
+    of-100 perimeter, repeats. Two passes around the figure-8 per
+   cycle so the traversal feels purposeful, not frenetic. */
+.binge-loading {
+    display: grid;
+    place-items: center;
+    padding: 2rem;
+    width: 100%;
+}
+.binge-loading-icon,
+.binge-splash-icon {
+    /* viewBox is 0 0 512 512 (same as BingeLogo) so the silhouette
+       fits a square frame even though the visual mass is wider
+       than tall. We size by font-relative units; aspect-ratio
+       keeps the SVG square so the silhouette doesn't squish. */
+    aspect-ratio: 1 / 1;
+    display: block;
+}
+.binge-loading-icon {
+    width: 5.5rem;
+    filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.35));
+}
+.binge-loading.is-compact .binge-loading-icon {
+    width: 3rem;
+    filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.25));
+}
+
+/* No additional CSS for the loader's segment — the rotation
+   animation lives inside the SVG itself via SMIL
+   <animateTransform>. CSS only sets the outer dimensions + glow. */
+
+/* Reel loading overlay — covers the (still-mounted) virtualised
+   scroll container while waiting on the first batch of scenes.
+   `position: absolute; inset: 0` from .binge-status-overlay; we
+   add display: grid centring + pointer-events: none so the user
+   can interact through to the (empty) reel below the moment it
+   has content. */
+.binge-reel-loading {
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+}
+.binge-reel-loading .binge-loading {
+    padding: 0;
+}
+
+/* ── Pack card (bulk-import collapse) ─────────────────────────────────
+   Single feed entry representing a batch import (e.g. an OnlyFans
+   pack with 200+ scenes added together). Reuses .binge-feed-card
+   chrome so the cards visually slot in next to scene + discovery
+   posts. The hero is the most recent scene's screenshot with a
+   "+N" badge overlay. */
+.binge-pack-card .binge-pack-card-avatar {
+    appearance: none;
+    background: var(--bg-2, #222);
+    border: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center top;
+    cursor: pointer;
+    flex: 0 0 38px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+}
+.binge-pack-card .binge-pack-card-avatar-initial {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+.binge-pack-card-sub {
+    display: block;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 500;
+    margin-top: 1px;
+}
+/* Wrap-only ring — the inner avatar button already has the
+   correct background image, so the ring just adds the 2px
+   gradient padding. Matches the avatar-stack story ring on
+   regular feed cards. */
+.binge-pack-card-avatar-ring {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: 50%;
+    background: linear-gradient(
+        45deg,
+        #f472b6 0%,
+        #a855f7 50%,
+        #6aa9ff 100%
+    );
+    box-sizing: border-box;
+    flex: 0 0 auto;
+}
+.binge-pack-card-avatar-ring > .binge-pack-card-avatar {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+}
+
+/* Repost badge — small gradient disc with the loop-arrows glyph,
+   tucked into the bottom-right of the avatar. Shown only on packs
+   flagged isRepost (back-catalog re-added). The card-coloured border
+   makes it read as a cut-out sitting on top of the avatar. */
+.binge-pack-card-avatar-wrap {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+.binge-pack-card-repost-badge {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    padding: 3px;
+    box-sizing: border-box;
+    background: linear-gradient(
+        135deg,
+        #f472b6 0%,
+        #a855f7 50%,
+        #6aa9ff 100%
+    );
+    border: 2px solid var(--bg-1, #111);
+    color: #fff;
+    pointer-events: none;
+}
+
+/* Repost badge on a single scene card's PRIMARY avatar — same
+   gradient disc + loop-arrows glyph as the pack card. Sits on a
+   relative wrapper so it escapes the avatar's overflow:hidden clip,
+   with a high z-index so it floats above any overlapping co-star
+   bubble in the stack. */
+.binge-feed-card-stack-avatar-wrap {
+    position: relative;
+    display: inline-flex;
+    line-height: 0;
+}
+.binge-feed-card-stack-repost-badge {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    padding: 3px;
+    box-sizing: border-box;
+    background: linear-gradient(
+        135deg,
+        #f472b6 0%,
+        #a855f7 50%,
+        #6aa9ff 100%
+    );
+    border: 2px solid var(--bg-1, #111);
+    color: #fff;
+    z-index: 20;
+    pointer-events: none;
+}
+
+/* 3×3 mosaic of scene screenshots. Tap anywhere opens the
+   pack detail sheet. The last tile overlays the "+N more"
+   count when the pack has more than 9 scenes. */
+.binge-pack-card-mosaic {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 2px;
+    background: var(--bg-1, #111);
+    cursor: pointer;
+}
+.binge-pack-card-mosaic:focus-visible {
+    outline: 2px solid rgba(var(--accent-rgb, 244, 114, 182), 0.8);
+    outline-offset: -2px;
+}
+.binge-pack-card-mosaic-tile {
+    background-color: #0a0a0a;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+}
+.binge-pack-card-mosaic-overflow {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.62);
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Pack detail sheet — fullscreen-ish bottom sheet listing every
+   scene in the batch. Tile grid mirrors the Saved collection
+   detail layout. */
+.binge-pack-sheet {
+    padding: 0;
+    max-height: 92vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.binge-pack-sheet-header {
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.binge-pack-sheet-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+}
+.binge-pack-sheet-sub {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.55);
+    margin-top: 2px;
+}
+.binge-pack-sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+.binge-pack-sheet-tile {
+    appearance: none;
+    background: var(--bg-1, #111);
+    border: none;
+    cursor: pointer;
+    aspect-ratio: 9 / 16;
+    background-size: cover;
+    background-position: center;
+    padding: 0;
+}
+
+/* ── First-paint splash ───────────────────────────────────────────────
+   Covers the blank window between SPA mount and the first useful
+   paint (stories row, scene feed, etc). Self-dismisses via internal
+   timers in BingeStartupSplash. Fixed at z-index 10000 so it sits
+   above every other surface, including portalled sheets / modals
+   that might race to mount on first paint. */
+.binge-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    background: #000;
+    /* `pointer-events: none` keeps the splash from intercepting clicks
+       during the fade — content underneath is fully interactive the
+       moment the user can see it. */
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.32s ease-out;
+}
+.binge-splash.is-dismissing {
+    opacity: 0;
+}
+
+/* Splash variant — same component, scaled up for hero use. The
+   per-element animation + gradient stay shared with the
+   .binge-loading-icon rules above so there's a single visual
+   identity across all loading moments. */
+.binge-splash-icon {
+    width: 14rem;
+    filter: drop-shadow(0 0 24px rgba(168, 85, 247, 0.45));
 }

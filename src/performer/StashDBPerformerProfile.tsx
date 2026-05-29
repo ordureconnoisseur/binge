@@ -12,6 +12,7 @@ import { usePerformerProfile } from "./PerformerProfileContext";
 import { FollowPerformerModal } from "../home/FollowPerformerModal";
 import { AddSceneModal } from "../home/AddSceneModal";
 import { PerformerLinks } from "./PerformerLinks";
+import { BingeLoading } from "../components/BingeLoading";
 
 // Profile page for a StashDB performer the user hasn't added to their
 // library yet. **Reuses the exact same class names and layout** as
@@ -148,9 +149,7 @@ export function StashDBPerformerProfile({
             </header>
 
             <div className="binge-profile-body" ref={bodyRef}>
-                {state.kind === "loading" && (
-                    <div className="binge-status">loading…</div>
-                )}
+                {state.kind === "loading" && <BingeLoading minHeight="50vh" />}
                 {state.kind === "error" && (
                     <div className="binge-status binge-status-error">
                         error: {state.message}

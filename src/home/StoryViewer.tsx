@@ -6,6 +6,7 @@ import { useMuteState } from "../hooks/useMuteState";
 import { MutedIcon, UnmutedIcon } from "../components/MuteToggle";
 import { useFilter } from "../filter/FilterContext";
 import { useTab } from "../tabs/TabContext";
+import { VerifiedIcon } from "../performer/PerformerProfile";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
 import { timeAgo } from "./timeAgo";
 import {
@@ -369,6 +370,26 @@ export function StoryViewer() {
                                 />
                                 <span className="binge-story-viewer-name">
                                     {activeStory.performerName}
+                                    <span
+                                        className={
+                                            "binge-feed-card-verified" +
+                                            (activeStory.performerFavorite
+                                                ? " is-favorite"
+                                                : "")
+                                        }
+                                        aria-label={
+                                            activeStory.performerFavorite
+                                                ? "Favourited"
+                                                : "In library"
+                                        }
+                                        title={
+                                            activeStory.performerFavorite
+                                                ? "Favourited"
+                                                : "In library"
+                                        }
+                                    >
+                                        <VerifiedIcon />
+                                    </span>
                                 </span>
                             </button>
                             <span className="binge-story-viewer-time">

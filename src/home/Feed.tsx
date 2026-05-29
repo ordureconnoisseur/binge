@@ -1,10 +1,31 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useFeed } from "./useFeed";
+import { useFeed, type FeedItem } from "./useFeed";
 import { SceneFeedCard } from "./SceneFeedCard";
 import { GalleryFeedCard } from "./GalleryFeedCard";
 import { DiscoveryFeedCard } from "./DiscoveryFeedCard";
 import { invalidateStashDBCache } from "../api/stashdb";
+import { BingeLoading } from "../components/BingeLoading";
+import { PackFeedCard } from "./PackFeedCard";
+import {
+    useHiddenFeedCategories,
+    type FeedCategory,
+} from "./pluginSettings";
+
+// Maps a feed item to the filter category the Home filter menu
+// controls. Galleries return null — they're governed by the separate
+// "Show galleries" setting, not this filter.
+function feedCategory(it: FeedItem): FeedCategory | null {
+    switch (it.kind) {
+        case "discovery":
+            return it.source === "trending" ? "trending" : "discover";
+        case "scene":
+        case "pack":
+            return it.isRepost ? "reposts" : "posts";
+        default:
+            return null;
+    }
+}
 
 interface FeedProps {
     // The scrollable container this feed lives inside — usually
@@ -22,11 +43,16 @@ interface FeedProps {
 // up in the DOM as the user infinite-scrolls.
 export function Feed({ scrollContainerRef }: FeedProps) {
     const { state, loadMore, isLoadingMore, hasMore } = useFeed();
+    const hidden = useHiddenFeedCategories();
     const feedRef = useRef<HTMLElement>(null);
     const sentinelRef = useRef<HTMLDivElement>(null);
     const [scrollMargin, setScrollMargin] = useState(0);
 
-    const items = state.kind === "ready" ? state.items : [];
+    const rawItems = state.kind === "ready" ? state.items : [];
+    const items = rawItems.filter((it) => {
+        const cat = feedCategory(it);
+        return cat === null || !hidden.has(cat);
+    });
 
     // The feed isn't at the top of its scroll container — there's a
     // page title and the stories row above it. Tell the virtualizer
@@ -94,7 +120,7 @@ export function Feed({ scrollContainerRef }: FeedProps) {
     if (state.kind === "loading") {
         return (
             <section className="binge-feed binge-feed-loading">
-                <div className="binge-feed-empty">loading feed…</div>
+                <BingeLoading minHeight="60vh" />
             </section>
         );
     }
@@ -111,11 +137,24 @@ export function Feed({ scrollContainerRef }: FeedProps) {
         return (
             <section className="binge-feed">
                 <div className="binge-feed-empty">
-                    nothing new in the last 30 days.
+                    {rawItems.length > 0
+                        ? "everything's filtered out — adjust the filter."
+                        : "nothing new in the last 30 days."}
                 </div>
             </section>
         );
     }
+
+    // Date-ordered list of every scene id in the home feed (skips
+    // gallery + discovery rows). Passed to SceneFeedCard so the
+    // "Watch full scene" CTA can drop the user into the reel
+    // pre-populated with the home timeline, starting at the
+    // tapped scene — same UX as the iOS port.
+    const feedSceneIds = items
+        .filter((it): it is Extract<typeof it, { kind: "scene" }> =>
+            it.kind === "scene"
+        )
+        .map((it) => it.sceneId);
 
     return (
         <section
@@ -147,9 +186,14 @@ export function Feed({ scrollContainerRef }: FeedProps) {
                         }}
                     >
                         {item.kind === "scene" ? (
-                            <SceneFeedCard item={item} />
+                            <SceneFeedCard
+                                item={item}
+                                feedSceneIds={feedSceneIds}
+                            />
                         ) : item.kind === "gallery" ? (
                             <GalleryFeedCard item={item} />
+                        ) : item.kind === "pack" ? (
+                            <PackFeedCard item={item} />
                         ) : (
                             <DiscoveryFeedCard
                                 item={item}

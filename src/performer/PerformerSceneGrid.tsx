@@ -17,6 +17,7 @@ import {
     useIncludeStashDBInProfile,
 } from "../home/pluginSettings";
 import { AddSceneModal } from "../home/AddSceneModal";
+import { BingeLoading } from "../components/BingeLoading";
 
 interface PerformerSceneGridProps {
     performer: PerformerDetail;
@@ -237,7 +238,7 @@ export function PerformerSceneGrid({
                 </div>
             )}
             {scenes.length === 0 && loading && (
-                <div className="binge-status">loading…</div>
+                <BingeLoading minHeight="30vh" />
             )}
             {scenes.length === 0 && !loading && !error && (
                 <div className="binge-status">no scenes</div>

@@ -4,24 +4,29 @@ import { useAutoHideTabBar } from "../hooks/useAutoHideTabBar";
 import {
     ALLOWED_LOOKBACK_DAYS,
     ALLOWED_TRANSCODE,
+    setAllowedGenders,
     setBingeServerUrl,
     setIncludeReddit,
     setIncludeStashDB,
     setIncludeStashDBInProfile,
     setLookbackDays,
     setRefractIntegration,
+    setShowcaseMode,
     setShowDebug,
     setShowGalleries,
     setTranscodeType,
+    useAllowedGenders,
     useBingeServerUrl,
     useIncludeReddit,
     useIncludeStashDB,
     useIncludeStashDBInProfile,
     useLookbackDays,
     useRefractIntegration,
+    useShowcaseMode,
     useShowDebug,
     useShowGalleries,
     useTranscodeType,
+    type Gender,
 } from "../home/pluginSettings";
 import {
     getBingeServerConfig,
@@ -57,6 +62,8 @@ export function SettingsPage() {
             </header>
 
             <div className="binge-settings-list">
+                <ShowcaseModeRow />
+                <GenderRow />
                 <TranscodeRow />
                 <GalleriesRow />
                 <LookbackRow />
@@ -100,6 +107,126 @@ function TranscodeRow() {
     );
 }
 
+function GenderRow() {
+    const allowed = useAllowedGenders();
+    const toggle = (g: Gender) => {
+        const next = new Set(allowed);
+        if (next.has(g)) next.delete(g);
+        else next.add(g);
+        setAllowedGenders(next);
+    };
+    return (
+        <SettingRow
+            title="Genders to surface"
+            description="Performers of these genders appear on the Home discovery feed and Explore's Discover Performers row. Defaults to female + trans female; toggle others to broaden the surface."
+        >
+            <div
+                className="binge-settings-gender-row"
+                role="group"
+                aria-label="Genders to surface"
+            >
+                {GENDER_OPTIONS.map(({ value, label }) => {
+                    const active = allowed.has(value);
+                    return (
+                        <button
+                            key={value}
+                            type="button"
+                            className={
+                                "binge-settings-gender-btn" +
+                                (active ? " is-active" : "")
+                            }
+                            onClick={() => toggle(value)}
+                            title={label}
+                            aria-label={label}
+                            aria-pressed={active}
+                        >
+                            <GenderIcon gender={value} />
+                        </button>
+                    );
+                })}
+            </div>
+        </SettingRow>
+    );
+}
+
+const GENDER_OPTIONS: ReadonlyArray<{
+    value: Gender;
+    label: string;
+}> = [
+    { value: "FEMALE", label: "Female" },
+    { value: "MALE", label: "Male" },
+    { value: "TRANSGENDER_FEMALE", label: "Trans female" },
+    { value: "TRANSGENDER_MALE", label: "Trans male" },
+    { value: "NON_BINARY", label: "Non-binary" },
+];
+
+// Hand-drawn gender glyphs that scale crisply at small sizes —
+// the corresponding Unicode characters render unevenly across
+// fonts at 18-20px, so we paint our own. All share a 24×24 box,
+// 1.8 stroke, round line caps. `currentColor` so the buttons can
+// theme via the parent's `color`.
+function GenderIcon({ gender }: { gender: Gender }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            {gender === "FEMALE" && (
+                <g>
+                    <circle cx="12" cy="9" r="4.5" />
+                    <path d="M12 13.5 v7" />
+                    <path d="M9 17.5 h6" />
+                </g>
+            )}
+            {gender === "MALE" && (
+                <g>
+                    <circle cx="10" cy="14" r="4.5" />
+                    <path d="M13.2 10.8 L20 4" />
+                    <path d="M14 4 H20 V10" />
+                </g>
+            )}
+            {gender === "TRANSGENDER_FEMALE" && (
+                // Venus + a small arrow sprouting from upper-left of
+                // the circle (the standard trans-modifier stroke).
+                <g>
+                    <circle cx="12" cy="11" r="4" />
+                    <path d="M12 15 v6" />
+                    <path d="M9.5 18.5 h5" />
+                    <path d="M9.1 8.1 L5 4" />
+                    <path d="M5 4 H8.5 M5 4 V7.5" />
+                </g>
+            )}
+            {gender === "TRANSGENDER_MALE" && (
+                // Mars + a perpendicular stroke across the diagonal
+                // arrow shaft — mirrors the trans-male glyph (U+26A6).
+                <g>
+                    <circle cx="10" cy="14" r="4" />
+                    <path d="M12.8 11.2 L20 4" />
+                    <path d="M14 4 H20 V10" />
+                    <path d="M14.5 9.5 L17.5 12.5" />
+                </g>
+            )}
+            {gender === "NON_BINARY" && (
+                // Single vertical stem with a circle in the middle —
+                // matches the contemporary NB symbol (a Venus-like
+                // shape with no cross or arrow).
+                <g>
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 3 V8" />
+                    <path d="M12 16 V21" />
+                </g>
+            )}
+        </svg>
+    );
+}
 function GalleriesRow() {
     const value = useShowGalleries();
     return (
@@ -538,6 +665,22 @@ function RefractRow() {
                 checked={value}
                 onChange={(v) => setRefractIntegration(v)}
                 label="Follow refract accent"
+            />
+        </SettingRow>
+    );
+}
+
+function ShowcaseModeRow() {
+    const value = useShowcaseMode();
+    return (
+        <SettingRow
+            title="Showcase mode"
+            description="Silently apply your Stash 'Showcase' saved filter to For You so demos and screenshots start on curated content. No chip appears — the filter is invisible from the UI. Requires a saved filter named 'Showcase' in Stash; otherwise this is a no-op."
+        >
+            <SwitchToggle
+                checked={value}
+                onChange={(v) => setShowcaseMode(v)}
+                label="Showcase mode"
             />
         </SettingRow>
     );

@@ -561,7 +561,7 @@ export function SceneSlide({
                 playsInline
                 /* When auto-scroll is enabled we disable loop so `ended`
                    actually fires; otherwise videos loop forever like
-                   TikTok/IG and the user advances manually. */
+                   Instagram Reels and the user advances manually. */
                 loop={!autoScroll}
                 muted={muted}
                 onEnded={() => {

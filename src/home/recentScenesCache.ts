@@ -44,15 +44,23 @@ function emptySlot<T>(): Slot<T> {
     return { promise: null, key: null, expiresAt: 0 };
 }
 
-export function getRecentScenes(sinceIso: string): Promise<RecentSceneRow[]> {
-    return get(scenesByCreatedSlot, sinceIso, () =>
-        findRecentScenes(sinceIso)
+export function getRecentScenes(
+    sinceIso: string,
+    showcase = false
+): Promise<RecentSceneRow[]> {
+    // Cache key includes showcase so flipping the Settings
+    // toggle mid-session invalidates the cached filtered set.
+    return get(scenesByCreatedSlot, `${sinceIso}|sc:${showcase}`, () =>
+        findRecentScenes(sinceIso, 500, showcase)
     );
 }
 export function getScenesByDate(
-    sinceDate: string
+    sinceDate: string,
+    showcase = false
 ): Promise<RecentSceneRow[]> {
-    return get(scenesByDateSlot, sinceDate, () => findScenesByDate(sinceDate));
+    return get(scenesByDateSlot, `${sinceDate}|sc:${showcase}`, () =>
+        findScenesByDate(sinceDate, 500, showcase)
+    );
 }
 export function getRecentGalleries(
     sinceIso: string

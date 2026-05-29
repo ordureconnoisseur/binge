@@ -4,6 +4,7 @@ import { FilterProvider, useFilter } from "./filter/FilterContext";
 import { FilterBar } from "./filter/FilterBar";
 import { TabBar } from "./tabs/TabBar";
 import { BingeLogo } from "./components/BingeLogo";
+import { BingeStartupSplash } from "./components/BingeStartupSplash";
 import { BottomNav } from "./components/BottomNav";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { TabProvider, useTab } from "./tabs/TabContext";
@@ -16,6 +17,7 @@ import { SettingsPage } from "./tabs/SettingsPage";
 import { PerformerProfileProvider } from "./performer/PerformerProfileContext";
 import { PerformerProfile } from "./performer/PerformerProfile";
 import { StoryViewerProvider } from "./home/StoryViewerContext";
+import { StoriesProvider } from "./home/StoriesContext";
 import { ScribeProvider } from "./scribe/ScribeContext";
 import { StoryViewer } from "./home/StoryViewer";
 import { FilterSheet } from "./filter/FilterSheet";
@@ -131,8 +133,13 @@ function App() {
             <FilterProvider>
                 <TabProvider>
                     <PerformerProfileProvider>
+                        <StoriesProvider>
                         <StoryViewerProvider>
                             <ScribeProvider>
+                            {/* First-paint splash. Self-dismissing
+                                via internal timers — see
+                                BingeStartupSplash. */}
+                            <BingeStartupSplash />
                             <div
                                 className={
                                     refractActive
@@ -168,6 +175,7 @@ function App() {
                             <FilterAutoClear />
                             </ScribeProvider>
                         </StoryViewerProvider>
+                        </StoriesProvider>
                     </PerformerProfileProvider>
                 </TabProvider>
             </FilterProvider>

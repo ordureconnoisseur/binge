@@ -21,6 +21,7 @@ import {
     type StashDBScene,
     type StashDBScenePerformer,
 } from "../api/stashdb";
+import { readAllowedGenders } from "./pluginSettings";
 
 export interface DiscoveryFeedItem {
     key: string;
@@ -43,6 +44,11 @@ export interface DiscoveryFeedItem {
         gender: string | null;
         birthDate: string | null;
         localId: string | null; // null = not in library
+        /// True when the linked library performer is marked
+        /// Favourite. Used by the card header to swap the
+        /// verified mark from blue (in-library) → pink
+        /// (favourite). null when not in library.
+        favorite: boolean;
     };
     primaryInLibrary: boolean;
     // All other performers on the scene EXCEPT the primary. Used by
@@ -55,16 +61,20 @@ export interface DiscoveryFeedItem {
         gender: string | null;
         birthDate: string | null;
         localId: string | null;
+        favorite: boolean;
     }[];
     source: "costar" | "trending";
 }
 
-// Strict gender filter — both the primary picker AND the
-// co-performer list. Co-stars who are male/intersex/etc. don't
-// surface (they'd just be inert "in library / not in library"
-// chips with no Follow action that makes sense for binge).
-function isAllowedGender(gender: string | null): boolean {
-    return gender === "FEMALE" || gender === "TRANSGENDER_FEMALE";
+// Gender filter — both the primary picker AND the co-performer
+// list. Driven by `binge.allowedGenders` (Settings → Genders to
+// surface). Performers whose gender isn't in the user's allowed
+// set don't surface as discovery candidates. Read fresh per call
+// so toggling the setting takes effect on the next discovery
+// fetch without a reload.
+function makeGenderFilter(): (gender: string | null) => boolean {
+    const allowed = readAllowedGenders();
+    return (gender) => !!gender && allowed.has(gender as never);
 }
 
 // Per-performer cap: an unfollowed performer with many recent
@@ -86,10 +96,14 @@ export async function fetchDiscoveryFeedItems(
     const linkedPerformers = await getLinkedPerformers();
     const stashIdToLocal = new Map<
         string,
-        { localId: string; name: string }
+        { localId: string; name: string; favorite: boolean }
     >();
     for (const p of linkedPerformers) {
-        stashIdToLocal.set(p.stashId, { localId: p.localId, name: p.name });
+        stashIdToLocal.set(p.stashId, {
+            localId: p.localId,
+            name: p.name,
+            favorite: p.favorite,
+        });
     }
 
     const owned = await getOwnedStashDBSceneIds();
@@ -97,10 +111,33 @@ export async function fetchDiscoveryFeedItems(
     // Fetch both seeds in parallel-ish (recent might fail
     // independently). Collect raw scenes from BOTH into a single
     // pool keyed by scene_id so we never emit the same scene twice.
+    //
+    // Trending is loaded FIRST so it wins the dedup — being in
+    // StashDB's global top-N is a stronger signal than "features a
+    // library performer" (which the user's library already covers
+    // as baseline). Without this ordering, almost every trending
+    // scene also matches the co-star fetch and the TRENDING pill
+    // never surfaces in practice.
     const scenesById = new Map<
         string,
         { scene: StashDBScene; source: "costar" | "trending" }
     >();
+
+    try {
+        // Pulls the same scene set that powers stashdb.org's
+        // homepage "Trending" section (sort: TRENDING).
+        const trendingScenes = await getTrendingStashDBScenes(
+            box.api_key
+        );
+        for (const s of trendingScenes.slice(0, MAX_TRENDING_ITEMS)) {
+            if (owned.has(s.id)) continue;
+            if (!scenesById.has(s.id)) {
+                scenesById.set(s.id, { scene: s, source: "trending" });
+            }
+        }
+    } catch (err) {
+        console.warn("[binge] discovery trending fetch failed", err);
+    }
 
     if (linkedPerformers.length > 0) {
         try {
@@ -111,6 +148,8 @@ export async function fetchDiscoveryFeedItems(
             );
             for (const s of costarScenes) {
                 if (owned.has(s.id)) continue;
+                // Trending was loaded first; don't overwrite the
+                // stronger signal.
                 if (!scenesById.has(s.id)) {
                     scenesById.set(s.id, { scene: s, source: "costar" });
                 }
@@ -120,43 +159,35 @@ export async function fetchDiscoveryFeedItems(
         }
     }
 
-    try {
-        // Pulls the same scene set that powers stashdb.org's
-        // homepage "Trending" section (sort: TRENDING).
-        const trendingScenes = await getTrendingStashDBScenes(
-            box.api_key
-        );
-        for (const s of trendingScenes.slice(0, MAX_TRENDING_ITEMS)) {
-            if (owned.has(s.id)) continue;
-            // Co-star matches take precedence; don't overwrite the
-            // source tag.
-            if (!scenesById.has(s.id)) {
-                scenesById.set(s.id, { scene: s, source: "trending" });
-            }
-        }
-    } catch (err) {
-        console.warn("[binge] discovery trending fetch failed", err);
-    }
-
     // Build items: pick a poster per scene, attach co-performers.
     // Skip scenes where the headline pick would be a library
-    // performer AND there are no unfollowed female co-stars — those
-    // are "nothing to follow" so they'd just be noise.
+    // performer AND there are no unfollowed co-stars of an allowed
+    // gender — those are "nothing to follow" so they'd just be noise.
     const items: DiscoveryFeedItem[] = [];
     const perfCounts = new Map<string, number>(); // headline cap
+    const isAllowedGender = makeGenderFilter();
 
     for (const { scene, source } of scenesById.values()) {
-        const female = (scene.performers ?? []).filter((p) =>
+        // Obey the recent window. The co-star query already filters
+        // server-side by date, but the trending query (sort: TRENDING)
+        // returns globally-hot scenes of ANY age — so an undated or
+        // older-than-window scene must be dropped here, or trending
+        // cards leak past the user's configured lookback.
+        if (!scene.releaseDate || scene.releaseDate < sinceIsoDate) {
+            continue;
+        }
+
+        const candidates = (scene.performers ?? []).filter((p) =>
             isAllowedGender(p.gender)
         );
-        if (female.length === 0) continue;
+        if (candidates.length === 0) continue;
 
-        const libraryPerformer = female.find((p) =>
+        const libraryPerformer = candidates.find((p) =>
             stashIdToLocal.has(p.id)
         );
-        // Most popular unfollowed female performer (highest scene_count;
+        // Most popular unfollowed candidate (highest scene_count;
         // ties broken by alphabetical name for determinism).
-        const unfollowedFemale = female
+        const unfollowed = candidates
             .filter((p) => !stashIdToLocal.has(p.id))
             .slice()
             .sort((a, b) => {
@@ -167,13 +198,24 @@ export async function fetchDiscoveryFeedItems(
             });
 
         // No-one to feature OR follow → skip the scene.
-        if (!libraryPerformer && unfollowedFemale.length === 0) continue;
-        // Headline is a library performer but no unfollowed
-        // co-stars to follow either → skip (no actionable signal).
-        if (libraryPerformer && unfollowedFemale.length === 0) continue;
+        if (!libraryPerformer && unfollowed.length === 0) continue;
+        // Costar-source only: headline is a library performer but
+        // no unfollowed co-stars to follow either → skip (no
+        // actionable signal). Trending bypasses this gate — an
+        // all-library trending scene still carries information
+        // value (it's what StashDB is surfacing right now), and
+        // dropping it makes the TRENDING pill all but invisible
+        // for users with substantial libraries.
+        if (
+            source === "costar" &&
+            libraryPerformer &&
+            unfollowed.length === 0
+        ) {
+            continue;
+        }
 
         const poster: StashDBScenePerformer | undefined =
-            libraryPerformer ?? unfollowedFemale[0];
+            libraryPerformer ?? unfollowed[0];
         if (!poster) continue;
 
         // Apply per-performer headline cap.
@@ -185,14 +227,18 @@ export async function fetchDiscoveryFeedItems(
         const coPerformers = (scene.performers ?? [])
             .filter((p) => p.id !== poster.id)
             .filter((p) => isAllowedGender(p.gender))
-            .map((p) => ({
-                stashId: p.id,
-                name: p.name,
-                image: p.image,
-                gender: p.gender,
-                birthDate: p.birthDate,
-                localId: stashIdToLocal.get(p.id)?.localId ?? null,
-            }));
+            .map((p) => {
+                const local = stashIdToLocal.get(p.id);
+                return {
+                    stashId: p.id,
+                    name: p.name,
+                    image: p.image,
+                    gender: p.gender,
+                    birthDate: p.birthDate,
+                    localId: local?.localId ?? null,
+                    favorite: local?.favorite ?? false,
+                };
+            });
 
         items.push({
             key: `discovery:${scene.id}`,
@@ -212,6 +258,7 @@ export async function fetchDiscoveryFeedItems(
                 gender: poster.gender,
                 birthDate: poster.birthDate,
                 localId: posterLocal?.localId ?? null,
+                favorite: posterLocal?.favorite ?? false,
             },
             primaryInLibrary: !!posterLocal,
             coPerformers,

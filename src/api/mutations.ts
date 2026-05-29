@@ -101,13 +101,45 @@ const TAG_CREATE = /* GraphQL */ `
 
 export async function tagCreate(
     name: string,
-    ignoreAutoTag: boolean
+    ignoreAutoTag: boolean,
+    parentIds?: string[]
 ): Promise<{ id: string; name: string }> {
+    const input: Record<string, unknown> = {
+        name,
+        ignore_auto_tag: ignoreAutoTag,
+    };
+    if (parentIds && parentIds.length > 0) {
+        input.parent_ids = parentIds;
+    }
     const data = await gql<{ tagCreate: { id: string; name: string } }>(
         TAG_CREATE,
-        { input: { name, ignore_auto_tag: ignoreAutoTag } }
+        { input }
     );
     return data.tagCreate;
+}
+
+// Used to reparent existing tags — e.g. when collections are
+// being migrated to live under a "binge Collections" parent on
+// app start, tags that already existed pre-migration get
+// updated in place rather than recreated.
+const TAG_UPDATE = /* GraphQL */ `
+    mutation TagUpdate($input: TagUpdateInput!) {
+        tagUpdate(input: $input) {
+            id
+            parents {
+                id
+            }
+        }
+    }
+`;
+
+export async function tagSetParents(
+    id: string,
+    parentIds: string[]
+): Promise<void> {
+    await gql(TAG_UPDATE, {
+        input: { id, parent_ids: parentIds },
+    });
 }
 
 const TAG_DESTROY = /* GraphQL */ `

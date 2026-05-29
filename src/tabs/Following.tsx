@@ -3,9 +3,10 @@ import {
     findAllPerformers,
     type PerformerSummary,
 } from "../api/queries";
-import { useStories } from "../home/useStories";
+import { useSharedStories } from "../home/StoriesContext";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
 import { useAutoHideTabBar } from "../hooks/useAutoHideTabBar";
+import { BingeLoading } from "../components/BingeLoading";
 
 type LoadState =
     | { kind: "loading" }
@@ -94,7 +95,7 @@ export function Following() {
     // Re-use the same useStories() data Home renders — already merged
     // (library + StashDB + Reddit) and cached. The per-performer
     // `latestEffectiveAt` is exactly what we need for "last activity".
-    const stories = useStories();
+    const stories = useSharedStories();
     const lastPost = useMemo<LastPostMap>(() => {
         const map: LastPostMap = new Map();
         if (stories.state.kind !== "ready") return map;
@@ -182,9 +183,7 @@ export function Following() {
                     </select>
                 </div>
 
-                {state.kind === "loading" && (
-                    <div className="binge-status">loading…</div>
-                )}
+                {state.kind === "loading" && <BingeLoading minHeight="60vh" />}
                 {state.kind === "error" && (
                     <div className="binge-status binge-status-error">
                         error: {state.message}
