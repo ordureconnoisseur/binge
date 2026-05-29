@@ -40,7 +40,11 @@ export function PackDetailSheet({
             0,
             ids.indexOf(scene.sceneId)
         );
-        setPinFirstSceneId(scene.sceneId);
+        // Clear any stale single-scene pin — the reel consumes the
+        // queue here (startIndex starts it at the tapped scene), and
+        // a leftover pin would otherwise resurface in chained mode.
+        // Mirrors SceneFeedCard's "Watch full scene" handoff.
+        setPinFirstSceneId(null);
         setPinnedQueue({ ids, startIndex });
         setTab("foryou");
         onClose();

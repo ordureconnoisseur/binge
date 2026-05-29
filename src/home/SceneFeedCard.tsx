@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SceneCardMenu } from "./SceneCardMenu";
 import { PerformerHoverCard } from "./PerformerHoverCard";
 import { Fragment } from "react";
@@ -84,13 +84,18 @@ export function SceneFeedCard({
     const storiesState = useSharedStories();
     // Set of localIds with an active story right now. Used by the
     // avatar stack to render the gradient ring + route the tap to
-    // the story viewer instead of the profile.
-    const storyPerformerIds: Set<string> =
-        storiesState.state.kind === "ready"
-            ? new Set(
-                  storiesState.state.stories.map((s) => s.performerId)
-              )
-            : new Set();
+    // the story viewer instead of the profile. Memoized so it only
+    // rebuilds when the shared stories change, not on every render
+    // of every mounted card.
+    const storyPerformerIds = useMemo<Set<string>>(
+        () =>
+            storiesState.state.kind === "ready"
+                ? new Set(
+                      storiesState.state.stories.map((s) => s.performerId)
+                  )
+                : new Set(),
+        [storiesState.state]
+    );
 
     const hasAdvancedRating = useHasAdvancedRating();
     const hasMultiview = useHasMultiview();
