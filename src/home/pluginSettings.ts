@@ -13,7 +13,6 @@ import { useEffect, useState } from "react";
 const ALLOWED_GENDERS_KEY = "binge.allowedGenders";
 const SHOW_GALLERIES_KEY = "binge.showGalleries";
 const SHOW_DEBUG_KEY = "binge.showDebug";
-const SHOWCASE_MODE_KEY = "binge.showcaseMode";
 const INCLUDE_STASHDB_KEY = "binge.includeStashDB";
 const INCLUDE_STASHDB_IN_PROFILE_KEY = "binge.includeStashDBInProfile";
 const INCLUDE_REDDIT_KEY = "binge.includeReddit";
@@ -386,20 +385,6 @@ export function useShowGalleries(): boolean {
 
 export function useShowDebug(): boolean {
     return useStoredBool(SHOW_DEBUG_KEY, false);
-}
-
-/// Showcase mode — auto-applies the user's saved "Showcase"
-/// filter to For You silently (no chip on the reel) so demo /
-/// screenshot recordings start with curated content. Default ON
-/// while the README is being captured; flip off after.
-export function useShowcaseMode(): boolean {
-    return useStoredBool(SHOWCASE_MODE_KEY, true);
-}
-export function readShowcaseMode(): boolean {
-    return readBool(SHOWCASE_MODE_KEY, true);
-}
-export function setShowcaseMode(value: boolean): void {
-    writeBool(SHOWCASE_MODE_KEY, value);
 }
 
 // StashDB integration. On by default; if the user hasn't configured a

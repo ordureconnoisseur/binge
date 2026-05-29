@@ -25,7 +25,6 @@ import {
     useIncludeReddit,
     useIncludeStashDB,
     useLookbackDays,
-    useShowcaseMode,
 } from "./pluginSettings";
 
 // A single scene inside a performer's story strip. Discriminated by
@@ -119,7 +118,6 @@ export function useStories(): StoriesResult {
     const includeStashDB = useIncludeStashDB();
     const includeReddit = useIncludeReddit();
     const lookbackDays = useLookbackDays();
-    const showcase = useShowcaseMode();
     // Bumped by refresh() to force the effect below to re-run after
     // all in-memory/localStorage caches have been invalidated.
     const [refreshTick, setRefreshTick] = useState(0);
@@ -154,8 +152,8 @@ export function useStories(): StoriesResult {
                 // imported to the library months ago would be missing
                 // from the stories row while still showing in the feed.
                 const [recentRows, dateRows] = await Promise.all([
-                    getRecentScenes(sinceIso, showcase),
-                    getScenesByDate(sinceIsoDate, showcase),
+                    getRecentScenes(sinceIso),
+                    getScenesByDate(sinceIsoDate),
                 ]);
                 if (!alive) return;
 
@@ -297,7 +295,7 @@ export function useStories(): StoriesResult {
         return () => {
             alive = false;
         };
-    }, [includeStashDB, includeReddit, lookbackDays, showcase, refreshTick]);
+    }, [includeStashDB, includeReddit, lookbackDays, refreshTick]);
 
     return {
         state,

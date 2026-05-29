@@ -11,7 +11,6 @@ import {
     setIncludeStashDBInProfile,
     setLookbackDays,
     setRefractIntegration,
-    setShowcaseMode,
     setShowDebug,
     setShowGalleries,
     setTranscodeType,
@@ -22,7 +21,6 @@ import {
     useIncludeStashDBInProfile,
     useLookbackDays,
     useRefractIntegration,
-    useShowcaseMode,
     useShowDebug,
     useShowGalleries,
     useTranscodeType,
@@ -62,7 +60,6 @@ export function SettingsPage() {
             </header>
 
             <div className="binge-settings-list">
-                <ShowcaseModeRow />
                 <GenderRow />
                 <TranscodeRow />
                 <GalleriesRow />
@@ -665,22 +662,6 @@ function RefractRow() {
                 checked={value}
                 onChange={(v) => setRefractIntegration(v)}
                 label="Follow refract accent"
-            />
-        </SettingRow>
-    );
-}
-
-function ShowcaseModeRow() {
-    const value = useShowcaseMode();
-    return (
-        <SettingRow
-            title="Showcase mode"
-            description="Silently apply your Stash 'Showcase' saved filter to For You so demos and screenshots start on curated content. No chip appears — the filter is invisible from the UI. Requires a saved filter named 'Showcase' in Stash; otherwise this is a no-op."
-        >
-            <SwitchToggle
-                checked={value}
-                onChange={(v) => setShowcaseMode(v)}
-                label="Showcase mode"
             />
         </SettingRow>
     );

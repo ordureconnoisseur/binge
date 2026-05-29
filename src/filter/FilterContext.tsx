@@ -2,16 +2,13 @@ import {
     createContext,
     useCallback,
     useContext,
-    useEffect,
     useMemo,
     useState,
     type ReactNode,
 } from "react";
 import {
-    findSavedFiltersForScenes,
     type StashSavedFilter,
 } from "../api/queries";
-import { useShowcaseMode } from "../home/pluginSettings";
 
 export interface FilterEntry {
     id: string;
@@ -91,46 +88,6 @@ export function FilterProvider({ children }: { children: ReactNode }) {
     const clearSavedFilter = useCallback(() => {
         setActiveSavedFilter(null);
     }, []);
-
-    // Showcase mode — gated by `binge.showcaseMode` (toggleable
-    // from Settings). When ON, auto-applies the user's saved
-    // "Showcase" filter so the reel starts on curated content
-    // without the user having to pick anything. The chip is
-    // hidden visually elsewhere (see FilterBar). When toggled
-    // OFF mid-session, the auto-applied filter clears so the
-    // reel falls back to its normal unfiltered random feed.
-    const showcaseMode = useShowcaseMode();
-    useEffect(() => {
-        let alive = true;
-        if (!showcaseMode) {
-            // Toggled off — clear the auto-applied filter,
-            // leaving any user-picked filter untouched.
-            setActiveSavedFilter((current) =>
-                current?.name === "Showcase" ? null : current
-            );
-            return;
-        }
-        (async () => {
-            try {
-                const all = await findSavedFiltersForScenes();
-                const showcase = all.find(
-                    (sf) => sf.name === "Showcase"
-                );
-                if (!alive || !showcase) return;
-                setActiveSavedFilter((current) =>
-                    current === null ? showcase : current
-                );
-            } catch (err) {
-                console.warn(
-                    "[binge] auto-apply Showcase filter failed",
-                    err
-                );
-            }
-        })();
-        return () => {
-            alive = false;
-        };
-    }, [showcaseMode]);
 
     const value = useMemo<FilterContextValue>(
         () => ({

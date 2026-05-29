@@ -50,21 +50,21 @@ function emptySlot<T>(): Slot<T> {
 const FEED_PER_PAGE = -1;
 
 export function getRecentScenes(
-    sinceIso: string,
-    showcase = false
+    sinceIso: string
 ): Promise<RecentSceneRow[]> {
-    // Cache key includes showcase so flipping the Settings
-    // toggle mid-session invalidates the cached filtered set.
-    return get(scenesByCreatedSlot, `${sinceIso}|sc:${showcase}`, () =>
-        findRecentScenes(sinceIso, FEED_PER_PAGE, showcase)
+    // Bucket the key to the minute. The feed + stories widgets each
+    // compute their own `now - Nd` a few ms apart; without bucketing,
+    // their keys never match and each fires a full per_page:-1 query
+    // instead of sharing the one this slot is meant to dedupe.
+    return get(scenesByCreatedSlot, sinceIso.slice(0, 16), () =>
+        findRecentScenes(sinceIso, FEED_PER_PAGE)
     );
 }
 export function getScenesByDate(
-    sinceDate: string,
-    showcase = false
+    sinceDate: string
 ): Promise<RecentSceneRow[]> {
-    return get(scenesByDateSlot, `${sinceDate}|sc:${showcase}`, () =>
-        findScenesByDate(sinceDate, FEED_PER_PAGE, showcase)
+    return get(scenesByDateSlot, sinceDate, () =>
+        findScenesByDate(sinceDate, FEED_PER_PAGE)
     );
 }
 export function getRecentGalleries(
