@@ -114,7 +114,7 @@ Detected at runtime — install whichever you want; binge degrades gracefully wh
 Add this URL as a source in **Stash → Settings → Plugins → Available Plugins → Add Source**:
 
 ```
-https://ordureconnoisseur.github.io/plugins/index.yml
+https://ordureconnoisseur.github.io/plugins/main/index.yml
 ```
 
 Install **Binge** from the list. An infinity-symbol button appears in Stash's main nav — click it.
