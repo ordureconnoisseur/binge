@@ -18,6 +18,7 @@ const INCLUDE_STASHDB_IN_PROFILE_KEY = "binge.includeStashDBInProfile";
 const INCLUDE_REDDIT_KEY = "binge.includeReddit";
 const AUTO_SCROLL_KEY = "binge.autoScroll";
 const REFRACT_INTEGRATION_KEY = "binge.refractIntegration";
+const SHOWCASE_BLUR_KEY = "binge.showcaseBlur";
 const BINGE_SERVER_URL_KEY = "binge.bingeServerUrl";
 const LOOKBACK_DAYS_KEY = "binge.lookbackDays";
 // Defaults to the loopback address — what a typical user runs once
@@ -437,6 +438,27 @@ export function useRefractIntegration(): boolean {
 }
 export function setRefractIntegration(value: boolean): void {
     writeBool(REFRACT_INTEGRATION_KEY, value);
+}
+
+// Showcase mode — blurs ALL media (images, video, and the inline
+// background-image avatars) app-wide so the UI chrome can be captured
+// for docs/streaming without exposing library content. Useful for
+// README screenshots (GitHub's content policy bars explicit media) and
+// as a privacy guard when screen-sharing. Pure CSS: App.tsx toggles a
+// `binge-showcase-blur` class on <html> when this is on; the blur rule
+// lives in styles/global.css. Off by default.
+export function useShowcaseBlur(): boolean {
+    return useStoredBool(SHOWCASE_BLUR_KEY, false);
+}
+export function readShowcaseBlur(): boolean {
+    return readBool(SHOWCASE_BLUR_KEY, false);
+}
+export function setShowcaseBlur(value: boolean): void {
+    writeBool(SHOWCASE_BLUR_KEY, value);
+}
+// Imperative toggle for the global `|` (Shift+\) capture hotkey in App.tsx.
+export function toggleShowcaseBlur(): void {
+    writeBool(SHOWCASE_BLUR_KEY, !readBool(SHOWCASE_BLUR_KEY, false));
 }
 
 // binge-server URL. Read both as a React hook and via the imperative
