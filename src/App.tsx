@@ -24,7 +24,9 @@ import { FilterSheet } from "./filter/FilterSheet";
 import { DebugOverlay } from "./debug/DebugOverlay";
 import {
     toggleShowDebug,
+    toggleShowcaseBlur,
     useRefractIntegration,
+    useShowcaseBlur,
     useShowDebug,
 } from "./home/pluginSettings";
 import { PluginProvider } from "./plugins/PluginContext";
@@ -105,12 +107,23 @@ function App() {
     const refractActive = refractEnabled && refractTheme !== null;
     const activeTheme = refractActive ? refractTheme : null;
 
-    // Global \ hotkey toggles the debug overlay. Ignored when the user
-    // is typing into an input — we don't want a stray backslash in a
-    // filter search box to flash the overlay.
+    // Showcase mode — blur all media app-wide for safe screen-capture.
+    // Toggling a class on <html> lets a single CSS rule (global.css) blur
+    // every image / video / avatar while the UI chrome stays sharp.
+    const showcaseBlur = useShowcaseBlur();
+    useEffect(() => {
+        const root = document.documentElement;
+        root.classList.toggle("binge-showcase-blur", showcaseBlur);
+        return () => root.classList.remove("binge-showcase-blur");
+    }, [showcaseBlur]);
+
+    // Global capture hotkeys, ignored while the user is typing into an
+    // input (so a stray keystroke in a search box doesn't fire them):
+    //   \        → toggle the debug overlay
+    //   | (⇧\)   → toggle showcase blur (for grabbing clean screenshots)
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (e.key !== "\\") return;
+            if (e.key !== "\\" && e.key !== "|") return;
             const t = e.target;
             if (t instanceof HTMLElement) {
                 if (
@@ -122,7 +135,8 @@ function App() {
                 }
             }
             e.preventDefault();
-            toggleShowDebug();
+            if (e.key === "|") toggleShowcaseBlur();
+            else toggleShowDebug();
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);

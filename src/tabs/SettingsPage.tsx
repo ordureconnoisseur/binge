@@ -13,6 +13,7 @@ import {
     setRefractIntegration,
     setShowDebug,
     setShowGalleries,
+    setShowcaseBlur,
     setTranscodeType,
     useAllowedGenders,
     useBingeServerUrl,
@@ -23,6 +24,7 @@ import {
     useRefractIntegration,
     useShowDebug,
     useShowGalleries,
+    useShowcaseBlur,
     useTranscodeType,
     type Gender,
 } from "../home/pluginSettings";
@@ -70,6 +72,7 @@ export function SettingsPage() {
                 <BingeServerRow />
                 <BingeServerConfigCard />
                 <RefractRow />
+                <ShowcaseRow />
                 <DebugRow />
             </div>
         </div>
@@ -662,6 +665,22 @@ function RefractRow() {
                 checked={value}
                 onChange={(v) => setRefractIntegration(v)}
                 label="Follow refract accent"
+            />
+        </SettingRow>
+    );
+}
+
+function ShowcaseRow() {
+    const value = useShowcaseBlur();
+    return (
+        <SettingRow
+            title="Showcase mode (blur all media)"
+            description="Blurs every image, video, and avatar across binge while leaving the interface sharp — for screenshots, demo recordings, or screen-sharing without exposing library content. Nothing is uploaded or changed; it's a display-only filter applied in your browser. Hotkey: | (Shift + \\)"
+        >
+            <SwitchToggle
+                checked={value}
+                onChange={(v) => setShowcaseBlur(v)}
+                label="Showcase blur"
             />
         </SettingRow>
     );

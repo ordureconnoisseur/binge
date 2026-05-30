@@ -39,6 +39,23 @@ body,
     overflow: hidden;
 }
 
+/* ── Showcase mode: blur all media for safe screen-capture ─────────────
+   Toggled by the `binge-showcase-blur` class on <html> (App.tsx, driven
+   by the binge.showcaseBlur setting / the ⇧\ hotkey). Blurs every image,
+   video, and inline background-image — performer avatars render as inline
+   background-image, NOT <img>, so they need explicit coverage or they'd
+   stay sharp. Text + UI chrome are left untouched so the layout is fully
+   legible. Lets the UI be captured for docs or streamed without exposing
+   library media (and keeps README screenshots within GitHub's content
+   policy). `!important` so the blur wins over any per-element filter or
+   higher-specificity rule — this is a deliberate capture-time override.
+   Only `filter` is set (no transform) so the image lightbox's zoom/pan
+   transforms keep working. */
+.binge-showcase-blur :is(img, video),
+.binge-showcase-blur [style*="background-image"] {
+    filter: blur(22px) !important;
+}
+
 /* ── Debug overlay (toggleable via plugin settings) ────────────────── */
 .binge-debug-overlay {
     position: fixed;
