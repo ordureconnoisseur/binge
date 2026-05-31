@@ -62,12 +62,26 @@ body,
    we move it to the (unfiltered) parent bubble — which wraps the avatar
    as the exact same 36px circle — to keep the feed/reel/stories avatars'
    signature border crisp. */
-.binge-showcase-blur :is(img, video),
-.binge-showcase-blur [style*="background-image"] {
+.binge-showcase-blur :is(img, video) {
     filter: blur(22px) !important;
 }
+/* Inline background-image media (avatars + scene-cover tiles). clip-path
+   contains each element's blur halo to its OWN box — without it the 22px
+   halo bleeds past the edges and, in the tight pack-mosaic grid, merges
+   the separate tiles into one indistinct blob. clip-path is applied
+   AFTER the filter, so it crops the halo (an element's own overflow:hidden
+   does NOT clip its own filter output). */
+.binge-showcase-blur [style*="background-image"] {
+    filter: blur(22px) !important;
+    clip-path: inset(0);
+}
+/* Keep the performer-bubble's circular ring sharp: drop the box-shadow
+   from the blurred image element and redraw it on the parent (same 36px
+   circle, unfiltered). Round the clip so the avatar's blur halo is
+   cropped to the circle, not a square. */
 .binge-showcase-blur .binge-performer-bubble-img {
     box-shadow: none !important;
+    clip-path: inset(0 round 50%);
 }
 .binge-showcase-blur .binge-performer-bubble {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95),
