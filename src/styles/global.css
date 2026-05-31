@@ -70,10 +70,14 @@ body,
    halo bleeds past the edges and, in the tight pack-mosaic grid, merges
    the separate tiles into one indistinct blob. clip-path is applied
    AFTER the filter, so it crops the halo (an element's own overflow:hidden
-   does NOT clip its own filter output). */
+   does NOT clip its own filter output).
+   `border-box` (a geometry-box value) follows each element's border-radius,
+   so circular avatars clip to a circle and rectangular tiles clip to a
+   rect — one rule, correct shape for both. (Plain inset(0) squared off the
+   round avatars, leaving halo in the corners.) */
 .binge-showcase-blur [style*="background-image"] {
     filter: blur(22px) !important;
-    clip-path: inset(0);
+    clip-path: border-box;
 }
 /* Keep the performer-bubble's circular ring sharp: drop the box-shadow
    from the blurred image element and redraw it on the parent (same 36px
