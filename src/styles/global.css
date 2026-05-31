@@ -44,31 +44,40 @@ body,
    by the binge.showcaseBlur setting / the ⇧\ hotkey). Blurs all media so
    the UI can be captured/streamed without exposing library content (and
    keeps README screenshots within GitHub's content policy) while leaving
-   text + UI chrome — including the app's signature circular avatar rings
+   text + UI chrome — crucially the app's signature circular avatar rings
    — perfectly sharp.
 
-   Two paths, because the rings MUST survive:
-   - <img>/<video>: any ring lives on a parent wrapper, so a plain
-     filter:blur on the media leaves the ring crisp. filter-only (no
-     transform) so the image lightbox's zoom/pan keeps working.
-   - Avatars are inline background-image elements whose white ring is a
-     box-shadow on the SAME element — filter:blur there softens the ring
-     into the photo (the bug this fixes). Instead a backdrop-filter pseudo
-     clipped to the content box blurs the background-image, while the
-     box-shadow ring (drawn OUTSIDE the content box) stays razor-sharp. */
+   Two paths:
+   - <img>/<video>: a plain filter:blur. Their ring (if any) lives on a
+     parent wrapper, and filter-only (no transform) keeps the image
+     lightbox's zoom/pan working.
+   - Inline background-image elements (avatars + scene-cover tiles): we do
+     NOT filter the element itself, because that blurs its box-shadow ring
+     (the avatar's signature border) and any overlay text along with the
+     photo. Instead a ::before pseudo paints a blurred COPY of the same
+     background, stacked above the element's own background but BELOW its
+     content (z-index:-1) — so the photo is obscured while the box-shadow
+     ring (drawn outside the box) and overlay children (painted above)
+     stay razor-sharp. A plain filter is used, NOT backdrop-filter: the
+     latter silently no-ops under the transform / will-change ancestors
+     the virtualized reel + feed cards create (the bug this replaces).
+     scale(1.5) + the element's overflow:hidden clip the blur's soft edge
+     so no sharp rim of the photo peeks through. */
 .binge-showcase-blur :is(img, video) {
     filter: blur(22px) !important;
 }
 .binge-showcase-blur [style*="background-image"] {
     position: relative;
 }
-.binge-showcase-blur [style*="background-image"]::after {
+.binge-showcase-blur [style*="background-image"]::before {
     content: "";
     position: absolute;
     inset: 0;
+    z-index: -1;
     border-radius: inherit;
-    backdrop-filter: blur(22px);
-    -webkit-backdrop-filter: blur(22px);
+    background: inherit;
+    filter: blur(22px);
+    transform: scale(1.5);
     pointer-events: none;
 }
 
