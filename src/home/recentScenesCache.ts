@@ -30,9 +30,23 @@ function get<T>(slot: Slot<T>, key: string, fetcher: () => Promise<T>): Promise<
         return slot.promise;
     }
     slot.key = key;
-    slot.promise = fetcher();
+    const p = fetcher();
+    slot.promise = p;
     slot.expiresAt = now + TTL_MS;
-    return slot.promise;
+    // Don't cache failures. If the fetch rejects (transient Stash error,
+    // expired login cookie), evict the slot so the next caller refetches
+    // — otherwise every Home mount + the stories row would re-await the
+    // same rejected promise for the full TTL and stay wedged in an error
+    // state even after Stash recovers. Guard on identity so a newer fetch
+    // that already replaced this slot isn't clobbered.
+    p.catch(() => {
+        if (slot.promise === p) {
+            slot.promise = null;
+            slot.key = null;
+            slot.expiresAt = 0;
+        }
+    });
+    return p;
 }
 
 const scenesByCreatedSlot: Slot<RecentSceneRow[]> = emptySlot();
@@ -82,8 +96,8 @@ export function getGalleriesByDate(
     );
 }
 
-// Drop the cache. Not used in v0 — exposed so future code can wire it
-// without re-touching this file. Clears all four slots.
+// Drop the cache — called by the Home refresh button and after a
+// follow/unfollow so the next getRecentScenes/getScenesByDate refetches.
 export function invalidateRecentScenes(): void {
     Object.assign(scenesByCreatedSlot, emptySlot());
     Object.assign(scenesByDateSlot, emptySlot());
