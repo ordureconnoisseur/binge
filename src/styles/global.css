@@ -44,41 +44,35 @@ body,
    by the binge.showcaseBlur setting / the ⇧\ hotkey). Blurs all media so
    the UI can be captured/streamed without exposing library content (and
    keeps README screenshots within GitHub's content policy) while leaving
-   text + UI chrome — crucially the app's signature circular avatar rings
-   — perfectly sharp.
+   text + UI chrome legible.
 
-   Two paths:
-   - <img>/<video>: a plain filter:blur. Their ring (if any) lives on a
-     parent wrapper, and filter-only (no transform) keeps the image
-     lightbox's zoom/pan working.
-   - Inline background-image elements (avatars + scene-cover tiles): we do
-     NOT filter the element itself, because that blurs its box-shadow ring
-     (the avatar's signature border) and any overlay text along with the
-     photo. Instead a ::before pseudo paints a blurred COPY of the same
-     background, stacked above the element's own background but BELOW its
-     content (z-index:-1) — so the photo is obscured while the box-shadow
-     ring (drawn outside the box) and overlay children (painted above)
-     stay razor-sharp. A plain filter is used, NOT backdrop-filter: the
-     latter silently no-ops under the transform / will-change ancestors
-     the virtualized reel + feed cards create (the bug this replaces).
-     scale(1.5) + the element's overflow:hidden clip the blur's soft edge
-     so no sharp rim of the photo peeks through. */
-.binge-showcase-blur :is(img, video) {
+   The blur is a plain ELEMENT-level `filter` — it composites with the
+   element's existing layer and paints immediately on first render. Two
+   rejected alternatives, for the record:
+   - backdrop-filter pseudo: silently no-ops under the transform /
+     will-change ancestors the virtualized reel + feed cards create.
+   - blurred-copy ::before pseudo: kept rings sharper, but pseudo
+     filter-layers composite LAZILY here — they didn't paint until the
+     first scroll forced a viewport recomposite.
+   Element filter is the only variant that paints reliably + immediately.
+
+   Rings: the gradient story-rings live on wrapper elements (not the
+   blurred bg-image child), so they stay sharp for free. The performer
+   bubble's white ring is a box-shadow on the blurred element itself, so
+   we move it to the (unfiltered) parent bubble — which wraps the avatar
+   as the exact same 36px circle — to keep the feed/reel/stories avatars'
+   signature border crisp. */
+.binge-showcase-blur :is(img, video),
+.binge-showcase-blur [style*="background-image"] {
     filter: blur(22px) !important;
 }
-.binge-showcase-blur [style*="background-image"] {
-    position: relative;
+.binge-showcase-blur .binge-performer-bubble-img {
+    box-shadow: none !important;
 }
-.binge-showcase-blur [style*="background-image"]::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    background: inherit;
-    filter: blur(22px);
-    transform: scale(1.5);
-    pointer-events: none;
+.binge-showcase-blur .binge-performer-bubble {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95),
+        0 0 0 3px rgba(0, 0, 0, 0.45),
+        0 2px 8px rgba(0, 0, 0, 0.55);
 }
 
 /* ── Debug overlay (toggleable via plugin settings) ────────────────── */
