@@ -151,12 +151,13 @@ const MAX_GALLERY_CARDS = 100;
 /// don't get treated as a pack.
 const PACK_MIN_SIZE = 8;
 /// All scenes in a pack must share createdAt values within this
-/// window — captures the "imported in one go" signal. A full day
-/// rather than an hour because a large scan (hundreds of files,
-/// hashing + preview generation) can spread scene-record creation
-/// across hours; an hour-tight window would fragment one import
-/// into several sub-packs (or drop it below PACK_MIN_SIZE entirely).
-const PACK_WINDOW_MS = 24 * 60 * 60 * 1000;
+/// window — captures the "imported in one go" signal. A full week
+/// rather than a day: large imports (hundreds of files, hashing +
+/// preview generation) and staggered scans of the same performer
+/// can spread scene-record creation across several days; a tighter
+/// window would fragment one logical import into several sub-packs
+/// (or drop each below PACK_MIN_SIZE entirely).
+const PACK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 function assemblePacks(
     scenes: SceneFeedItem[],
