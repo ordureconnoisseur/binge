@@ -41,19 +41,35 @@ body,
 
 /* ── Showcase mode: blur all media for safe screen-capture ─────────────
    Toggled by the `binge-showcase-blur` class on <html> (App.tsx, driven
-   by the binge.showcaseBlur setting / the ⇧\ hotkey). Blurs every image,
-   video, and inline background-image — performer avatars render as inline
-   background-image, NOT <img>, so they need explicit coverage or they'd
-   stay sharp. Text + UI chrome are left untouched so the layout is fully
-   legible. Lets the UI be captured for docs or streamed without exposing
-   library media (and keeps README screenshots within GitHub's content
-   policy). `!important` so the blur wins over any per-element filter or
-   higher-specificity rule — this is a deliberate capture-time override.
-   Only `filter` is set (no transform) so the image lightbox's zoom/pan
-   transforms keep working. */
-.binge-showcase-blur :is(img, video),
-.binge-showcase-blur [style*="background-image"] {
+   by the binge.showcaseBlur setting / the ⇧\ hotkey). Blurs all media so
+   the UI can be captured/streamed without exposing library content (and
+   keeps README screenshots within GitHub's content policy) while leaving
+   text + UI chrome — including the app's signature circular avatar rings
+   — perfectly sharp.
+
+   Two paths, because the rings MUST survive:
+   - <img>/<video>: any ring lives on a parent wrapper, so a plain
+     filter:blur on the media leaves the ring crisp. filter-only (no
+     transform) so the image lightbox's zoom/pan keeps working.
+   - Avatars are inline background-image elements whose white ring is a
+     box-shadow on the SAME element — filter:blur there softens the ring
+     into the photo (the bug this fixes). Instead a backdrop-filter pseudo
+     clipped to the content box blurs the background-image, while the
+     box-shadow ring (drawn OUTSIDE the content box) stays razor-sharp. */
+.binge-showcase-blur :is(img, video) {
     filter: blur(22px) !important;
+}
+.binge-showcase-blur [style*="background-image"] {
+    position: relative;
+}
+.binge-showcase-blur [style*="background-image"]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    pointer-events: none;
 }
 
 /* ── Debug overlay (toggleable via plugin settings) ────────────────── */
