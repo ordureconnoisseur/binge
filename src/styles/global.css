@@ -62,8 +62,14 @@ body,
    we move it to the (unfiltered) parent bubble — which wraps the avatar
    as the exact same 36px circle — to keep the feed/reel/stories avatars'
    signature border crisp. */
+/* Tiered blur strength per surface — lighter where layout/structure
+   matters, heavier where content fills the frame:
+     • performer icons + group (pack) mosaic tiles → 10px
+     • post cards, explore grid, scene covers (default) → 14px
+     • reel player video → 22px
+   Defaults are set here; the heavier/lighter surfaces override below. */
 .binge-showcase-blur :is(img, video) {
-    filter: blur(12px) !important;
+    filter: blur(14px) !important;
 }
 /* Inline background-image media. clip-path (applied AFTER the filter)
    crops each element's blur halo to its own box, so it can't bleed
@@ -73,17 +79,29 @@ body,
    border-box — was tried, but this engine ignored border-radius and left
    square corners, so we clip the shapes explicitly.) */
 .binge-showcase-blur [style*="background-image"] {
-    filter: blur(12px) !important;
+    filter: blur(14px) !important;
     clip-path: inset(0);
 }
-/* Circular avatars: crop the halo to a circle, not a square. Every
-   circular avatar IMAGE carries "avatar" or "bubble" in its class (story /
-   sheet / chip / profile / pack / discover / feed-stack / performer-bubble
-   …); pairing that with [style*=background-image] hits only the image
-   element, not the stack / ring / wrapper containers (which would wrongly
-   get clipped to an ellipse). */
+/* Reel player — the video fills the frame, so blur it hardest. */
+.binge-showcase-blur .binge-video {
+    filter: blur(22px) !important;
+}
+/* Group cards — the pack mosaic tiles read better with the lightest blur
+   (same as avatars). Equal specificity to the default bg rule above, so
+   this must come after it. */
+.binge-showcase-blur .binge-pack-card-mosaic-tile {
+    filter: blur(10px) !important;
+}
+/* Performer icons (avatars): lightest blur + crop the halo to a circle,
+   not a square. Every circular avatar IMAGE carries "avatar" or "bubble"
+   in its class (story / sheet / chip / profile / pack / discover /
+   feed-stack / performer-bubble …); pairing that with
+   [style*=background-image] hits only the image element, not the stack /
+   ring / wrapper containers (which would wrongly be clipped to an
+   ellipse). */
 .binge-showcase-blur [style*="background-image"][class*="avatar"],
 .binge-showcase-blur [style*="background-image"][class*="bubble"] {
+    filter: blur(10px) !important;
     clip-path: inset(0 round 50%) !important;
 }
 /* Keep the performer-bubble's white ring sharp: drop the box-shadow from
