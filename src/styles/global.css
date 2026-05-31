@@ -65,27 +65,33 @@ body,
 .binge-showcase-blur :is(img, video) {
     filter: blur(22px) !important;
 }
-/* Inline background-image media (avatars + scene-cover tiles). clip-path
-   contains each element's blur halo to its OWN box — without it the 22px
-   halo bleeds past the edges and, in the tight pack-mosaic grid, merges
-   the separate tiles into one indistinct blob. clip-path is applied
-   AFTER the filter, so it crops the halo (an element's own overflow:hidden
-   does NOT clip its own filter output).
-   `border-box` (a geometry-box value) follows each element's border-radius,
-   so circular avatars clip to a circle and rectangular tiles clip to a
-   rect — one rule, correct shape for both. (Plain inset(0) squared off the
-   round avatars, leaving halo in the corners.) */
+/* Inline background-image media. clip-path (applied AFTER the filter)
+   crops each element's 22px blur halo to its own box, so it can't bleed
+   past the edges — without it the pack-mosaic tiles merged into one blob.
+   Rectangular cover tiles get a rectangular clip here; circular avatars
+   are re-clipped to a circle just below. (A bare geometry-box value —
+   border-box — was tried, but this engine ignored border-radius and left
+   square corners, so we clip the shapes explicitly.) */
 .binge-showcase-blur [style*="background-image"] {
     filter: blur(22px) !important;
-    clip-path: border-box;
+    clip-path: inset(0);
 }
-/* Keep the performer-bubble's circular ring sharp: drop the box-shadow
-   from the blurred image element and redraw it on the parent (same 36px
-   circle, unfiltered). Round the clip so the avatar's blur halo is
-   cropped to the circle, not a square. */
+/* Circular avatars: crop the halo to a circle, not a square. Every
+   circular avatar IMAGE carries "avatar" or "bubble" in its class (story /
+   sheet / chip / profile / pack / discover / feed-stack / performer-bubble
+   …); pairing that with [style*=background-image] hits only the image
+   element, not the stack / ring / wrapper containers (which would wrongly
+   get clipped to an ellipse). */
+.binge-showcase-blur [style*="background-image"][class*="avatar"],
+.binge-showcase-blur [style*="background-image"][class*="bubble"] {
+    clip-path: inset(0 round 50%) !important;
+}
+/* Keep the performer-bubble's white ring sharp: drop the box-shadow from
+   the blurred image and redraw it on the parent (same 36px circle,
+   unfiltered). Gradient story-rings already live on wrapper elements, so
+   they stay sharp without changes. */
 .binge-showcase-blur .binge-performer-bubble-img {
     box-shadow: none !important;
-    clip-path: inset(0 round 50%);
 }
 .binge-showcase-blur .binge-performer-bubble {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95),
