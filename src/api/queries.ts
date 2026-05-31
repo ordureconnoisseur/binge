@@ -51,6 +51,52 @@ export interface FindScenesVariables {
     scene_filter?: Record<string, unknown>;
 }
 
+// Tags whose scenes are silently hidden EVERYWHERE in binge (Home feed,
+// stories, For You reel, Explore). The curated trans + scat set carried
+// over from the old showcase exclusion — applied unconditionally, with no
+// toggle and no filter chip. `depth: 0` matches exactly these tag ids.
+export const HIDDEN_TAG_IDS: ReadonlyArray<string> = [
+    "1985", "646", "647", "350", "1994", "645", "1611", "5",
+    "648", "657", "1984", "660", "667", "2404", "1250", "1094",
+    "1610", "1514", "644", "2259", "1933", "1961", "1942", "1956",
+    "1927", "2073",
+];
+// GraphQL fragment for the inline-string query builders below: drops any
+// scene carrying one of the hidden tags.
+const HIDDEN_TAGS_CLAUSE = `tags: {
+                    value: [${HIDDEN_TAG_IDS.map((id) => `"${id}"`).join(", ")}]
+                    excludes: []
+                    modifier: EXCLUDES
+                    depth: 0
+                }`;
+// Merge the hidden-tag exclusion into a (possibly chip- or saved-filter-
+// derived) scene_filter object for the generic findScenes() path. Adds the
+// ids to the tags filter's `excludes` sub-list so it composes with an
+// existing INCLUDES chip instead of clobbering it; falls back to a clean
+// EXCLUDES filter when no tag criterion is present.
+function withHiddenTagsExcluded(
+    sf: Record<string, unknown> | undefined
+): Record<string, unknown> {
+    const next: Record<string, unknown> = { ...(sf ?? {}) };
+    const existing = next.tags as
+        | { value?: string[]; excludes?: string[]; modifier?: string; depth?: number }
+        | undefined;
+    if (!existing) {
+        next.tags = {
+            value: HIDDEN_TAG_IDS,
+            excludes: [],
+            modifier: "EXCLUDES",
+            depth: 0,
+        };
+    } else {
+        next.tags = {
+            ...existing,
+            excludes: [...(existing.excludes ?? []), ...HIDDEN_TAG_IDS],
+        };
+    }
+    return next;
+}
+
 // Translate a high-level filter state (chips) to Stash's SceneFilterType
 // shape. We use INCLUDES (any match) for each category so adding multiple
 // chips broadens within a category and the categories combine via AND.
@@ -124,7 +170,7 @@ export function findScenes(variables: FindScenesVariables = {}) {
             direction: "DESC",
             ...variables.filter,
         },
-        scene_filter: variables.scene_filter,
+        scene_filter: withHiddenTagsExcluded(variables.scene_filter),
     };
     // Double-cast: `merged` is well-typed but `gql<T>`'s variables
     // param is the loosely-typed `Record<string, unknown>` shape. TS
@@ -881,6 +927,7 @@ export interface RecentSceneRow {
     performerName: string;
     performerImagePath: string | null;
     performerFavorite: boolean;
+    performerGender: string | null;
 }
 
 function buildFindRecentScenesQuery(): string {
@@ -889,6 +936,7 @@ function buildFindRecentScenesQuery(): string {
         findScenes(
             scene_filter: {
                 created_at: { value: $since, modifier: GREATER_THAN }
+                ${HIDDEN_TAGS_CLAUSE}
             }
             filter: {
                 page: 1
@@ -916,6 +964,7 @@ function buildFindRecentScenesQuery(): string {
                     name
                     image_path
                     favorite
+                    gender
                 }
                 tags {
                     id
@@ -937,6 +986,7 @@ function buildFindScenesByDateQuery(): string {
         findScenes(
             scene_filter: {
                 date: { value: $since, modifier: GREATER_THAN }
+                ${HIDDEN_TAGS_CLAUSE}
             }
             filter: {
                 page: 1
@@ -964,6 +1014,7 @@ function buildFindScenesByDateQuery(): string {
                     name
                     image_path
                     favorite
+                    gender
                 }
                 tags {
                     id
@@ -1002,6 +1053,7 @@ type RawSceneNode = {
         name: string;
         image_path: string | null;
         favorite: boolean;
+        gender: string | null;
     }[];
     tags: { id: string; name: string }[];
 };
@@ -1030,6 +1082,7 @@ function flattenSceneNodes(scenes: RawSceneNode[]): RecentSceneRow[] {
                 performerName: p.name,
                 performerImagePath: p.image_path,
                 performerFavorite: p.favorite,
+                performerGender: p.gender ?? null,
             });
         }
     }

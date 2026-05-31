@@ -22,6 +22,7 @@ import {
 } from "./redditCache";
 import { rewriteStashAssetUrl } from "../api/bingeServer";
 import {
+    HIDDEN_GENDERS,
     useIncludeReddit,
     useIncludeStashDB,
     useLookbackDays,
@@ -176,6 +177,14 @@ export function useStories(): StoriesResult {
                 // scene CAN appear in two different performers' strips).
                 const byPerformer = new Map<string, PerformerBucket>();
                 for (const r of rows) {
+                    // Silently drop trans performers (paired with the
+                    // hidden-tag content exclusion) — no story bubble,
+                    // regardless of the "Genders to surface" setting.
+                    if (
+                        r.performerGender &&
+                        HIDDEN_GENDERS.has(r.performerGender as never)
+                    )
+                        continue;
                     const effectiveAt = r.sceneDate ?? r.sceneCreatedAt;
                     let bucket = byPerformer.get(r.performerId);
                     if (!bucket) {
