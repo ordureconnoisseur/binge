@@ -187,7 +187,7 @@ scp binge.yml dist/binge.entry.js dist/index.html \
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+AGPL-3.0. See [LICENSE](./LICENSE). (Matches Stash's own license.)
 
 <!-- Capture targets: dark mode, 1440×900 desktop, 390×844 mobile. Upload via:
      gh release upload media-assets <file> --repo ordureconnoisseur/binge
