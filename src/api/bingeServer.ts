@@ -58,6 +58,48 @@ export interface BingeServerConfigPayload {
     redditSessionCookie?: string;
 }
 
+// Whether it's safe to transmit credentials (Stash API key / Reddit
+// cookie) to this binge-server URL. https is always fine; plain http is
+// allowed only to loopback / private / tailnet hosts (a self-hosted
+// daemon reached over an encrypted tailnet or trusted LAN) — never to a
+// public host, which would put the secrets on the open internet in
+// cleartext. Also stops an attacker who can rewrite the daemon-URL
+// setting (another same-origin plugin, an XSS) from redirecting creds.
+export function isTrustedDaemonUrl(raw: string): boolean {
+    let u: URL;
+    try {
+        u = new URL(raw);
+    } catch {
+        return false;
+    }
+    if (u.protocol === "https:") return true;
+    if (u.protocol !== "http:") return false;
+    const host = u.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1")
+        return true;
+    if (
+        host.endsWith(".local") ||
+        host.endsWith(".internal") ||
+        host.endsWith(".ts.net")
+    )
+        return true;
+    // Bare hostname (no dot) is a LAN/tailnet machine name, not public.
+    if (!host.includes(".")) return true;
+    // RFC1918 private + Tailscale CGNAT (100.64/10) IPv4 literals.
+    const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (m) {
+        const a = Number(m[1]);
+        const b = Number(m[2]);
+        if (a === 10) return true;
+        if (a === 172 && b >= 16 && b <= 31) return true;
+        if (a === 192 && b === 168) return true;
+        if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT / tailnet
+        return false;
+    }
+    // Dotted public hostname → untrusted for cleartext credentials.
+    return false;
+}
+
 async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T | null> {
     const base = readBingeServerUrl();
     try {
@@ -120,6 +162,14 @@ export async function setBingeServerConfig(
     payload: BingeServerConfigPayload
 ): Promise<{ ok: true } | { ok: false; error: string }> {
     const base = readBingeServerUrl();
+    // Never send the Stash API key / Reddit cookie over cleartext to a
+    // remote host. https or a local/tailnet daemon only.
+    if (!isTrustedDaemonUrl(base)) {
+        return {
+            ok: false,
+            error: "Won't send credentials to an untrusted binge-server URL — use https:// or a local/tailnet address.",
+        };
+    }
     try {
         const resp = await fetch(base + "/config", {
             method: "POST",
