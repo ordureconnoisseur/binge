@@ -21,6 +21,7 @@ export interface BingeScene {
         name: string;
         image_path: string | null;
         favorite: boolean;
+        gender: string | null;
     }[];
     studio: { id: string; name: string } | null;
     tags: { id: string; name: string }[];
@@ -97,6 +98,25 @@ function withHiddenTagsExcluded(
     return next;
 }
 
+// Performer genders silently hidden EVERYWHERE (mirrors HIDDEN_GENDERS in
+// pluginSettings). Any scene featuring such a performer is dropped from
+// the feed, stories, reel, and explore — independent of tags. The tag
+// exclusion only catches trans-TAGGED scenes; this closes the gap for
+// trans performers whose scenes aren't tagged. Stash's scene_filter has
+// no performer-gender field, so we filter client-side on the gender we
+// select in each scene query.
+const HIDDEN_GENDER_VALUES = new Set([
+    "TRANSGENDER_FEMALE",
+    "TRANSGENDER_MALE",
+]);
+function sceneHasHiddenPerformer(
+    performers: ReadonlyArray<{ gender?: string | null }> | null | undefined
+): boolean {
+    return !!performers?.some(
+        (p) => !!p.gender && HIDDEN_GENDER_VALUES.has(p.gender)
+    );
+}
+
 // Translate a high-level filter state (chips) to Stash's SceneFilterType
 // shape. We use INCLUDES (any match) for each category so adding multiple
 // chips broadens within a category and the categories combine via AND.
@@ -147,6 +167,7 @@ const FIND_SCENES = /* GraphQL */ `
                     name
                     image_path
                     favorite
+                    gender
                 }
                 studio {
                     id
@@ -161,7 +182,9 @@ const FIND_SCENES = /* GraphQL */ `
     }
 `;
 
-export function findScenes(variables: FindScenesVariables = {}) {
+export async function findScenes(
+    variables: FindScenesVariables = {}
+): Promise<FindScenesResult> {
     const merged: FindScenesVariables = {
         filter: {
             page: 1,
@@ -177,10 +200,16 @@ export function findScenes(variables: FindScenesVariables = {}) {
     // refuses the implicit narrowing because the nested filter
     // objects have non-string fields. The shape IS correct at runtime
     // — the GraphQL server validates against the schema.
-    return gql<FindScenesResult>(
+    const data = await gql<FindScenesResult>(
         FIND_SCENES,
         merged as unknown as Record<string, unknown>
     );
+    // Drop scenes featuring a hidden-gender (trans) performer — the
+    // server has no performer-gender filter, so we strip them here.
+    const scenes = data.findScenes.scenes.filter(
+        (s) => !sceneHasHiddenPerformer(s.performers)
+    );
+    return { findScenes: { ...data.findScenes, scenes } };
 }
 
 // ── Stash saved filters ──────────────────────────────────────────────
@@ -1061,6 +1090,9 @@ type RawSceneNode = {
 function flattenSceneNodes(scenes: RawSceneNode[]): RecentSceneRow[] {
     const rows: RecentSceneRow[] = [];
     for (const s of scenes) {
+        // Drop the whole scene if any performer is a hidden gender
+        // (trans) — covers the Home feed + stories row in one place.
+        if (sceneHasHiddenPerformer(s.performers)) continue;
         const firstFile = s.files?.[0];
         const sceneTags = s.tags ?? [];
         // Stash can occasionally return a scene with null `performers`
