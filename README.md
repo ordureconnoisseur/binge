@@ -2,7 +2,7 @@
 
 An Instagram-shaped social + discovery layer for [Stash](https://github.com/stashapp/stash). Vertical reel, stories, performer profiles, StashDB-powered discovery — all backed by Stash's existing GraphQL API. Web plugin; native [iOS port](https://github.com/ordureconnoisseur/binge-ios) tracks feature-parity.
 
-<!-- TODO: 01-hero — reel slide in action (video/GIF preferred, 16:9). The signature shot. -->
+<p align="center"><img src="screenshots/reel.png" alt="binge — a vertical reel for your Stash library" width="760" /></p>
 
 ---
 
@@ -13,6 +13,26 @@ An Instagram-shaped social + discovery layer for [Stash](https://github.com/stas
 - **Performer profiles** — bio, stats, scene grid, image grid, social-link strip with branded icons for Twitter / Instagram / TikTok / Reddit / OnlyFans / Fansly + a 🔗 popup for the rest. Library + StashDB-only variants share the layout.
 - **StashDB discovery** — DISCOVER + TRENDING cards in Home; Follow performers + Add scenes you don't have, both via Stash-style scrape modals.
 - **Mobile-first** — bottom nav, hover-card mini-profiles, performer `@mention` links. Touch + desktop parity.
+
+---
+
+## Screenshots
+
+> Example captures in **demo mode** — fictional placeholder content (gradients + performer first names), so nothing real is shown. The StashDB-powered discovery surfaces (Follow/Add modals, Discover bar, social links) need live data and aren't pictured here.
+
+<p align="center">
+  <img src="screenshots/home.png" width="32%" alt="Home — stories row over a scene feed with a collapsed pack card" />
+  <img src="screenshots/story.png" width="32%" alt="Story viewer with the performer carousel" />
+  <img src="screenshots/profile.png" width="32%" alt="Performer profile — bio, stats, scene grid" />
+</p>
+<p align="center">
+  <img src="screenshots/explore.png" width="32%" alt="Explore — tag chips over a scene grid" />
+  <img src="screenshots/following.png" width="32%" alt="Following — favourites + all performers" />
+  <img src="screenshots/saved.png" width="32%" alt="Saved collections" />
+</p>
+<p align="center">
+  <img src="screenshots/collection.png" width="32%" alt="Collection detail grid" />
+</p>
 
 ---
 
@@ -189,13 +209,13 @@ scp binge.yml dist/binge.entry.js dist/index.html \
 
 AGPL-3.0. See [LICENSE](./LICENSE). (Matches Stash's own license.)
 
-<!-- Capture targets: dark mode, 1440×900 desktop, 390×844 mobile. Upload via:
-     gh release upload media-assets <file> --repo ordureconnoisseur/binge
-     Stable URL: github.com/ordureconnoisseur/binge/releases/download/media-assets/<file>
+<!-- Screenshots/ holds demo-mode captures (npm run walkthrough with
+     SHOTS=1): hero/reel, home, story, profile, explore, following, saved,
+     collection.
 
-     01-hero / 02-home / 03-discovery-card / 04-profile-library / 05-profile-stashdb
-     06-profile-mixin / 07-other-links-popup / 08-explore-discover-bar / 09-explore-full
-     10-follow-modal / 11-add-scene-modal / 12-hovercard
-     13-mobile-home / 14-mobile-reel / 15-mobile-menu / 16-mobile-nav
-     17-saved / 18-reel-more-menu / 19-settings / 20-pack-card / 21-story-viewer
+     STILL TODO — these need LIVE data (demo mode can't show them), so
+     capture with Showcase blur on for SFW hosting:
+       discovery-card · profile-stashdb · profile-mixin · other-links-popup
+       explore-discover-bar · follow-modal · add-scene-modal · hovercard
+       settings · reel-more-menu · mobile (home/reel/menu/nav, ≤720px)
 -->
