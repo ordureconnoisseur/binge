@@ -172,9 +172,10 @@ const DEMO_SCENES: DemoScene[] = (() => {
                   " ✨"
                 : "✨ " + tags[0];
             const hoursAgo = pIdx * 30 + i * 0.5;
-            // Mostly landscape (short 16:9 feed cards, like a real
-            // library); ~1 in 4 portrait for variety (taller 9:16 card).
-            const portrait = (pIdx + i) % 4 === 0;
+            // All landscape — the feed renders any portrait scene as a
+            // full-height 9:16 card, which is far too tall on desktop.
+            // (The reel + stories stay portrait; they're unaffected.)
+            const portrait = false;
             out.push({
                 id,
                 title: TITLES[(i - 1) % TITLES.length],
