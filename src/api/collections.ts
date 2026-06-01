@@ -1,4 +1,5 @@
 import { findTagByName, findTagsContaining } from "./queries";
+import { readDemoMode } from "../home/pluginSettings";
 import {
     sceneUpdate,
     tagCreate,
@@ -151,6 +152,17 @@ function ensureCollectionsParentTagId(): Promise<string> {
 // migration the user doesn't see.
 export function getCollectionTagIds(): Promise<Map<string, string>> {
     if (cachedTagIdsPromise) return cachedTagIdsPromise;
+    // Demo: hand each collection a synthetic id (no findTagByName /
+    // parent-tag round-trips). findRecentScenesForTag / findScenesByTag
+    // hash the id into a deterministic slice, so covers + detail load.
+    if (readDemoMode()) {
+        cachedTagIdsPromise = getCollections().then((cols) => {
+            const m = new Map<string, string>();
+            for (const c of cols) m.set(c.tagName, "democol-" + c.tagName);
+            return m;
+        });
+        return cachedTagIdsPromise;
+    }
     cachedTagIdsPromise = (async () => {
         const collections = await getCollections();
         const parentId = await ensureCollectionsParentTagId();

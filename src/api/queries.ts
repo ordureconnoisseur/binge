@@ -360,7 +360,9 @@ export async function findRecentlyLikedTags(
     sceneSampleSize: number,
     topN: number
 ): Promise<{ id: string; name: string }[]> {
-    if (readDemoMode()) return [];
+    // Demo: feed the Explore chip strip (fallback path) fictional tags.
+    if (readDemoMode())
+        return demo.findPopularTags().map((t) => ({ id: t.id, name: t.name }));
     const data = await gql<{
         findScenes: {
             scenes: { id: string; tags: { id: string; name: string }[] }[];

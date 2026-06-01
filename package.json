@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "push": "npm run build && bash scripts/push.sh"
+    "push": "npm run build && bash scripts/push.sh",
+    "walkthrough": "npm run build && node scripts/walkthrough.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.0",
@@ -28,6 +29,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "playwright": "^1.60.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
