@@ -89,29 +89,29 @@ interface Perf {
 }
 
 const PERFORMERS: Perf[] = [
-    // First names of the user's top performers (handles without a real
-    // first name skipped). Order ~= scene-count rank; p1 (top) is the
-    // pack. Counts below are the cosmetic Following figures, not real.
-    { id: "p1", name: "Amy", count: 12 },
-    { id: "p2", name: "Jazmen", count: 9 },
-    { id: "p3", name: "Thorri", count: 8 },
-    { id: "p4", name: "Dainty", count: 7 },
-    { id: "p5", name: "Blake", count: 6 },
-    { id: "p6", name: "Kaedia", count: 5 },
-    { id: "p7", name: "Quinn", count: 4 },
-    { id: "p8", name: "Ashley", count: 3 },
-    { id: "p9", name: "Abella", count: 2 },
-    { id: "p10", name: "Belle", count: 1 },
-    { id: "p11", name: "Sweetie", count: 7 },
-    { id: "p12", name: "Izzy", count: 6 },
-    { id: "p13", name: "Mia", count: 5 },
-    { id: "p14", name: "Angellica", count: 5 },
-    { id: "p15", name: "Riley", count: 4 },
-    { id: "p16", name: "Autumn", count: 4 },
-    { id: "p17", name: "Louisa", count: 3 },
-    { id: "p18", name: "Lily", count: 3 },
-    { id: "p19", name: "Ruth", count: 2 },
-    { id: "p20", name: "Sabrina", count: 2 },
+    // First names of the user's top *professional pornstars* (amateur /
+    // OnlyFans creators excluded). Order ~= scene-count rank; p1 (top)
+    // is the pack. Counts are the cosmetic Following figures, not real.
+    { id: "p1", name: "Dainty", count: 12 },
+    { id: "p2", name: "Blake", count: 9 },
+    { id: "p3", name: "Kaedia", count: 8 },
+    { id: "p4", name: "Abella", count: 7 },
+    { id: "p5", name: "Mia", count: 6 },
+    { id: "p6", name: "Riley", count: 5 },
+    { id: "p7", name: "Faye", count: 4 },
+    { id: "p8", name: "Rae", count: 3 },
+    { id: "p9", name: "Adriana", count: 2 },
+    { id: "p10", name: "Tru", count: 1 },
+    { id: "p11", name: "Emily", count: 7 },
+    { id: "p12", name: "Gabbie", count: 6 },
+    { id: "p13", name: "Hazel", count: 5 },
+    { id: "p14", name: "Melody", count: 5 },
+    { id: "p15", name: "Lana", count: 4 },
+    { id: "p16", name: "August", count: 4 },
+    { id: "p17", name: "Zoey", count: 3 },
+    { id: "p18", name: "Elsa", count: 3 },
+    { id: "p19", name: "Angel", count: 2 },
+    { id: "p20", name: "Bella", count: 2 },
 ];
 
 const STUDIOS = ["Aurora Films", "Lumen Studio", "Demo Pictures"];
