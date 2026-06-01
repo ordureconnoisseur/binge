@@ -129,6 +129,8 @@ interface DemoScene {
     rating100: number;
     oCounter: number;
     playCount: number;
+    width: number;
+    height: number;
     performerIds: string[];
     studio: { id: string; name: string };
     tags: { id: string; name: string }[];
@@ -157,6 +159,9 @@ const DEMO_SCENES: DemoScene[] = (() => {
                   " ✨"
                 : "✨ " + tags[0];
             const hoursAgo = pIdx * 30 + i * 0.5;
+            // Mostly landscape (short 16:9 feed cards, like a real
+            // library); ~1 in 4 portrait for variety (taller 9:16 card).
+            const portrait = (pIdx + i) % 4 === 0;
             out.push({
                 id,
                 title: TITLES[(i - 1) % TITLES.length],
@@ -166,6 +171,8 @@ const DEMO_SCENES: DemoScene[] = (() => {
                 rating100: 70 + (i % 4) * 7,
                 oCounter: i % 5,
                 playCount: (i * 3) % 11,
+                width: portrait ? 1080 : 1920,
+                height: portrait ? 1920 : 1080,
                 performerIds: [p, ...co].map((x) => x.id),
                 studio: {
                     id: `st${(pIdx + i) % STUDIOS.length}`,
@@ -225,7 +232,7 @@ function toSceneCard(d: DemoScene): PerformerSceneCard {
             screenshot: gradientDataUri(`s-${d.id}`),
             preview: gradientDataUri(`s-${d.id}`),
         },
-        files: [{ duration: 30, width: 720, height: 1280 }],
+        files: [{ duration: 30, width: d.width, height: d.height }],
     };
 }
 
@@ -240,8 +247,8 @@ function toRecentRows(d: DemoScene): RecentSceneRow[] {
             scenePreview: gradientDataUri(`s-${d.id}`),
             sceneCreatedAt: d.createdAt,
             sceneDate: d.date,
-            sceneWidth: 720,
-            sceneHeight: 1280,
+            sceneWidth: d.width,
+            sceneHeight: d.height,
             sceneTags: d.tags,
             performerId: p.id,
             performerName: p.name,
