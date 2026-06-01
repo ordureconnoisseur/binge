@@ -99,6 +99,16 @@ const PERFORMERS: Perf[] = [
     { id: "p8", name: "Vesper", count: 3 },
     { id: "p9", name: "Iris", count: 2 },
     { id: "p10", name: "Sage", count: 1 },
+    { id: "p11", name: "Mia", count: 7 },
+    { id: "p12", name: "Lena", count: 6 },
+    { id: "p13", name: "Coco", count: 5 },
+    { id: "p14", name: "Remy", count: 5 },
+    { id: "p15", name: "Skye", count: 4 },
+    { id: "p16", name: "Faye", count: 4 },
+    { id: "p17", name: "Cleo", count: 3 },
+    { id: "p18", name: "Dahlia", count: 3 },
+    { id: "p19", name: "Ember", count: 2 },
+    { id: "p20", name: "Willow", count: 2 },
 ];
 
 const STUDIOS = ["Aurora Films", "Lumen Studio", "Demo Pictures"];
