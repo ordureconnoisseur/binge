@@ -89,26 +89,29 @@ interface Perf {
 }
 
 const PERFORMERS: Perf[] = [
-    { id: "p1", name: "Aria", count: 12 },
-    { id: "p2", name: "Nova", count: 9 },
-    { id: "p3", name: "Sable", count: 8 },
-    { id: "p4", name: "Wren", count: 7 },
-    { id: "p5", name: "Juno", count: 6 },
-    { id: "p6", name: "Lux", count: 5 },
-    { id: "p7", name: "Echo", count: 4 },
-    { id: "p8", name: "Vesper", count: 3 },
-    { id: "p9", name: "Iris", count: 2 },
-    { id: "p10", name: "Sage", count: 1 },
-    { id: "p11", name: "Mia", count: 7 },
-    { id: "p12", name: "Lena", count: 6 },
-    { id: "p13", name: "Coco", count: 5 },
-    { id: "p14", name: "Remy", count: 5 },
-    { id: "p15", name: "Skye", count: 4 },
-    { id: "p16", name: "Faye", count: 4 },
-    { id: "p17", name: "Cleo", count: 3 },
-    { id: "p18", name: "Dahlia", count: 3 },
-    { id: "p19", name: "Ember", count: 2 },
-    { id: "p20", name: "Willow", count: 2 },
+    // First names of the user's top performers (handles without a real
+    // first name skipped). Order ~= scene-count rank; p1 (top) is the
+    // pack. Counts below are the cosmetic Following figures, not real.
+    { id: "p1", name: "Amy", count: 12 },
+    { id: "p2", name: "Jazmen", count: 9 },
+    { id: "p3", name: "Thorri", count: 8 },
+    { id: "p4", name: "Dainty", count: 7 },
+    { id: "p5", name: "Blake", count: 6 },
+    { id: "p6", name: "Kaedia", count: 5 },
+    { id: "p7", name: "Quinn", count: 4 },
+    { id: "p8", name: "Ashley", count: 3 },
+    { id: "p9", name: "Abella", count: 2 },
+    { id: "p10", name: "Belle", count: 1 },
+    { id: "p11", name: "Sweetie", count: 7 },
+    { id: "p12", name: "Izzy", count: 6 },
+    { id: "p13", name: "Mia", count: 5 },
+    { id: "p14", name: "Angellica", count: 5 },
+    { id: "p15", name: "Riley", count: 4 },
+    { id: "p16", name: "Autumn", count: 4 },
+    { id: "p17", name: "Louisa", count: 3 },
+    { id: "p18", name: "Lily", count: 3 },
+    { id: "p19", name: "Ruth", count: 2 },
+    { id: "p20", name: "Sabrina", count: 2 },
 ];
 
 const STUDIOS = ["Aurora Films", "Lumen Studio", "Demo Pictures"];
