@@ -28,7 +28,11 @@ import { HeartBurst } from "./HeartBurst";
 import { SceneDetailsSheet } from "./SceneDetailsSheet";
 import { CriterionRatingModal } from "./CriterionRatingModal";
 import { MoreSheet } from "./MoreSheet";
-import { useAutoScroll, useTranscodeType } from "../home/pluginSettings";
+import {
+    useAutoScroll,
+    useTranscodeType,
+    readDemoMode,
+} from "../home/pluginSettings";
 import { useScribeModal } from "../scribe/ScribeContext";
 
 interface SceneSlideProps {
@@ -241,6 +245,9 @@ export function SceneSlide({
         const video = videoRef.current;
         if (!video) return;
         if (currentlyScrolling) return;
+        // Demo mode: no real stream — leave src unset so the gradient
+        // poster shows (a data-URI can't play as <video>).
+        if (readDemoMode()) return;
         const url = pickStreamUrl(scene, transcodeType);
         if (video.src !== url) {
             video.src = url;

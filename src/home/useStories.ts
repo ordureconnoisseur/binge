@@ -25,6 +25,7 @@ import {
     useIncludeReddit,
     useIncludeStashDB,
     useLookbackDays,
+    useDemoMode,
 } from "./pluginSettings";
 
 // A single scene inside a performer's story strip. Discriminated by
@@ -115,8 +116,10 @@ const MAX_STORIES = 150;
 
 export function useStories(): StoriesResult {
     const [state, setState] = useState<StoriesState>({ kind: "loading" });
-    const includeStashDB = useIncludeStashDB();
-    const includeReddit = useIncludeReddit();
+    // Demo mode: only library (demo) stories — no real StashDB/Reddit.
+    const demoMode = useDemoMode();
+    const includeStashDB = useIncludeStashDB() && !demoMode;
+    const includeReddit = useIncludeReddit() && !demoMode;
     const lookbackDays = useLookbackDays();
     // Bumped by refresh() to force the effect below to re-run after
     // all in-memory/localStorage caches have been invalidated.
@@ -298,7 +301,7 @@ export function useStories(): StoriesResult {
         return () => {
             alive = false;
         };
-    }, [includeStashDB, includeReddit, lookbackDays, refreshTick]);
+    }, [includeStashDB, includeReddit, lookbackDays, refreshTick, demoMode]);
 
     return {
         state,

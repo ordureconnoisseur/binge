@@ -15,6 +15,7 @@ import {
 import {
     setIncludeStashDBInProfile,
     useIncludeStashDBInProfile,
+    useDemoMode,
 } from "../home/pluginSettings";
 import { AddSceneModal } from "../home/AddSceneModal";
 import { BingeLoading } from "../components/BingeLoading";
@@ -63,7 +64,8 @@ export function PerformerSceneGrid({
     // Filtered to scenes the user doesn't already own (owned ids
     // matched against `scene_id` not `id`, since Stash dedupes by
     // stash_id locally and we want to suppress duplicates).
-    const includeStashDBInProfile = useIncludeStashDBInProfile();
+    const includeStashDBInProfile =
+        useIncludeStashDBInProfile() && !useDemoMode();
     const [stashDBScenes, setStashDBScenes] = useState<StashDBScene[]>([]);
     const [stashBoxIndex, setStashBoxIndex] = useState<number | null>(null);
     const [sceneModalFor, setSceneModalFor] = useState<{
@@ -407,7 +409,7 @@ function SceneTile({
     const oCount = scene.o_counter ?? 0;
     const viewCount = scene.play_count ?? 0;
     const sceneTitle = scene.title?.trim() || "";
-    const previewUrl = scene.paths.preview;
+    const previewUrl = useDemoMode() ? null : scene.paths.preview;
 
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const srcArmedRef = useRef(false);

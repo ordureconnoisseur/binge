@@ -1,4 +1,6 @@
 import { gql } from "./graphql";
+import { readDemoMode } from "../home/pluginSettings";
+import * as demo from "../demo/demoContent";
 
 // Minimal shape of a Stash scene used by the reel. Fields are the union of
 // what we need for: <video> playback, the overlay (title, performers,
@@ -185,6 +187,7 @@ const FIND_SCENES = /* GraphQL */ `
 export async function findScenes(
     variables: FindScenesVariables = {}
 ): Promise<FindScenesResult> {
+    if (readDemoMode()) return demo.findScenes(variables);
     const merged: FindScenesVariables = {
         filter: {
             page: 1,
@@ -357,6 +360,7 @@ export async function findRecentlyLikedTags(
     sceneSampleSize: number,
     topN: number
 ): Promise<{ id: string; name: string }[]> {
+    if (readDemoMode()) return [];
     const data = await gql<{
         findScenes: {
             scenes: { id: string; tags: { id: string; name: string }[] }[];
@@ -408,6 +412,7 @@ const FIND_TAGS_CONTAINING = /* GraphQL */ `
 export async function findTagsContaining(
     needle: string
 ): Promise<{ id: string; name: string }[]> {
+    if (readDemoMode()) return demo.findTagsContaining(needle);
     const data = await gql<{
         findTags: { tags: { id: string; name: string }[] };
     }>(FIND_TAGS_CONTAINING, { needle });
@@ -453,6 +458,7 @@ export async function findRecentScenesForTag(
     tagId: string,
     limit = 4
 ): Promise<CollectionCover> {
+    if (readDemoMode()) return demo.findRecentScenesForTag(tagId, limit);
     const data = await gql<{
         findScenes: {
             count: number;
@@ -540,6 +546,7 @@ const FIND_ALL_PERFORMERS = /* GraphQL */ `
 `;
 
 export async function findAllPerformers(): Promise<PerformerSummary[]> {
+    if (readDemoMode()) return demo.findAllPerformers();
     return sweepPerformers(FIND_ALL_PERFORMERS);
 }
 
@@ -562,6 +569,7 @@ const FIND_RANDOM_PERFORMERS = /* GraphQL */ `
 export async function findRandomPerformers(
     count = 24
 ): Promise<PerformerSummary[]> {
+    if (readDemoMode()) return demo.findRandomPerformers(count);
     const data = await gql<{
         findPerformers: { performers: PerformerSummary[] };
     }>(FIND_RANDOM_PERFORMERS, { per_page: count });
@@ -615,6 +623,7 @@ const FIND_POPULAR_TAGS = /* GraphQL */ `
 `;
 
 export async function findPopularTags(): Promise<PopularTag[]> {
+    if (readDemoMode()) return demo.findPopularTags();
     const data = await gql<{ findTags: { tags: PopularTag[] } }>(
         FIND_POPULAR_TAGS
     );
@@ -692,6 +701,7 @@ const FIND_PERFORMER = /* GraphQL */ `
 `;
 
 export async function findPerformer(id: string): Promise<PerformerDetail> {
+    if (readDemoMode()) return demo.findPerformer(id);
     const data = await gql<{ findPerformer: PerformerDetail }>(FIND_PERFORMER, {
         id,
     });
@@ -753,6 +763,8 @@ export async function findScenesByPerformer(
     page: number,
     perPage: number
 ): Promise<{ count: number; scenes: PerformerSceneCard[] }> {
+    if (readDemoMode())
+        return demo.findScenesByPerformer(performerId, page, perPage);
     const data = await gql<{
         findScenes: { count: number; scenes: PerformerSceneCard[] };
     }>(FIND_SCENES_BY_PERFORMER, {
@@ -803,6 +815,7 @@ export async function findScenesByTag(
     page: number,
     perPage: number
 ): Promise<{ count: number; scenes: PerformerSceneCard[] }> {
+    if (readDemoMode()) return demo.findScenesByTag(tagId, page, perPage);
     const data = await gql<{
         findScenes: { count: number; scenes: PerformerSceneCard[] };
     }>(FIND_SCENES_BY_TAG, {
@@ -858,6 +871,7 @@ const FIND_SCENE = /* GraphQL */ `
 `;
 
 export async function findSceneById(id: string): Promise<BingeScene | null> {
+    if (readDemoMode()) return demo.findSceneById(id);
     const data = await gql<{ findScene: BingeScene | null }>(FIND_SCENE, {
         id,
     });
@@ -1125,6 +1139,7 @@ export async function findRecentScenes(
     sinceIso: string,
     perPage = 500
 ): Promise<RecentSceneRow[]> {
+    if (readDemoMode()) return demo.findRecentScenes();
     const data = await gql<{ findScenes: { scenes: RawSceneNode[] } }>(
         buildFindRecentScenesQuery(),
         { since: sinceIso, per_page: perPage }
@@ -1141,6 +1156,7 @@ export async function findScenesByDate(
     sinceDate: string,
     perPage = 500
 ): Promise<RecentSceneRow[]> {
+    if (readDemoMode()) return demo.findRecentScenes();
     const data = await gql<{ findScenes: { scenes: RawSceneNode[] } }>(
         buildFindScenesByDateQuery(),
         { since: sinceDate, per_page: perPage }

@@ -19,6 +19,7 @@ const INCLUDE_REDDIT_KEY = "binge.includeReddit";
 const AUTO_SCROLL_KEY = "binge.autoScroll";
 const REFRACT_INTEGRATION_KEY = "binge.refractIntegration";
 const SHOWCASE_BLUR_KEY = "binge.showcaseBlur";
+const DEMO_MODE_KEY = "binge.demoMode";
 const BINGE_SERVER_URL_KEY = "binge.bingeServerUrl";
 const LOOKBACK_DAYS_KEY = "binge.lookbackDays";
 // Defaults to the loopback address — what a typical user runs once
@@ -474,6 +475,21 @@ export function setShowcaseBlur(value: boolean): void {
 // Imperative toggle for the global `|` (Shift+\) capture hotkey in App.tsx.
 export function toggleShowcaseBlur(): void {
     writeBool(SHOWCASE_BLUR_KEY, !readBool(SHOWCASE_BLUR_KEY, false));
+}
+
+// Demo mode — replaces the real Stash library with fictional, SFW
+// placeholder content (procedural gradients + invented performers /
+// scenes / tags / collections) for capturing marketing footage. Read as
+// a React hook (settings UI / App) AND imperatively from the query layer
+// (src/api/queries.ts), which runs outside React. Off by default.
+export function useDemoMode(): boolean {
+    return useStoredBool(DEMO_MODE_KEY, false);
+}
+export function readDemoMode(): boolean {
+    return readBool(DEMO_MODE_KEY, false);
+}
+export function setDemoMode(value: boolean): void {
+    writeBool(DEMO_MODE_KEY, value);
 }
 
 // binge-server URL. Read both as a React hook and via the imperative

@@ -15,6 +15,7 @@ import {
     useShowGalleries,
     useLookbackDays,
     useIncludeStashDB,
+    useDemoMode,
 } from "./pluginSettings";
 import {
     fetchDiscoveryFeedItems,
@@ -275,8 +276,11 @@ export interface FeedHookResult {
 export function useFeed(): FeedHookResult {
     const lookbackDays = useLookbackDays();
     const [state, setState] = useState<FeedState>({ kind: "loading" });
-    const showGalleries = useShowGalleries();
-    const includeStashDB = useIncludeStashDB();
+    // Demo mode shows only the fictional library — galleries + StashDB
+    // discovery (which would pull real StashDB names) are forced off.
+    const demoMode = useDemoMode();
+    const showGalleries = useShowGalleries() && !demoMode;
+    const includeStashDB = useIncludeStashDB() && !demoMode;
 
     useEffect(() => {
         let alive = true;
@@ -457,7 +461,7 @@ export function useFeed(): FeedHookResult {
         return () => {
             alive = false;
         };
-    }, [lookbackDays, showGalleries, includeStashDB]);
+    }, [lookbackDays, showGalleries, includeStashDB, demoMode]);
 
     return { state };
 }
