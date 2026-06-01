@@ -57,12 +57,13 @@ export function gradientDataUri(seed: string): string {
         `<stop offset='1' stop-color='${bottom}'/>` +
         `</linearGradient></defs>` +
         `<rect width='720' height='1280' fill='url(#g)'/></svg>`;
-    // encodeURIComponent leaves "(" and ")" unescaped — and the SVG has
-    // literal parens (hsl(...), url(#g)). In a CSS `background-image:
-    // url(...)` those inner parens break the url() parse and the image
-    // fails to load (blank). Percent-escape them so the data URI is safe
-    // both as an <img src> and an unquoted CSS url().
+    // encodeURIComponent leaves ' ( ) unescaped — but the SVG has literal
+    // single-quoted attributes plus parens (hsl(...), url(#g)). Unquoted
+    // CSS url(...) (used by the pack tiles + avatars) can't contain any of
+    // those, so the data URI silently fails to load → blank. Percent-
+    // escape all three so it's safe as both an <img src> and a CSS url().
     const encoded = encodeURIComponent(svg)
+        .replace(/'/g, "%27")
         .replace(/\(/g, "%28")
         .replace(/\)/g, "%29");
     return `data:image/svg+xml,${encoded}`;
