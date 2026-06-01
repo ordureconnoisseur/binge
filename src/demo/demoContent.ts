@@ -32,7 +32,15 @@ export function hueForSeed(seed: string): number {
         h ^= seed.charCodeAt(i);
         h = Math.imul(h, 0x01000193) >>> 0;
     }
-    return h % 360;
+    // fmix32 avalanche — FNV's low bits correlate with the trailing
+    // byte, so seeds differing only in their last char (s-p1-1 vs
+    // s-p1-2) would otherwise alternate between just two hue bands.
+    h ^= h >>> 16;
+    h = Math.imul(h, 0x85ebca6b) >>> 0;
+    h ^= h >>> 13;
+    h = Math.imul(h, 0xc2b2ae35) >>> 0;
+    h ^= h >>> 16;
+    return (h >>> 0) % 360;
 }
 
 /** Top/bottom CSS colours for a seed — shared by the SVG data URI and
