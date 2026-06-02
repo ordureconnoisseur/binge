@@ -156,7 +156,7 @@ Open binge → ⋯ → Settings (desktop) or Menu → Settings (mobile).
 
 | Setting | Default | Notes |
 |-|-|-|
-| Genders to surface | Female + Trans female | Five toggles. Drives discovery feed + Discover Performers row. |
+| Genders to surface | All | Five toggles. Drives discovery feed + Discover Performers row. |
 | Stream type | Auto | Auto / Direct / MP4 / WebM / HLS |
 | Show galleries in feed | On | Mix galleries into Home |
 | Recent window | 30 days | How far back "new" means. 7 / 14 / 30 / 60 / 90 / 180 / 365 |

@@ -257,13 +257,9 @@ export const ALL_GENDERS: ReadonlyArray<Gender> = [
     "TRANSGENDER_MALE",
     "NON_BINARY",
 ];
-// Default matches binge's historical behaviour: female + trans
-// female only. Pre-existing users see no behaviour change until
-// they explicitly add other genders.
-const DEFAULT_ALLOWED_GENDERS: ReadonlySet<Gender> = new Set([
-    "FEMALE",
-    "TRANSGENDER_FEMALE",
-]);
+// Default = all genders (neutral out of the box). Users narrow it in
+// Settings → Genders to surface to taste.
+const DEFAULT_ALLOWED_GENDERS: ReadonlySet<Gender> = new Set(ALL_GENDERS);
 
 // Genders silently hidden everywhere, paired with the hidden-tag content
 // exclusion (see HIDDEN_TAG_IDS in src/api/queries.ts). Trans performers
