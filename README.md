@@ -2,7 +2,7 @@
 
 An Instagram-shaped social + discovery layer for [Stash](https://github.com/stashapp/stash). Vertical reel, stories, performer profiles, StashDB-powered discovery — all backed by Stash's existing GraphQL API. Web plugin; native [iOS port](https://github.com/ordureconnoisseur/binge-ios) tracks feature-parity.
 
-<p align="center"><img src="screenshots/reel.png" alt="binge — a vertical reel for your Stash library" width="760" /></p>
+<p align="center"><img src="screenshots/hero.png" alt="binge — reels, stories, and discovery for your Stash library" width="840" /></p>
 
 ---
 
@@ -21,7 +21,7 @@ An Instagram-shaped social + discovery layer for [Stash](https://github.com/stas
 > Example captures in **demo mode** — fictional placeholder content (gradients + performer first names), so nothing real is shown. The StashDB-powered discovery surfaces (Follow/Add modals, Discover bar, social links) need live data and aren't pictured here.
 
 <p align="center">
-  <img src="screenshots/home.png" width="32%" alt="Home — stories row over a scene feed with a collapsed pack card" />
+  <img src="screenshots/reel.png" width="32%" alt="Vertical For You reel with the action stack" />
   <img src="screenshots/story.png" width="32%" alt="Story viewer with the performer carousel" />
   <img src="screenshots/profile.png" width="32%" alt="Performer profile — bio, stats, scene grid" />
 </p>
