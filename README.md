@@ -16,62 +16,68 @@ An Instagram-shaped social + discovery layer for [Stash](https://github.com/stas
 
 ---
 
-## Screenshots
-
-> Example captures in **demo mode** — fictional placeholder content (gradients + performer first names), so nothing real is shown. The StashDB-powered discovery surfaces (Follow/Add modals, Discover bar, social links) need live data and aren't pictured here.
-
-<p align="center">
-  <img src="screenshots/reel.png" width="32%" alt="Vertical For You reel with the action stack" />
-  <img src="screenshots/story.png" width="32%" alt="Story viewer with the performer carousel" />
-  <img src="screenshots/profile.png" width="32%" alt="Performer profile — bio, stats, scene grid" />
-</p>
-<p align="center">
-  <img src="screenshots/explore.png" width="32%" alt="Explore — tag chips over a scene grid" />
-  <img src="screenshots/following.png" width="32%" alt="Following — favourites + all performers" />
-  <img src="screenshots/saved.png" width="32%" alt="Saved collections" />
-</p>
-<p align="center">
-  <img src="screenshots/collection.png" width="32%" alt="Collection detail grid" />
-</p>
-
----
-
 ## What it does
 
+> Screenshots are **demo-mode** captures — fictional placeholder content (gradients + performer first names), so nothing real is shown. The StashDB discovery surfaces (Follow/Add modals, Discover bar, social links) need live data and aren't pictured.
+
 ### Reel · For You
+
+<img align="right" width="440" src="screenshots/reel.png" alt="Vertical For You reel with the action stack" />
+
 Vertical swipe through scenes. Tap to play/pause, double-tap to like, swipe to advance. Right-side action stack: **Heart · Rate · Multiview · Scribe · Bookmark · ⋯**. Filter chips at top constrain the random feed by performer / tag / studio and persist as you scroll.
+
+<br clear="all" />
 
 <!-- TODO: 18-reel-more-menu — reel ⋯ menu (Auto-scroll + Open in Stash) -->
 
 ### Home
+
+<img align="right" width="440" src="screenshots/home.png" alt="Home — stories row over a scene feed with a collapsed pack card" />
+
 **Stories row** of performers with fresh content (library scenes within your lookback + StashDB new releases + Reddit posts when binge-server is reachable). Tap a bubble → IG-style story viewer with auto-advance and a "Watch full scene" CTA into the reel.
 
 **Scene feed** of IG-style cards: preview video, performer header (avatar + hover-card), title + expandable description + hashtags, action row. Bulk imports of one performer collapse into a single **Pack card** with a 3×3 mosaic — keeps one prolific performer from dominating the feed.
 
 **Discovery cards** mix in. StashDB scenes you don't own appear with a coloured **DISCOVER** (co-stars) or **TRENDING** pill, an avatar stack of library performers on the scene, and `@mention` text links for unfollowed co-performers. Tap **+ Follow** for one-tap onboarding or **⋯ → Add scene to library** to scrape + create locally.
 
-<!-- TODO: 02-home — stories row + feed cards -->
-<!-- TODO: 03-discovery-card — single card with pill + avatar stack + Follow + @mentions -->
-<!-- TODO: 20-pack-card — Pack feed card (3×3 mosaic + story ring) -->
-<!-- TODO: 21-story-viewer — story viewer mid-playback (progress strip + CTA) -->
+<br clear="all" />
+
+<p align="center"><img width="460" src="screenshots/story.png" alt="Story viewer — performer carousel, progress strip, Watch full scene" /></p>
+
+<!-- TODO (live data): discovery-card — DISCOVER/TRENDING pill + avatar stack + Follow + @mentions -->
 
 ### Explore
+
+<img align="right" width="440" src="screenshots/explore.png" alt="Explore — tag chips over a scene grid" />
+
 Search bar (Stash's `q` filter), recent-tag chips (from your interaction history), tile grid of scenes. A **Discover Performers** bubble row at top scrolls through StashDB's recent-activity performers (filtered to your enabled genders). Tap → profile.
 
-<!-- TODO: 08-explore-discover-bar — Discover Performers bubble row -->
-<!-- TODO: 09-explore-full — full Explore page -->
+<br clear="all" />
+
+<!-- TODO (live data): explore-discover-bar — Discover Performers bubble row -->
 
 ### Following · Saved
+
+<img align="right" width="440" src="screenshots/following.png" alt="Following — favourites + all performers" />
+
 Following lists performers you've favourited, sorted by recent activity. Saved holds your collections (Watch Later, Favourite ★, and any custom ones); each opens a 3-column grid.
 
-<!-- TODO: 17-saved — collection 3-column grid -->
+<br clear="all" />
+
+<p align="center">
+  <img src="screenshots/saved.png" width="44%" alt="Saved — collections with cover mosaics" />
+  <img src="screenshots/collection.png" width="44%" alt="Collection detail — 3-column grid" />
+</p>
 
 ### Performer profile
+
+<img align="right" width="440" src="screenshots/profile.png" alt="Performer profile — bio, stats, scene grid" />
+
 Full-screen page mirroring Instagram's profile layout: avatar (with binge's pink→purple→blue story ring on new content), bio, stats, **social-link row**, Favourite/Follow action, Scenes + Images tabs. StashDB-only profiles get a **+ Follow** button instead of the favourite toggle, plus a Stash-style scrape modal. Hash-routed: `#/p/<localId>` and `#/sdbp/<stashDBId>` — both deep-linkable.
 
-<!-- TODO: 04-profile-library — library profile (bio + social + stats + grid) -->
-<!-- TODO: 05-profile-stashdb — StashDB-only profile (Follow + badged tiles) -->
-<!-- TODO: 06-profile-mixin — library profile with StashDB mixin enabled -->
+<br clear="all" />
+
+<!-- TODO (live data): profile-stashdb (Follow + badged tiles) · profile-mixin -->
 
 ---
 
