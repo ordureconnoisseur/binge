@@ -6853,6 +6853,37 @@ body,
         drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
 
+/* Persistent corner badge (TikTok-style) showing the stat for the active
+   sort. Sits above the poster at bottom-left; the hover overlay fades it
+   out so the full stat row reads cleanly on mouse-in. Text is shadowed
+   rather than chipped so it stays light over any thumbnail. */
+.binge-profile-scene-badge {
+    position: absolute;
+    left: 0.5rem;
+    bottom: 0.45rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+}
+.binge-profile-scene-badge svg {
+    width: 12px;
+    height: 12px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+.binge-profile-scene-card:hover .binge-profile-scene-badge,
+.binge-profile-scene-card:focus-visible .binge-profile-scene-badge {
+    opacity: 0;
+}
+
 .binge-profile-scene-title {
     color: #fff;
     font-size: 0.85rem;

@@ -726,6 +726,9 @@ export interface PerformerSceneCard {
     created_at: string | null;
     o_counter: number | null;
     play_count: number | null;
+    // 0–100 rating; drives the per-tile stat badge under the "Highest
+    // rated" sort. Null when unrated.
+    rating100: number | null;
     paths: { screenshot: string; preview: string | null };
     files: { duration: number; width: number; height: number }[];
 }
@@ -786,6 +789,7 @@ const FIND_SCENES_BY_PERFORMER = /* GraphQL */ `
                 created_at
                 o_counter
                 play_count
+                rating100
                 paths {
                     screenshot
                     preview

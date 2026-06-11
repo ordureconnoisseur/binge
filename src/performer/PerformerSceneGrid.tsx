@@ -281,6 +281,7 @@ export function PerformerSceneGrid({
                             <SceneTile
                                 key={`l:${cell.scene.id}`}
                                 scene={cell.scene}
+                                sort={sort}
                                 onPick={() => handlePick(cell.scene.id)}
                             />
                         ) : (
@@ -430,9 +431,11 @@ function StashDBTile({
 // render fine, just without the playback affordance.
 function SceneTile({
     scene,
+    sort,
     onPick,
 }: {
     scene: PerformerSceneCard;
+    sort: PerformerSceneSort;
     onPick: () => void;
 }) {
     const file = scene.files?.[0];
@@ -443,6 +446,10 @@ function SceneTile({
     const viewCount = scene.play_count ?? 0;
     const sceneTitle = scene.title?.trim() || "";
     const previewUrl = useDemoMode() ? null : scene.paths.preview;
+    // Persistent corner badge showing the stat that matches the active
+    // sort (à la TikTok's view-count overlay). Hidden on hover, where the
+    // full stat row takes over.
+    const badge = sortStatBadge(scene, sort, oCount, viewCount);
 
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const srcArmedRef = useRef(false);
@@ -505,6 +512,12 @@ function SceneTile({
                         aria-hidden="true"
                     />
                 )}
+                {badge && (
+                    <span className="binge-profile-scene-badge">
+                        {badge.icon}
+                        {badge.text}
+                    </span>
+                )}
                 <span className="binge-profile-scene-hover">
                     <span className="binge-profile-scene-hover-stats">
                         {duration != null && (
@@ -530,6 +543,66 @@ function SceneTile({
             </button>
         </li>
     );
+}
+
+// Resolve the per-tile badge (icon + text) for the active sort. Returns
+// null when the relevant value is missing (e.g. unrated, no views, no
+// date) so empty badges don't render.
+function sortStatBadge(
+    scene: PerformerSceneCard,
+    sort: PerformerSceneSort,
+    oCount: number,
+    viewCount: number
+): { icon: React.ReactNode; text: string } | null {
+    switch (sort) {
+        case "views":
+            return viewCount > 0
+                ? { icon: <ViewIcon />, text: compactCount(viewCount) }
+                : null;
+        case "orgasms":
+            return oCount > 0
+                ? { icon: <OIcon />, text: compactCount(oCount) }
+                : null;
+        case "rating":
+            return scene.rating100 != null
+                ? {
+                      icon: <StarIcon />,
+                      text: formatRating10(scene.rating100),
+                  }
+                : null;
+        case "added": {
+            const t = compactMonthYear(scene.created_at);
+            return t ? { icon: <CalendarIcon />, text: t } : null;
+        }
+        case "recent":
+        default: {
+            const t = compactMonthYear(scene.date || scene.created_at);
+            return t ? { icon: <CalendarIcon />, text: t } : null;
+        }
+    }
+}
+
+// "Jun 2026" from a "YYYY-MM-DD" or ISO date; falls back to the bare
+// year, then null when unparseable.
+function compactMonthYear(raw: string | null): string | null {
+    if (!raw) return null;
+    const m = /^(\d{4})-(\d{2})/.exec(raw);
+    if (!m) {
+        const y = raw.slice(0, 4);
+        return /^\d{4}$/.test(y) ? y : null;
+    }
+    const months = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    const mi = parseInt(m[2], 10);
+    return mi >= 1 && mi <= 12 ? `${months[mi - 1]} ${m[1]}` : m[1];
+}
+
+// 0–100 rating → "8.4" out of 10 (drops a trailing .0).
+function formatRating10(r: number): string {
+    const v = r / 10;
+    return Number.isInteger(v) ? String(v) : v.toFixed(1);
 }
 
 function formatDuration(seconds: number): string {
@@ -579,6 +652,37 @@ function OIcon() {
             aria-hidden="true"
         >
             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+        </svg>
+    );
+}
+
+function StarIcon() {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+        >
+            <path d="M12 17.27l5.18 3.13-1.37-5.89 4.56-3.95-6.01-.51L12 4.5 9.64 10.05l-6.01.51 4.56 3.95-1.37 5.89z" />
+        </svg>
+    );
+}
+
+function CalendarIcon() {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
     );
 }

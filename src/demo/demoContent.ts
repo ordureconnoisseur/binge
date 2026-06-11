@@ -244,6 +244,7 @@ function toSceneCard(d: DemoScene): PerformerSceneCard {
         created_at: d.createdAt,
         o_counter: d.oCounter,
         play_count: d.playCount,
+        rating100: d.rating100,
         paths: {
             screenshot: gradientDataUri(`s-${d.id}`),
             preview: gradientDataUri(`s-${d.id}`),
