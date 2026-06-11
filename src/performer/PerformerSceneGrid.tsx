@@ -235,36 +235,28 @@ export function PerformerSceneGrid({
     return (
         <section className="binge-profile-scenes">
             <h2 className="binge-profile-scenes-heading">
-                <span className="binge-profile-scenes-title">
-                    Scenes
-                    {count != null
-                        ? ` (${scenes.length}/${count})`
-                        : ""}
-                </span>
-                <span className="binge-profile-scenes-controls">
-                    <PerformerSceneSortMenu
-                        value={sort}
-                        onChange={setSort}
-                    />
-                    {isStashDBLinked && (
-                        <button
-                            type="button"
-                            className={
-                                "binge-profile-stashdb-toggle" +
-                                (includeStashDBInProfile ? " is-on" : "")
-                            }
-                            onClick={() =>
-                                setIncludeStashDBInProfile(
-                                    !includeStashDBInProfile
-                                )
-                            }
-                            title="Mix StashDB scenes into this performer's grid"
-                        >
-                            <span className="binge-profile-stashdb-toggle-dot" />
-                            StashDB
-                        </button>
-                    )}
-                </span>
+                {/* The sort control doubles as the section header — its
+                    label ("Recent") makes a separate "Scenes (n)" title
+                    redundant. */}
+                <PerformerSceneSortMenu value={sort} onChange={setSort} />
+                {isStashDBLinked && (
+                    <button
+                        type="button"
+                        className={
+                            "binge-profile-stashdb-toggle" +
+                            (includeStashDBInProfile ? " is-on" : "")
+                        }
+                        onClick={() =>
+                            setIncludeStashDBInProfile(
+                                !includeStashDBInProfile
+                            )
+                        }
+                        title="Mix StashDB scenes into this performer's grid"
+                    >
+                        <span className="binge-profile-stashdb-toggle-dot" />
+                        StashDB
+                    </button>
+                )}
             </h2>
             {error && (
                 <div className="binge-status binge-status-error">
