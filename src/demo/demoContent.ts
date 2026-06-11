@@ -17,6 +17,7 @@ import type {
     FindScenesVariables,
     PerformerDetail,
     PerformerSceneCard,
+    PerformerSceneSort,
     PerformerSummary,
     PopularTag,
     RecentSceneRow,
@@ -240,6 +241,7 @@ function toSceneCard(d: DemoScene): PerformerSceneCard {
         id: d.id,
         title: d.title,
         date: d.date,
+        created_at: d.createdAt,
         o_counter: d.oCounter,
         play_count: d.playCount,
         paths: {
@@ -389,15 +391,34 @@ export function findPerformer(id: string): PerformerDetail {
 export function findScenesByPerformer(
     performerId: string,
     page: number,
-    perPage: number
+    perPage: number,
+    sort: PerformerSceneSort = "recent"
 ): { count: number; scenes: PerformerSceneCard[] } {
     const all = DEMO_SCENES.filter((s) =>
         s.performerIds.includes(performerId)
     );
+    // Mirror the live sorts (all DESC) so the demo grid reorders too.
+    const sorted = [...all].sort((a, b) => {
+        switch (sort) {
+            case "views":
+                return b.playCount - a.playCount;
+            case "orgasms":
+                return b.oCounter - a.oCounter;
+            case "rating":
+                return b.rating100 - a.rating100;
+            case "added":
+                return b.createdAt.localeCompare(a.createdAt);
+            case "recent":
+            default:
+                return (b.date || b.createdAt).localeCompare(
+                    a.date || a.createdAt
+                );
+        }
+    });
     const start = (page - 1) * perPage;
     return {
-        count: all.length,
-        scenes: all.slice(start, start + perPage).map(toSceneCard),
+        count: sorted.length,
+        scenes: sorted.slice(start, start + perPage).map(toSceneCard),
     };
 }
 

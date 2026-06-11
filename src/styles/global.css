@@ -6551,6 +6551,105 @@ body,
     align-items: center;
     gap: 0.6rem;
 }
+/* Right-aligned control cluster (sort dropdown + StashDB toggle). */
+.binge-profile-scenes-controls {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+/* The StashDB toggle keeps its own margin-left:auto for the legacy
+   layout; inside the controls cluster the cluster owns the offset. */
+.binge-profile-scenes-controls .binge-profile-stashdb-toggle {
+    margin-left: 0;
+}
+
+/* Subtle sort dropdown — a quiet text label with a chevron, deliberately
+   understated so it doesn't compete with the heading. Popover reuses the
+   feed-filter menu's glass language. */
+.binge-scene-sort {
+    position: relative;
+    display: inline-flex;
+    text-transform: none;
+    letter-spacing: normal;
+}
+.binge-scene-sort-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.3rem;
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    color: var(--text-muted, rgba(255, 255, 255, 0.55));
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+.binge-scene-sort-btn:hover,
+.binge-scene-sort-btn.is-open {
+    color: #fff;
+}
+.binge-scene-sort-btn svg {
+    opacity: 0.75;
+}
+.binge-scene-sort-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.3);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.binge-scene-sort-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 50;
+    min-width: 168px;
+    padding: 6px;
+    background: var(--bg-2, #1a1a1f);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(20px) saturate(140%);
+}
+.binge-scene-sort-item {
+    appearance: none;
+    background: transparent;
+    border: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.binge-scene-sort-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+.binge-scene-sort-item.is-active {
+    color: #fff;
+}
+.binge-scene-sort-check {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #c084fc;
+}
 /* StashDB mix-in toggle pill — sits at the right of the SCENES
    heading. Off = muted glass, on = pink-tinted with a filled dot,
    so the active state reads at a glance. */

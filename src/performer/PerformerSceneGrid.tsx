@@ -3,7 +3,9 @@ import {
     findScenesByPerformer,
     type PerformerDetail,
     type PerformerSceneCard,
+    type PerformerSceneSort,
 } from "../api/queries";
+import { PerformerSceneSortMenu } from "./PerformerSceneSortMenu";
 import { useFilter } from "../filter/FilterContext";
 import { useTab } from "../tabs/TabContext";
 import {
@@ -55,6 +57,7 @@ export function PerformerSceneGrid({
     const [scenes, setScenes] = useState<PerformerSceneCard[]>([]);
     const [count, setCount] = useState<number | null>(null);
     const [page, setPage] = useState(1);
+    const [sort, setSort] = useState<PerformerSceneSort>("recent");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { replace } = useFilter();
@@ -82,14 +85,27 @@ export function PerformerSceneGrid({
         performer.stash_ids?.some((s) => s.endpoint === STASHDB_ENDPOINT)
     );
 
-    // Reset when the performer changes (re-opening the profile for another id).
+    // Reset when the performer changes (re-opening the profile for another
+    // id) OR when the sort changes — both restart pagination at page 1 so
+    // the next fetch replaces the list instead of appending under the old
+    // order. StashDB mixin state only resets on performer change (it's
+    // sort-independent), so it's kept out of the sort branch below.
     useEffect(() => {
         setScenes([]);
         setCount(null);
         setPage(1);
         setError(null);
+    }, [performer.id, sort]);
+
+    useEffect(() => {
         setStashDBScenes([]);
         setStashBoxIndex(null);
+    }, [performer.id]);
+
+    // Re-opening the profile for a different performer should land back on
+    // the default sort rather than inherit the previous performer's choice.
+    useEffect(() => {
+        setSort("recent");
     }, [performer.id]);
 
     // One-shot StashDB fetch when the toggle is on AND the performer
@@ -139,7 +155,7 @@ export function PerformerSceneGrid({
         let alive = true;
         setLoading(true);
         setError(null);
-        findScenesByPerformer(performer.id, page, PAGE_SIZE)
+        findScenesByPerformer(performer.id, page, PAGE_SIZE, sort)
             .then((res) => {
                 if (!alive) return;
                 setCount(res.count);
@@ -157,11 +173,15 @@ export function PerformerSceneGrid({
         return () => {
             alive = false;
         };
-    }, [performer.id, page]);
+    }, [performer.id, page, sort]);
 
-    // Infinite scroll: observe sentinel near the grid bottom. The actual
-    // scroller is `.binge-profile-body` (the profile's body ref). We watch
-    // intersection with the nearest scrolling ancestor (the body).
+    // Infinite scroll: observe a sentinel near the grid bottom. The actual
+    // scroller is `.binge-profile-body` (the profile's body div), NOT the
+    // window — so the observer's root MUST be that container. With the
+    // default (viewport) root the sentinel sits inside an independently
+    // scrolling element and never crosses the viewport boundary, so page 2
+    // never loads (the "only 24 scenes" bug). We resolve the scroll root by
+    // walking up from the sentinel.
     const sentinelRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         const sentinel = sentinelRef.current;
@@ -170,6 +190,7 @@ export function PerformerSceneGrid({
         if (scenes.length >= count) return;
         if (loading) return;
 
+        const scrollRoot = sentinel.closest(".binge-profile-body");
         const observer = new IntersectionObserver(
             (entries) => {
                 for (const entry of entries) {
@@ -178,7 +199,10 @@ export function PerformerSceneGrid({
                     }
                 }
             },
-            { rootMargin: `0px 0px ${NEAR_BOTTOM_PX}px 0px` }
+            {
+                root: scrollRoot,
+                rootMargin: `0px 0px ${NEAR_BOTTOM_PX}px 0px`,
+            }
         );
         observer.observe(sentinel);
         return () => observer.disconnect();
@@ -211,28 +235,36 @@ export function PerformerSceneGrid({
     return (
         <section className="binge-profile-scenes">
             <h2 className="binge-profile-scenes-heading">
-                Scenes
-                {count != null
-                    ? ` (${scenes.length}/${count})`
-                    : ""}
-                {isStashDBLinked && (
-                    <button
-                        type="button"
-                        className={
-                            "binge-profile-stashdb-toggle" +
-                            (includeStashDBInProfile ? " is-on" : "")
-                        }
-                        onClick={() =>
-                            setIncludeStashDBInProfile(
-                                !includeStashDBInProfile
-                            )
-                        }
-                        title="Mix StashDB scenes into this performer's grid"
-                    >
-                        <span className="binge-profile-stashdb-toggle-dot" />
-                        StashDB
-                    </button>
-                )}
+                <span className="binge-profile-scenes-title">
+                    Scenes
+                    {count != null
+                        ? ` (${scenes.length}/${count})`
+                        : ""}
+                </span>
+                <span className="binge-profile-scenes-controls">
+                    <PerformerSceneSortMenu
+                        value={sort}
+                        onChange={setSort}
+                    />
+                    {isStashDBLinked && (
+                        <button
+                            type="button"
+                            className={
+                                "binge-profile-stashdb-toggle" +
+                                (includeStashDBInProfile ? " is-on" : "")
+                            }
+                            onClick={() =>
+                                setIncludeStashDBInProfile(
+                                    !includeStashDBInProfile
+                                )
+                            }
+                            title="Mix StashDB scenes into this performer's grid"
+                        >
+                            <span className="binge-profile-stashdb-toggle-dot" />
+                            StashDB
+                        </button>
+                    )}
+                </span>
             </h2>
             {error && (
                 <div className="binge-status binge-status-error">
@@ -250,7 +282,8 @@ export function PerformerSceneGrid({
                     {buildCells(
                         scenes,
                         effectiveStashDBScenes,
-                        stashBoxIndex
+                        stashBoxIndex,
+                        sort
                     ).map((cell) =>
                         cell.kind === "library" ? (
                             <SceneTile
@@ -307,36 +340,44 @@ export function PerformerSceneGrid({
     );
 }
 
-// Merge library + StashDB scenes into a single grid ordered by date
-// descending. Library scenes use whatever date Stash returns (the
-// scene's release date if set, otherwise null → sorts to the end).
-// StashDB scenes use `releaseDate`. Both fall back to empty string
-// when null so the sort is stable.
+// Merge library + StashDB scenes into the grid. The library list arrives
+// already ordered by the server (per the active sort). For "recent" we
+// re-interleave both sources by their effective date DESC — release date,
+// falling back to import time (created_at), mirroring the Home feed's
+// effectiveAt. For every other sort the ordering key (views / orgasms /
+// rating) only exists on library scenes, so we preserve the server order
+// and append StashDB tiles at the end rather than mis-sorting them by date.
 function buildCells(
     library: PerformerSceneCard[],
     stashDB: StashDBScene[],
-    stashBoxIndex: number | null
+    stashBoxIndex: number | null,
+    sort: PerformerSceneSort
 ): GridCell[] {
-    const cells: GridCell[] = [];
-    for (const s of library) {
-        cells.push({
+    const libCells: GridCell[] = library.map(
+        (s): GridCell => ({
             kind: "library",
-            date: s.date ?? "",
+            date: s.date || s.created_at || "",
             scene: s,
-        });
+        })
+    );
+    const sdbCells: GridCell[] =
+        stashBoxIndex !== null
+            ? stashDB.map(
+                  (s): GridCell => ({
+                      kind: "stashdb",
+                      date: s.releaseDate ?? "",
+                      scene: s,
+                      stashBoxIndex,
+                  })
+              )
+            : [];
+
+    if (sort === "recent") {
+        return [...libCells, ...sdbCells].sort((a, b) =>
+            b.date.localeCompare(a.date)
+        );
     }
-    if (stashBoxIndex !== null) {
-        for (const s of stashDB) {
-            cells.push({
-                kind: "stashdb",
-                date: s.releaseDate ?? "",
-                scene: s,
-                stashBoxIndex,
-            });
-        }
-    }
-    cells.sort((a, b) => b.date.localeCompare(a.date));
-    return cells;
+    return [...libCells, ...sdbCells];
 }
 
 // StashDB-only tile: cover + release date + "StashDB" badge, tap

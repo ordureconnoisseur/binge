@@ -720,14 +720,53 @@ export interface PerformerSceneCard {
     // StashDB scenes when the profile-mixin toggle is on. Null when
     // not set in Stash; sorts to the end in that case.
     date: string | null;
+    // Import time (ISO). The "Recent" sort falls back to this when a
+    // scene has no release date, mirroring the Home feed's effectiveAt
+    // (date ?? created_at). Used by the client-side grid comparator.
+    created_at: string | null;
     o_counter: number | null;
     play_count: number | null;
     paths: { screenshot: string; preview: string | null };
     files: { duration: number; width: number; height: number }[];
 }
 
+// Sort options for the performer scene grid. `stashSort` is the
+// findScenes `sort:` key (validated against the live Stash schema —
+// the rating key is "rating", NOT "rating100"). All sorts run DESC.
+// "recent" is release-date with a client-side fallback to created_at
+// (see PerformerSceneGrid's effectiveAt comparator).
+export type PerformerSceneSort =
+    | "recent"
+    | "views"
+    | "orgasms"
+    | "rating"
+    | "added";
+
+export const PERFORMER_SCENE_SORTS: {
+    key: PerformerSceneSort;
+    label: string;
+    stashSort: string;
+}[] = [
+    { key: "recent", label: "Recent", stashSort: "date" },
+    { key: "views", label: "Most views", stashSort: "play_count" },
+    { key: "orgasms", label: "Most orgasms", stashSort: "o_counter" },
+    { key: "rating", label: "Highest rated", stashSort: "rating" },
+    { key: "added", label: "Recently added", stashSort: "created_at" },
+];
+
+export function performerSceneStashSort(sort: PerformerSceneSort): string {
+    return (
+        PERFORMER_SCENE_SORTS.find((s) => s.key === sort)?.stashSort ?? "date"
+    );
+}
+
 const FIND_SCENES_BY_PERFORMER = /* GraphQL */ `
-    query PerformerScenes($id: ID!, $page: Int!, $per_page: Int!) {
+    query PerformerScenes(
+        $id: ID!
+        $page: Int!
+        $per_page: Int!
+        $sort: String!
+    ) {
         findScenes(
             scene_filter: {
                 performers: { value: [$id], modifier: INCLUDES }
@@ -735,7 +774,7 @@ const FIND_SCENES_BY_PERFORMER = /* GraphQL */ `
             filter: {
                 page: $page
                 per_page: $per_page
-                sort: "created_at"
+                sort: $sort
                 direction: DESC
             }
         ) {
@@ -744,6 +783,7 @@ const FIND_SCENES_BY_PERFORMER = /* GraphQL */ `
                 id
                 title
                 date
+                created_at
                 o_counter
                 play_count
                 paths {
@@ -763,16 +803,18 @@ const FIND_SCENES_BY_PERFORMER = /* GraphQL */ `
 export async function findScenesByPerformer(
     performerId: string,
     page: number,
-    perPage: number
+    perPage: number,
+    sort: PerformerSceneSort = "recent"
 ): Promise<{ count: number; scenes: PerformerSceneCard[] }> {
     if (readDemoMode())
-        return demo.findScenesByPerformer(performerId, page, perPage);
+        return demo.findScenesByPerformer(performerId, page, perPage, sort);
     const data = await gql<{
         findScenes: { count: number; scenes: PerformerSceneCard[] };
     }>(FIND_SCENES_BY_PERFORMER, {
         id: performerId,
         page,
         per_page: perPage,
+        sort: performerSceneStashSort(sort),
     });
     return data.findScenes;
 }
