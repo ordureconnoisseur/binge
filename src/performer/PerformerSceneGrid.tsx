@@ -513,7 +513,12 @@ function SceneTile({
                     />
                 )}
                 {badge && (
-                    <span className="binge-profile-scene-badge">
+                    <span
+                        className={
+                            "binge-profile-scene-badge" +
+                            (badge.like ? " is-like" : "")
+                        }
+                    >
                         {badge.icon}
                         {badge.text}
                     </span>
@@ -553,15 +558,17 @@ function sortStatBadge(
     sort: PerformerSceneSort,
     oCount: number,
     viewCount: number
-): { icon: React.ReactNode; text: string } | null {
+): { icon: React.ReactNode; text: string; like?: boolean } | null {
     switch (sort) {
         case "views":
             return viewCount > 0
                 ? { icon: <ViewIcon />, text: compactCount(viewCount) }
                 : null;
         case "orgasms":
+            // o_counter is surfaced as a "like" throughout binge — pink
+            // heart to match.
             return oCount > 0
-                ? { icon: <OIcon />, text: compactCount(oCount) }
+                ? { icon: <OIcon />, text: compactCount(oCount), like: true }
                 : null;
         case "rating":
             return scene.rating100 != null
@@ -636,9 +643,10 @@ function ViewIcon() {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
+            fillRule="evenodd"
             aria-hidden="true"
         >
-            <path d="M12 5c-5 0-9.27 3.11-11 7.5 1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 8.11 17 5 12 5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
+            <path d="M23.441 11.819C23.413 11.74 20.542 4 12 4S.587 11.74.559 11.819a1 1 0 0 0 1.881.677 10.282 10.282 0 0 1 19.12 0 1 1 0 0 0 1.881-.677Zm-7.124 2.368a3.359 3.359 0 0 1-1.54-.1 3.56 3.56 0 0 1-2.365-2.362 3.35 3.35 0 0 1-.103-1.542.99.99 0 0 0-1.134-1.107 5.427 5.427 0 0 0-3.733 2.34 5.5 5.5 0 0 0 8.446 6.97 5.402 5.402 0 0 0 1.536-3.09.983.983 0 0 0-1.107-1.109Z" />
         </svg>
     );
 }

@@ -6879,6 +6879,13 @@ body,
     height: 12px;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
+/* o_counter reads as a "like" — pink heart with a soft glow, matching
+   the hover row's .is-o treatment. */
+.binge-profile-scene-badge.is-like svg {
+    color: rgba(244, 114, 182, 1);
+    filter: drop-shadow(0 0 4px rgba(244, 114, 182, 0.55))
+        drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
 .binge-profile-scene-card:hover .binge-profile-scene-badge,
 .binge-profile-scene-card:focus-visible .binge-profile-scene-badge {
     opacity: 0;
