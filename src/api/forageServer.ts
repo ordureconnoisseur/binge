@@ -67,6 +67,29 @@ export async function getForageHealth(): Promise<ForageHealth | null> {
     }
 }
 
+// ── Availability probe ───────────────────────────────────────────────
+// "Send to forage" only appears when the daemon actually answers
+// /healthz, so the feature stays invisible for anyone who doesn't run
+// forage. The probe is cached per-URL so the dozens of discovery cards
+// on screen share a single network request, not one each.
+let probeUrl: string | null = null;
+let probePromise: Promise<boolean> | null = null;
+
+export function forageAvailable(): Promise<boolean> {
+    const url = readForageUrl();
+    if (url !== probeUrl) {
+        probeUrl = url;
+        probePromise = null; // URL changed — re-probe
+    }
+    if (!url) return Promise.resolve(false);
+    if (!probePromise) {
+        probePromise = getForageHealth()
+            .then((h) => !!(h && h.ok))
+            .catch(() => false);
+    }
+    return probePromise;
+}
+
 export interface ForageWatchRequest {
     stashdb_id: string;
     title: string;

@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
 import {
     PerformerHoverCard,
@@ -9,7 +9,8 @@ import { AddSceneModal } from "./AddSceneModal";
 import { SceneCardMenu, type SceneCardMenuItem } from "./SceneCardMenu";
 import type { DiscoveryFeedItemWrapped } from "./useFeed";
 import { VerifiedIcon } from "../performer/PerformerProfile";
-import { addForageWatch } from "../api/forageServer";
+import { addForageWatch, forageAvailable } from "../api/forageServer";
+import { useForageUrl } from "./pluginSettings";
 
 interface DiscoveryFeedCardProps {
     item: DiscoveryFeedItemWrapped;
@@ -21,6 +22,29 @@ type ForageState =
     | { kind: "sending" }
     | { kind: "sent"; target: string }
     | { kind: "error"; message: string };
+
+// True once the configured forage daemon has answered /healthz. Gates
+// the "Send to forage" menu item so it's invisible to anyone not running
+// forage. The probe is cached per-URL (see forageAvailable), so every
+// card on screen shares one request and re-checks when the URL changes.
+function useForageAvailable(): boolean {
+    const url = useForageUrl();
+    const [available, setAvailable] = useState(false);
+    useEffect(() => {
+        let alive = true;
+        if (!url) {
+            setAvailable(false);
+            return;
+        }
+        forageAvailable().then((ok) => {
+            if (alive) setAvailable(ok);
+        });
+        return () => {
+            alive = false;
+        };
+    }, [url]);
+    return available;
+}
 
 // Feed card for a StashDB scene whose primary performer isn't in the
 // user's library yet. Cover-first layout, StashDB attribution, Follow
@@ -52,6 +76,7 @@ export function DiscoveryFeedCard({
     const [forageState, setForageState] = useState<ForageState>({
         kind: "idle",
     });
+    const forageReady = useForageAvailable();
 
     const isBusy = followState.kind === "following";
     const isFollowed = followState.kind === "followed";
@@ -260,7 +285,7 @@ export function DiscoveryFeedCard({
                     items={
                         sceneAdded
                             ? [
-                                  forageMenuItem,
+                                  ...(forageReady ? [forageMenuItem] : []),
                                   {
                                       label: "View on StashDB",
                                       sub: "Opens in a new tab",
@@ -278,7 +303,7 @@ export function DiscoveryFeedCard({
                                       sub: "Create the scene in Stash + link to StashDB",
                                       onClick: () => setSceneModalOpen(true),
                                   },
-                                  forageMenuItem,
+                                  ...(forageReady ? [forageMenuItem] : []),
                                   {
                                       label: "View on StashDB",
                                       sub: "Opens in a new tab",

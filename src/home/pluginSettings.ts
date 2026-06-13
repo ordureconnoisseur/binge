@@ -506,6 +506,13 @@ export function readBingeServerUrl(): string {
 const FORAGE_URL_KEY = "binge.forageUrl";
 const FORAGE_TOKEN_KEY = "binge.forageToken";
 const FORAGE_WATCH_TARGET_KEY = "binge.forageWatchTarget";
+// Points at the forage daemon's Tailscale Serve URL out of the box —
+// https so it works from a binge loaded over https (mixed-content
+// otherwise blocks the fetch). Users on a different host override it in
+// Settings. The "Send to forage" action still only appears when this
+// daemon actually answers /healthz, so a default that's unreachable for
+// a given user just hides the feature rather than erroring.
+const DEFAULT_FORAGE_URL = "https://forage.tailf01ca.ts.net";
 
 // Quality the watch waits for. Mirrors forage's WatchTarget enum minus
 // 480p (no one watches for a 480p copy). "any" = grab-ready as soon as
@@ -520,10 +527,10 @@ export const ALLOWED_FORAGE_TARGETS: ReadonlyArray<ForageWatchTarget> = [
 const DEFAULT_FORAGE_TARGET: ForageWatchTarget = "any";
 
 export function useForageUrl(): string {
-    return useStoredFreeString(FORAGE_URL_KEY, "");
+    return useStoredFreeString(FORAGE_URL_KEY, DEFAULT_FORAGE_URL);
 }
 export function readForageUrl(): string {
-    return readFreeString(FORAGE_URL_KEY, "");
+    return readFreeString(FORAGE_URL_KEY, DEFAULT_FORAGE_URL);
 }
 export function setForageUrl(value: string): void {
     // Strip trailing slash so path concatenation stays predictable.
