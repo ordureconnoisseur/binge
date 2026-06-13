@@ -6,14 +6,21 @@ import {
 } from "./PerformerHoverCard";
 import { FollowPerformerModal } from "./FollowPerformerModal";
 import { AddSceneModal } from "./AddSceneModal";
-import { SceneCardMenu } from "./SceneCardMenu";
+import { SceneCardMenu, type SceneCardMenuItem } from "./SceneCardMenu";
 import type { DiscoveryFeedItemWrapped } from "./useFeed";
 import { VerifiedIcon } from "../performer/PerformerProfile";
+import { addForageWatch } from "../api/forageServer";
 
 interface DiscoveryFeedCardProps {
     item: DiscoveryFeedItemWrapped;
     onFollowed?: () => void;
 }
+
+type ForageState =
+    | { kind: "idle" }
+    | { kind: "sending" }
+    | { kind: "sent"; target: string }
+    | { kind: "error"; message: string };
 
 // Feed card for a StashDB scene whose primary performer isn't in the
 // user's library yet. Cover-first layout, StashDB attribution, Follow
@@ -39,9 +46,51 @@ export function DiscoveryFeedCard({
     // option so a second tap doesn't fire a duplicate sceneCreate
     // (Stash rejects it with a unique-constraint error).
     const [sceneAdded, setSceneAdded] = useState(false);
+    // "Send to forage" lifecycle. The menu closes on click, so the
+    // outcome is surfaced inline in the card body (see below) as well as
+    // reflected in the menu label on the next open.
+    const [forageState, setForageState] = useState<ForageState>({
+        kind: "idle",
+    });
 
     const isBusy = followState.kind === "following";
     const isFollowed = followState.kind === "followed";
+
+    const handleSendToForage = async () => {
+        if (forageState.kind === "sending" || forageState.kind === "sent") {
+            return;
+        }
+        setForageState({ kind: "sending" });
+        const res = await addForageWatch({
+            stashdb_id: item.sceneStashId,
+            title: item.title ?? "",
+            date: item.releaseDate ?? undefined,
+            image_url: item.coverUrl ?? undefined,
+            performer_name: item.primaryPerformer.name,
+            performer_id: item.primaryPerformer.localId ?? undefined,
+        });
+        if (res.ok) {
+            setForageState({ kind: "sent", target: res.target });
+        } else {
+            setForageState({ kind: "error", message: res.error });
+        }
+    };
+
+    const forageMenuItem: SceneCardMenuItem = {
+        label:
+            forageState.kind === "sending"
+                ? "Sending to forage…"
+                : forageState.kind === "sent"
+                  ? "On forage watchlist ✓"
+                  : "Send to forage",
+        sub:
+            forageState.kind === "sent"
+                ? forageState.target === "any"
+                    ? "Watching for any release"
+                    : `Watching for a ${forageState.target} copy`
+                : "Add to your forage watchlist",
+        onClick: () => void handleSendToForage(),
+    };
 
     // The Follow buttons (top-right pill + hover card button) both
     // route through the modal — the modal owns the actual
@@ -211,6 +260,7 @@ export function DiscoveryFeedCard({
                     items={
                         sceneAdded
                             ? [
+                                  forageMenuItem,
                                   {
                                       label: "View on StashDB",
                                       sub: "Opens in a new tab",
@@ -228,6 +278,7 @@ export function DiscoveryFeedCard({
                                       sub: "Create the scene in Stash + link to StashDB",
                                       onClick: () => setSceneModalOpen(true),
                                   },
+                                  forageMenuItem,
                                   {
                                       label: "View on StashDB",
                                       sub: "Opens in a new tab",
@@ -332,6 +383,26 @@ export function DiscoveryFeedCard({
                 {followState.kind === "error" && (
                     <div className="binge-discovery-card-error">
                         {followState.message}
+                    </div>
+                )}
+
+                {forageState.kind === "sending" && (
+                    <div className="binge-discovery-card-forage-status">
+                        Sending to forage…
+                    </div>
+                )}
+                {forageState.kind === "sent" && (
+                    <div className="binge-discovery-card-forage-ok">
+                        On forage watchlist
+                        {forageState.target !== "any"
+                            ? ` · ${forageState.target}`
+                            : ""}{" "}
+                        ✓
+                    </div>
+                )}
+                {forageState.kind === "error" && (
+                    <div className="binge-discovery-card-error">
+                        {forageState.message}
                     </div>
                 )}
             </div>

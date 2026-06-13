@@ -497,6 +497,68 @@ export function readBingeServerUrl(): string {
     return readFreeString(BINGE_SERVER_URL_KEY, DEFAULT_BINGE_SERVER_URL);
 }
 
+// ── forage integration ──────────────────────────────────────────────
+// "Send to forage" on a discovery card POSTs the StashDB scene to the
+// forage daemon's watchlist. Needs the daemon's base URL and (when the
+// daemon has auth enabled) an API token. Empty URL = feature disabled
+// (the menu item nudges the user to Settings). Read both as hooks (for
+// the Settings UI) and imperatively from src/api/forageServer.ts.
+const FORAGE_URL_KEY = "binge.forageUrl";
+const FORAGE_TOKEN_KEY = "binge.forageToken";
+const FORAGE_WATCH_TARGET_KEY = "binge.forageWatchTarget";
+
+// Quality the watch waits for. Mirrors forage's WatchTarget enum minus
+// 480p (no one watches for a 480p copy). "any" = grab-ready as soon as
+// any release appears.
+export type ForageWatchTarget = "any" | "720p" | "1080p" | "4k";
+export const ALLOWED_FORAGE_TARGETS: ReadonlyArray<ForageWatchTarget> = [
+    "any",
+    "720p",
+    "1080p",
+    "4k",
+];
+const DEFAULT_FORAGE_TARGET: ForageWatchTarget = "any";
+
+export function useForageUrl(): string {
+    return useStoredFreeString(FORAGE_URL_KEY, "");
+}
+export function readForageUrl(): string {
+    return readFreeString(FORAGE_URL_KEY, "");
+}
+export function setForageUrl(value: string): void {
+    // Strip trailing slash so path concatenation stays predictable.
+    writeString(FORAGE_URL_KEY, value.trim().replace(/\/+$/, ""));
+}
+
+export function useForageToken(): string {
+    return useStoredFreeString(FORAGE_TOKEN_KEY, "");
+}
+export function readForageToken(): string {
+    return readFreeString(FORAGE_TOKEN_KEY, "");
+}
+export function setForageToken(value: string): void {
+    writeString(FORAGE_TOKEN_KEY, value.trim());
+}
+
+export function useForageWatchTarget(): ForageWatchTarget {
+    return useStoredString(
+        FORAGE_WATCH_TARGET_KEY,
+        DEFAULT_FORAGE_TARGET,
+        ALLOWED_FORAGE_TARGETS
+    );
+}
+export function readForageWatchTarget(): ForageWatchTarget {
+    return readString(
+        FORAGE_WATCH_TARGET_KEY,
+        DEFAULT_FORAGE_TARGET,
+        ALLOWED_FORAGE_TARGETS
+    );
+}
+export function setForageWatchTarget(value: ForageWatchTarget): void {
+    if (!ALLOWED_FORAGE_TARGETS.includes(value)) return;
+    writeString(FORAGE_WATCH_TARGET_KEY, value);
+}
+
 // Imperative toggle — used by the global `\` hotkey in App.tsx so the
 // debug overlay can be flipped without leaving the reel tab.
 export function toggleShowDebug(): void {

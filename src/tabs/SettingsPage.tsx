@@ -2,10 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTab } from "./TabContext";
 import { useAutoHideTabBar } from "../hooks/useAutoHideTabBar";
 import {
+    ALLOWED_FORAGE_TARGETS,
     ALLOWED_LOOKBACK_DAYS,
     ALLOWED_TRANSCODE,
     setAllowedGenders,
     setBingeServerUrl,
+    setForageToken,
+    setForageUrl,
+    setForageWatchTarget,
     setIncludeReddit,
     setIncludeStashDB,
     setIncludeStashDBInProfile,
@@ -18,6 +22,9 @@ import {
     setTranscodeType,
     useAllowedGenders,
     useBingeServerUrl,
+    useForageToken,
+    useForageUrl,
+    useForageWatchTarget,
     useIncludeReddit,
     useIncludeStashDB,
     useIncludeStashDBInProfile,
@@ -28,6 +35,7 @@ import {
     useShowcaseBlur,
     useDemoMode,
     useTranscodeType,
+    type ForageWatchTarget,
     type Gender,
 } from "../home/pluginSettings";
 import {
@@ -37,6 +45,7 @@ import {
     type BingeServerConfigState,
     type BingeServerHealth,
 } from "../api/bingeServer";
+import { getForageHealth } from "../api/forageServer";
 import { fetchStashApiKey } from "../api/queries";
 
 // In-app settings page — all preferences that used to live in Stash's
@@ -73,6 +82,9 @@ export function SettingsPage() {
                 <RedditRow />
                 <BingeServerRow />
                 <BingeServerConfigCard />
+                <ForageUrlRow />
+                <ForageTokenRow />
+                <ForageTargetRow />
                 <RefractRow />
                 <ShowcaseRow />
                 <DemoRow />
@@ -655,6 +667,137 @@ function formatRelative(iso: string): string {
     if (hours < 24) return `${hours} h ago`;
     const days = Math.floor(hours / 24);
     return `${days} d ago`;
+}
+
+// ── forage integration rows ─────────────────────────────────────────
+// "Send to forage" on a discovery card adds that StashDB scene to the
+// forage daemon's watchlist. These rows point binge at the daemon.
+
+function ForageUrlRow() {
+    const stored = useForageUrl();
+    const [draft, setDraft] = useState(stored);
+    useEffect(() => {
+        setDraft(stored);
+    }, [stored]);
+
+    return (
+        <SettingRow
+            title="forage server URL"
+            description='Base URL of your forage daemon (e.g. https://forage.tailf01ca.ts.net or http://mini:7979). Set this to enable "Send to forage" on discovery scenes. Leave blank to hide the feature. Status dot pings /healthz.'
+        >
+            <div className="binge-settings-url-row">
+                <input
+                    type="text"
+                    className="binge-settings-input"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={() => {
+                        if (draft !== stored) setForageUrl(draft);
+                    }}
+                    spellCheck={false}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    placeholder="https://forage.example.ts.net"
+                />
+                <ForageHealthDot url={stored} />
+            </div>
+        </SettingRow>
+    );
+}
+
+// Pings forage /healthz on mount + whenever the URL changes.
+function ForageHealthDot({ url }: { url: string }) {
+    const [state, setState] = useState<"pending" | "ok" | "down" | "idle">(
+        url ? "pending" : "idle"
+    );
+    useEffect(() => {
+        if (!url) {
+            setState("idle");
+            return;
+        }
+        let alive = true;
+        setState("pending");
+        getForageHealth()
+            .then((h) => {
+                if (!alive) return;
+                setState(h && h.ok ? "ok" : "down");
+            })
+            .catch(() => {
+                if (alive) setState("down");
+            });
+        return () => {
+            alive = false;
+        };
+    }, [url]);
+
+    if (state === "idle") return null;
+    const label =
+        state === "ok"
+            ? "forage reachable"
+            : state === "down"
+              ? "forage unreachable"
+              : "Checking…";
+    return (
+        <span
+            className={`binge-settings-status-dot is-${state}`}
+            title={label}
+            aria-label={label}
+            role="status"
+        />
+    );
+}
+
+function ForageTokenRow() {
+    const stored = useForageToken();
+    const [draft, setDraft] = useState(stored);
+    useEffect(() => {
+        setDraft(stored);
+    }, [stored]);
+
+    return (
+        <SettingRow
+            title="forage API token"
+            description="Only needed if your forage daemon has admin auth turned on (forage Settings → Security). Sent as a Bearer token. Never transmitted over a plain-http public URL."
+        >
+            <input
+                type="password"
+                className="binge-settings-input"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={() => {
+                    if (draft !== stored) setForageToken(draft);
+                }}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                placeholder={stored ? "✓ Set · paste to replace" : "(none)"}
+            />
+        </SettingRow>
+    );
+}
+
+function ForageTargetRow() {
+    const value = useForageWatchTarget();
+    return (
+        <SettingRow
+            title="forage watch quality"
+            description='When you send a scene to forage, this is the quality it waits for before flagging a release ready to grab. "Any" surfaces the first release of any resolution.'
+        >
+            <select
+                className="binge-settings-select"
+                value={value}
+                onChange={(e) =>
+                    setForageWatchTarget(e.target.value as ForageWatchTarget)
+                }
+            >
+                {ALLOWED_FORAGE_TARGETS.map((t) => (
+                    <option key={t} value={t}>
+                        {t === "any" ? "Any release" : t}
+                    </option>
+                ))}
+            </select>
+        </SettingRow>
+    );
 }
 
 function RefractRow() {

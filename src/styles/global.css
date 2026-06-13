@@ -4422,6 +4422,19 @@ body,
     line-height: 1.4;
 }
 
+.binge-discovery-card-forage-status {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.binge-discovery-card-forage-ok {
+    color: #6fd28a;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    font-weight: 500;
+}
+
 /* ── Follow performer modal ────────────────────────────────────────
    Stash-style "Add to library" sheet that confirms a performerCreate
    before it fires. Mounts on the same .binge-sheet portal stack as
