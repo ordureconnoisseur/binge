@@ -7,7 +7,6 @@ import {
     ALLOWED_TRANSCODE,
     setAllowedGenders,
     setBingeServerUrl,
-    setForageToken,
     setForageUrl,
     setForageWatchTarget,
     setIncludeReddit,
@@ -22,7 +21,6 @@ import {
     setTranscodeType,
     useAllowedGenders,
     useBingeServerUrl,
-    useForageToken,
     useForageUrl,
     useForageWatchTarget,
     useIncludeReddit,
@@ -83,7 +81,6 @@ export function SettingsPage() {
                 <BingeServerRow />
                 <BingeServerConfigCard />
                 <ForageUrlRow />
-                <ForageTokenRow />
                 <ForageTargetRow />
                 <RefractRow />
                 <ShowcaseRow />
@@ -683,7 +680,7 @@ function ForageUrlRow() {
     return (
         <SettingRow
             title="forage server URL"
-            description='Base URL of your forage daemon (e.g. https://forage.tailf01ca.ts.net or http://mini:7979). Set this to enable "Send to forage" on discovery scenes. Leave blank to hide the feature. Status dot pings /healthz.'
+            description='Base URL of your forage daemon (e.g. https://forage.tailf01ca.ts.net). "Send to forage" appears on discovery scenes once this daemon is reachable. Authentication is automatic — binge presents your Stash API key, which forage already trusts; nothing to paste. Status dot pings /healthz.'
         >
             <div className="binge-settings-url-row">
                 <input
@@ -744,35 +741,6 @@ function ForageHealthDot({ url }: { url: string }) {
             aria-label={label}
             role="status"
         />
-    );
-}
-
-function ForageTokenRow() {
-    const stored = useForageToken();
-    const [draft, setDraft] = useState(stored);
-    useEffect(() => {
-        setDraft(stored);
-    }, [stored]);
-
-    return (
-        <SettingRow
-            title="forage API token"
-            description="Only needed if your forage daemon has admin auth turned on (forage Settings → Security). Sent as a Bearer token. Never transmitted over a plain-http public URL."
-        >
-            <input
-                type="password"
-                className="binge-settings-input"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={() => {
-                    if (draft !== stored) setForageToken(draft);
-                }}
-                spellCheck={false}
-                autoCapitalize="off"
-                autoCorrect="off"
-                placeholder={stored ? "✓ Set · paste to replace" : "(none)"}
-            />
-        </SettingRow>
     );
 }
 

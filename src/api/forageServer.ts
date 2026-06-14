@@ -1,10 +1,10 @@
 import {
-    readForageToken,
     readForageUrl,
     readForageWatchTarget,
     type ForageWatchTarget,
 } from "../home/pluginSettings";
 import { isTrustedDaemonUrl } from "./bingeServer";
+import { fetchStashApiKey } from "./queries";
 
 // Client for the forage daemon (github.com/ordureconnoisseur/forager).
 // binge only uses ONE forage endpoint: POST /watches, which adds a
@@ -13,19 +13,31 @@ import { isTrustedDaemonUrl } from "./bingeServer";
 // target quality appears. forage never auto-grabs from a watch — the
 // safe "send this to my downloader's radar" action.
 //
-// Auth: forage gates every route except / and /healthz behind an admin
-// token when one is configured. We send it as a Bearer header (no
-// cookie needed — that's only for forage's own <img> proxy). Cross-
-// origin works as long as the user sets forage's allowed-origin to
-// binge's origin (or "*") in forage Settings → Security.
+// Auth: binge authenticates by sending the Stash instance's own API key
+// as a Bearer token — read live from Stash via GraphQL under the user's
+// session (never stored here). The forage daemon accepts it because it
+// already holds that key to act on Stash's behalf, so there's no
+// separate token to paste or persist. Cross-origin works as long as the
+// user sets forage's allowed-origin to binge's origin (or "*") in forage
+// Settings → Security.
 
 export function isForageConfigured(): boolean {
     return readForageUrl().trim() !== "";
 }
 
-function authHeaders(): Record<string, string> {
-    const token = readForageToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+// The Stash API key, cached after the first GraphQL read so we don't
+// re-query Stash on every forage call.
+let stashKeyPromise: Promise<string> | null = null;
+function stashApiKey(): Promise<string> {
+    if (!stashKeyPromise) {
+        stashKeyPromise = fetchStashApiKey().catch(() => "");
+    }
+    return stashKeyPromise;
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+    const key = await stashApiKey();
+    return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
 // True when binge was loaded over HTTPS but the forage URL is plain
@@ -127,13 +139,14 @@ export async function addForageWatch(
             error: "forage URL is http:// but binge is loaded over https — the browser blocks this. Use an https:// (or tailnet) forage URL.",
         };
     }
-    // The admin token is a secret. Don't transmit it in cleartext to a
-    // public host (an attacker who can rewrite the URL setting could
-    // otherwise harvest it). https or a local/tailnet daemon only.
-    if (readForageToken() && !isTrustedDaemonUrl(base)) {
+    // We send the Stash API key as the Bearer credential — a powerful
+    // secret. Never transmit it in cleartext to a public host (an
+    // attacker who can rewrite the URL setting could otherwise harvest
+    // it). https or a local/tailnet daemon only.
+    if (!isTrustedDaemonUrl(base)) {
         return {
             ok: false,
-            error: "Won't send the forage token to an untrusted URL — use https:// or a local/tailnet address.",
+            error: "Won't send your Stash API key to an untrusted URL — use https:// or a local/tailnet address.",
         };
     }
 
@@ -141,7 +154,10 @@ export async function addForageWatch(
     try {
         const resp = await fetch(base + "/watches", {
             method: "POST",
-            headers: { "Content-Type": "application/json", ...authHeaders() },
+            headers: {
+                "Content-Type": "application/json",
+                ...(await authHeaders()),
+            },
             body: JSON.stringify({ ...req, target }),
             signal: AbortSignal.timeout(15_000),
         });

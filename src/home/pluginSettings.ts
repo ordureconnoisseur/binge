@@ -504,7 +504,6 @@ export function readBingeServerUrl(): string {
 // (the menu item nudges the user to Settings). Read both as hooks (for
 // the Settings UI) and imperatively from src/api/forageServer.ts.
 const FORAGE_URL_KEY = "binge.forageUrl";
-const FORAGE_TOKEN_KEY = "binge.forageToken";
 const FORAGE_WATCH_TARGET_KEY = "binge.forageWatchTarget";
 // Points at the forage daemon's Tailscale Serve URL out of the box —
 // https so it works from a binge loaded over https (mixed-content
@@ -535,16 +534,6 @@ export function readForageUrl(): string {
 export function setForageUrl(value: string): void {
     // Strip trailing slash so path concatenation stays predictable.
     writeString(FORAGE_URL_KEY, value.trim().replace(/\/+$/, ""));
-}
-
-export function useForageToken(): string {
-    return useStoredFreeString(FORAGE_TOKEN_KEY, "");
-}
-export function readForageToken(): string {
-    return readFreeString(FORAGE_TOKEN_KEY, "");
-}
-export function setForageToken(value: string): void {
-    writeString(FORAGE_TOKEN_KEY, value.trim());
 }
 
 export function useForageWatchTarget(): ForageWatchTarget {
