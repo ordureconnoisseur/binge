@@ -146,15 +146,20 @@ export function xHandleFromUrls(urls: string[] | null | undefined): string | nul
     return null;
 }
 
-async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T | null> {
+async function fetchJSON<T>(
+    path: string,
+    init?: RequestInit,
+    timeoutMs = 8000
+): Promise<T | null> {
     const base = readBingeServerUrl();
     try {
         const resp = await fetch(base + path, {
             ...init,
             // Tailscale Funnel + Mullvad NL adds latency vs a local
-            // daemon. 8s is enough for the slow path without making
-            // Home mount feel sluggish when the daemon is off.
-            signal: AbortSignal.timeout(8000),
+            // daemon. 8s is enough for the fast (DB-backed) endpoints;
+            // callers that shell out server-side (X → gallery-dl) pass a
+            // larger budget.
+            signal: AbortSignal.timeout(timeoutMs),
         });
         if (!resp.ok) {
             // 4xx/5xx — log once but don't throw.
@@ -199,7 +204,15 @@ export async function getXFeed(
     stashId: number,
     limit = 40
 ): Promise<XFeedResponse | null> {
-    return fetchJSON<XFeedResponse>(`/x/feed/${stashId}?limit=${limit}`);
+    // A cold fetch shells out to gallery-dl + round-trips X through the
+    // Mullvad funnel — well over the default 8s budget from a slow
+    // network. Give it 25s (server-side cap is ~50s; cached hits are
+    // instant).
+    return fetchJSON<XFeedResponse>(
+        `/x/feed/${stashId}?limit=${limit}`,
+        undefined,
+        25_000
+    );
 }
 
 export async function getBingeServerHealth(): Promise<BingeServerHealth | null> {

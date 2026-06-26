@@ -474,7 +474,10 @@ export function StoryViewer() {
                             {currentScene.source === "stashdb"
                                 ? "View on StashDB →"
                                 : currentScene.source === "reddit"
-                                  ? "Open on Reddit →"
+                                  ? currentScene.domain === "x.com" ||
+                                    currentScene.domain === "twitter.com"
+                                      ? "Open on X →"
+                                      : "Open on Reddit →"
                                   : "Watch full scene →"}
                         </button>
                     </div>
@@ -536,6 +539,9 @@ function ChevronRight() {
 // vs something else.
 function redditBadgeLabel(scene: RedditStoryScene): string {
     const d = (scene.domain ?? "").toLowerCase();
+    // X media is folded onto the reddit scene shape (same image/video
+    // render path) with domain x.com — label it as X, not reddit.
+    if (d === "x.com" || d === "twitter.com") return "X";
     if (scene.kind === "video") {
         if (d.includes("redgifs")) return "redgifs";
         if (d === "v.redd.it") return "reddit video";
