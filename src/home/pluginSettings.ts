@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { gql } from "../api/graphql";
 
 // Plugin-settings the reel SPA shares with the Stash settings panel
 // injected by binge.entry.js. Storage is plain localStorage keyed under
@@ -505,6 +506,35 @@ export function useBingeServerUrl(): string {
 }
 export function readBingeServerUrl(): string {
     return readFreeString(BINGE_SERVER_URL_KEY, DEFAULT_BINGE_SERVER_URL);
+}
+
+// One-time seed of the binge-server URL from Stash's server-side plugin
+// config (`configuration.plugins.binge.serverUrl`). Lets a deployment be
+// configured once in Stash (Plugins settings or the API) and have every
+// browser pick it up — without baking a deployment-specific URL into the
+// shipped bundle. Only writes localStorage when the user hasn't set their
+// own value. Memoized; binge-server fetches await it (see bingeServer.ts)
+// so there's no first-load race.
+let seedPromise: Promise<void> | null = null;
+export function ensureBingeServerUrlSeeded(): Promise<void> {
+    if (!seedPromise) seedPromise = seedFromPluginConfig();
+    return seedPromise;
+}
+async function seedFromPluginConfig(): Promise<void> {
+    if (readFreeString(BINGE_SERVER_URL_KEY, "")) return; // user set it
+    try {
+        const data = await gql<{
+            configuration?: {
+                plugins?: Record<string, { serverUrl?: string } | null>;
+            };
+        }>(`query { configuration { plugins } }`);
+        const url = data.configuration?.plugins?.["binge"]?.serverUrl;
+        if (typeof url === "string" && url.trim()) {
+            setBingeServerUrl(url.trim());
+        }
+    } catch {
+        // Stash unreachable / no config — fall back to the localhost default.
+    }
 }
 
 // ── forage integration ──────────────────────────────────────────────

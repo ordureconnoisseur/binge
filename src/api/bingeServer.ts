@@ -1,4 +1,7 @@
-import { readBingeServerUrl } from "../home/pluginSettings";
+import {
+    readBingeServerUrl,
+    ensureBingeServerUrlSeeded,
+} from "../home/pluginSettings";
 
 // Client for the binge-server Go daemon (handles Reddit polling +
 // future social sources). Never throws — daemon-down should degrade
@@ -179,6 +182,7 @@ async function fetchJSON<T>(
     init?: RequestInit,
     timeoutMs = 8000
 ): Promise<T | null> {
+    await ensureBingeServerUrlSeeded();
     const base = readBingeServerUrl();
     try {
         const resp = await fetch(base + path, {
