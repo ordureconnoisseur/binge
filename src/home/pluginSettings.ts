@@ -23,10 +23,24 @@ const SHOWCASE_BLUR_KEY = "binge.showcaseBlur";
 const DEMO_MODE_KEY = "binge.demoMode";
 const BINGE_SERVER_URL_KEY = "binge.bingeServerUrl";
 const LOOKBACK_DAYS_KEY = "binge.lookbackDays";
-// Defaults to the loopback address — what a typical user runs once
-// binge-server is installed on the same machine as Stash. Users with
-// a remote daemon (the original mini deploy) override via Settings.
-const DEFAULT_BINGE_SERVER_URL = "http://localhost:7878";
+// binge-server runs on the mini behind a Tailscale Funnel, reachable
+// over HTTPS from anywhere (home + the UK uni network, which breaks
+// tailnet/LAN routing). The old loopback default never worked from the
+// browser, so we migrate it (and the bare 127.0.0.1 form) to the funnel.
+const DEFAULT_BINGE_SERVER_URL = "https://binge-bypass.tailf01ca.ts.net";
+const LEGACY_LOCAL_BINGE_URLS = new Set([
+    "http://localhost:7878",
+    "http://127.0.0.1:7878",
+]);
+// Treat empty + the never-reachable loopback URLs as "use the default",
+// so existing installs pick up the funnel without manually editing the
+// field. Trailing slashes are already stripped on write.
+function normalizeBingeServerUrl(raw: string): string {
+    if (!raw || LEGACY_LOCAL_BINGE_URLS.has(raw)) {
+        return DEFAULT_BINGE_SERVER_URL;
+    }
+    return raw;
+}
 // Stream-type key matches src/config.ts (legacy reader still used in
 // imperative call sites like SceneSlide). Kept in sync via the same
 // localStorage entry.
@@ -499,10 +513,14 @@ export function setDemoMode(value: boolean): void {
 // binge-server URL. Read both as a React hook and via the imperative
 // reader below (used by src/api/bingeServer.ts inside async fetches).
 export function useBingeServerUrl(): string {
-    return useStoredFreeString(BINGE_SERVER_URL_KEY, DEFAULT_BINGE_SERVER_URL);
+    return normalizeBingeServerUrl(
+        useStoredFreeString(BINGE_SERVER_URL_KEY, DEFAULT_BINGE_SERVER_URL)
+    );
 }
 export function readBingeServerUrl(): string {
-    return readFreeString(BINGE_SERVER_URL_KEY, DEFAULT_BINGE_SERVER_URL);
+    return normalizeBingeServerUrl(
+        readFreeString(BINGE_SERVER_URL_KEY, DEFAULT_BINGE_SERVER_URL)
+    );
 }
 
 // ── forage integration ──────────────────────────────────────────────
