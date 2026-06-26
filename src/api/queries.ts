@@ -812,12 +812,19 @@ export async function findScenesByPerformer(
 ): Promise<{ count: number; scenes: PerformerSceneCard[] }> {
     if (readDemoMode())
         return demo.findScenesByPerformer(performerId, page, perPage, sort);
+    // "recent" = release-date with a created_at fallback. Stash can't sort
+    // by that effective date server-side (it sorts by `date` alone, which
+    // dumps date-less scenes last regardless of when they were added). So
+    // for "recent" we fetch the whole set in one page (-1) and let the
+    // grid's effectiveAt comparator (date ?? created_at) order it — same
+    // approach the Home feed uses. Other sorts paginate normally.
+    const fetchAll = sort === "recent";
     const data = await gql<{
         findScenes: { count: number; scenes: PerformerSceneCard[] };
     }>(FIND_SCENES_BY_PERFORMER, {
         id: performerId,
-        page,
-        per_page: perPage,
+        page: fetchAll ? 1 : page,
+        per_page: fetchAll ? -1 : perPage,
         sort: performerSceneStashSort(sort),
     });
     return data.findScenes;
