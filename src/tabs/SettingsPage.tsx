@@ -447,6 +447,12 @@ function BingeServerConfigCard() {
     const [xError, setXError] = useState<string | null>(null);
     const [xSaved, setXSaved] = useState(false);
     const [showXHelp, setShowXHelp] = useState(false);
+    // Social "save to Stash" library roots.
+    const [socWrite, setSocWrite] = useState("");
+    const [socStash, setSocStash] = useState("");
+    const [socBusy, setSocBusy] = useState(false);
+    const [socError, setSocError] = useState<string | null>(null);
+    const [socSaved, setSocSaved] = useState(false);
 
     // Poll health + config on mount + URL change.
     useEffect(() => {
@@ -463,6 +469,8 @@ function BingeServerConfigCard() {
             if (!alive) return;
             setHealth(h);
             setConfig(c);
+            setSocWrite(c?.socialWriteRoot ?? "");
+            setSocStash(c?.socialStashRoot ?? "");
         })();
         return () => {
             alive = false;
@@ -540,6 +548,24 @@ function BingeServerConfigCard() {
             setXError(result.error);
         }
         setXBusy(false);
+    };
+
+    const handleSaveSocialPaths = async () => {
+        setSocBusy(true);
+        setSocError(null);
+        setSocSaved(false);
+        const result = await setBingeServerConfig({
+            socialWriteRoot: socWrite.trim(),
+            socialStashRoot: socStash.trim(),
+        });
+        if (result.ok) {
+            setSocSaved(true);
+            const refreshed = await getBingeServerConfig();
+            setConfig(refreshed);
+        } else {
+            setSocError(result.error);
+        }
+        setSocBusy(false);
     };
 
     if (health === "pending") {
@@ -778,6 +804,66 @@ function BingeServerConfigCard() {
                             loading.
                         </li>
                     </ol>
+                )}
+            </div>
+
+            <div className="binge-settings-card-field is-stacked">
+                <span className="binge-settings-card-field-label">
+                    Save-to-Stash library paths{" "}
+                    {config?.socialSaveConfigured ? "✓" : ""}
+                </span>
+                <p className="binge-settings-card-description">
+                    Where saved X/Reddit/Redgifs posts are written. Two paths
+                    because the daemon and Stash can be on different hosts:
+                    the first is where binge-server writes; the second is the
+                    same folder as Stash sees it (a Stash library path). When
+                    they're the same machine, both are identical.
+                </p>
+                <input
+                    type="text"
+                    className="binge-settings-input"
+                    value={socWrite}
+                    onChange={(e) => {
+                        setSocWrite(e.target.value);
+                        setSocSaved(false);
+                        setSocError(null);
+                    }}
+                    placeholder="daemon write path, e.g. /library/social"
+                    spellCheck={false}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    disabled={socBusy}
+                />
+                <div className="binge-server-config-cookie-row">
+                    <input
+                        type="text"
+                        className="binge-settings-input"
+                        value={socStash}
+                        onChange={(e) => {
+                            setSocStash(e.target.value);
+                            setSocSaved(false);
+                            setSocError(null);
+                        }}
+                        placeholder="Stash path, e.g. Z:\Media\social"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        disabled={socBusy}
+                    />
+                    <button
+                        type="button"
+                        className="binge-server-config-cookie-save"
+                        onClick={() => void handleSaveSocialPaths()}
+                        disabled={socBusy}
+                    >
+                        {socBusy ? "Saving…" : "Save"}
+                    </button>
+                </div>
+                {socError && (
+                    <p className="binge-server-config-error">{socError}</p>
+                )}
+                {socSaved && (
+                    <p className="binge-server-config-ok">Saved ✓</p>
                 )}
             </div>
         </div>

@@ -52,6 +52,31 @@ export interface BingeServerConfigState {
     redditCookieSet: boolean;
     // X (Twitter) auth_token + ct0 pair — true once both are stored.
     xCookiesSet?: boolean;
+    // Social "save to Stash" library roots (not secret) + whether both set.
+    socialWriteRoot?: string;
+    socialStashRoot?: string;
+    socialSaveConfigured?: boolean;
+}
+
+// A request to download + add a social post to Stash. Mirrors
+// internal/social/saver.go SaveRequest.
+export interface SaveToStashRequest {
+    performerStashId: string;
+    source: "x" | "reddit" | "redgifs" | "instagram";
+    handle?: string;
+    id?: string;
+    mediaUrl: string;
+    kind: "image" | "video";
+    sourceUrl?: string;
+    text?: string;
+    createdUtc?: number;
+}
+
+export interface SaveToStashResult {
+    stashType: "scene" | "image";
+    stashId: string;
+    path: string;
+    handle: string;
 }
 
 export interface BingeServerConfigPayload {
@@ -61,6 +86,9 @@ export interface BingeServerConfigPayload {
     // X cookies must be sent together (auth_token is useless without ct0).
     xAuthToken?: string;
     xCt0?: string;
+    // Social library roots.
+    socialWriteRoot?: string;
+    socialStashRoot?: string;
 }
 
 // One media file from a performer's X media tab. Mirrors
@@ -213,6 +241,41 @@ export async function getXFeed(
         undefined,
         25_000
     );
+}
+
+// saveToStash asks the daemon to download a social post and add it to
+// Stash (folder placement + studio/tag/performer/url/date/caption). The
+// daemon returns immediately (pending:true) and applies the metadata in
+// the background once Stash finishes scanning. Returns the error string
+// on failure (daemon down, not configured, upstream block) so the UI can
+// surface it.
+export async function saveToStash(
+    req: SaveToStashRequest
+): Promise<{ ok: true; result: SaveToStashResult } | { ok: false; error: string }> {
+    const base = readBingeServerUrl();
+    try {
+        const resp = await fetch(base + "/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(req),
+            signal: AbortSignal.timeout(30_000),
+        });
+        const body = (await resp.json().catch(() => ({}))) as
+            | SaveToStashResult
+            | { error?: string };
+        if (!resp.ok) {
+            return {
+                ok: false,
+                error: (body as { error?: string }).error || resp.statusText,
+            };
+        }
+        return { ok: true, result: body as SaveToStashResult };
+    } catch (err) {
+        return {
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+        };
+    }
 }
 
 export async function getBingeServerHealth(): Promise<BingeServerHealth | null> {

@@ -5768,6 +5768,36 @@ body,
     outline: none;
 }
 
+/* Save-to-Stash pill — sits after the mute button (which holds the
+   margin-left:auto), so it rides at the far right of the story header. */
+.binge-story-viewer-save {
+    margin-left: 0.4rem;
+    background: rgba(255, 255, 255, 0.16);
+    border: none;
+    color: #fff;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.3rem 0.62rem;
+    border-radius: 999px;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+}
+.binge-story-viewer-save:hover:not(:disabled),
+.binge-story-viewer-save:focus-visible {
+    background: rgba(255, 255, 255, 0.28);
+    outline: none;
+}
+.binge-story-viewer-save.is-saved {
+    background: rgba(52, 199, 89, 0.32);
+    color: #d6ffe0;
+    cursor: default;
+}
+.binge-story-viewer-save.is-error {
+    background: rgba(255, 69, 58, 0.32);
+    color: #ffd9d6;
+}
+
 /* Tap zones — split the card into three vertical thirds. They sit
    above the video but below the header/footer overlays. */
 .binge-story-viewer-tap {

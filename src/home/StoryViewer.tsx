@@ -13,6 +13,9 @@ import { readDemoMode } from "./pluginSettings";
 import {
     rewriteRedditMediaUrl,
     rewriteRedgifsMediaUrl,
+    saveToStash,
+    getBingeServerConfig,
+    type SaveToStashRequest,
 } from "../api/bingeServer";
 import type { StoryScene } from "./useStories";
 
@@ -46,6 +49,23 @@ export function StoryViewer() {
     const [paused, setPaused] = useState(false);
     const [progress, setProgress] = useState(0);
     const [muted, setMuted] = useMuteState();
+    // Whether the daemon can save posts to Stash (library roots set).
+    const [saveConfigured, setSaveConfigured] = useState(false);
+    // Per-scene save status, keyed by scene id.
+    const [saveState, setSaveState] = useState<
+        Record<string, "saving" | "saved" | "error">
+    >({});
+
+    useEffect(() => {
+        if (!isOpen) return;
+        let alive = true;
+        getBingeServerConfig().then((c) => {
+            if (alive) setSaveConfigured(!!c?.socialSaveConfigured);
+        });
+        return () => {
+            alive = false;
+        };
+    }, [isOpen]);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const rafRef = useRef<number | null>(null);
@@ -74,6 +94,23 @@ export function StoryViewer() {
                 return TEXT_LINK_CAP_MS;
         }
     })();
+
+    // A reddit-source scene that's actually savable (downloadable media).
+    const savableReq: SaveToStashRequest | null =
+        currentScene && activeStory
+            ? buildSaveRequest(currentScene, activeStory.performerId)
+            : null;
+    const savableKey = currentScene ? currentScene.id : "";
+    const handleSave = async () => {
+        const st = saveState[savableKey];
+        if (!savableReq || st === "saving" || st === "saved") return;
+        setSaveState((m) => ({ ...m, [savableKey]: "saving" }));
+        const res = await saveToStash(savableReq);
+        setSaveState((m) => ({
+            ...m,
+            [savableKey]: res.ok ? "saved" : "error",
+        }));
+    };
 
     // Reset sceneIndex whenever the focused performer changes. Don't
     // reset on simple sceneIndex-bumps from within the same performer.
@@ -432,6 +469,41 @@ export function StoryViewer() {
                             >
                                 {muted ? <MutedIcon /> : <UnmutedIcon />}
                             </button>
+                            {savableReq && saveConfigured && (
+                                <button
+                                    type="button"
+                                    className={
+                                        "binge-story-viewer-save" +
+                                        (saveState[savableKey] === "saved"
+                                            ? " is-saved"
+                                            : "") +
+                                        (saveState[savableKey] === "error"
+                                            ? " is-error"
+                                            : "")
+                                    }
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleSave();
+                                    }}
+                                    disabled={
+                                        saveState[savableKey] === "saving" ||
+                                        saveState[savableKey] === "saved"
+                                    }
+                                    title={
+                                        saveState[savableKey] === "error"
+                                            ? "Save failed — tap to retry"
+                                            : "Save to Stash"
+                                    }
+                                >
+                                    {saveState[savableKey] === "saved"
+                                        ? "✓ Saved"
+                                        : saveState[savableKey] === "saving"
+                                          ? "Saving…"
+                                          : saveState[savableKey] === "error"
+                                            ? "Retry"
+                                            : "Save"}
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -537,6 +609,43 @@ function ChevronRight() {
 // tell at a glance whether a video that won't play is a redgifs failure
 // (CDN block / referrer / etc.) vs a v.redd.it issue vs an image post
 // vs something else.
+// Build a save-to-Stash request from a savable reddit-source story scene
+// (image/video with a direct media url). Returns null for non-savable
+// scenes (library/stashdb, or reddit text/link cards). Source is inferred
+// from the domain; handle + id parsed from an X permalink when present
+// (the daemon derives them otherwise).
+function buildSaveRequest(
+    scene: StoryScene,
+    performerId: string
+): SaveToStashRequest | null {
+    if (scene.source !== "reddit") return null;
+    if (!scene.mediaUrl || (scene.kind !== "image" && scene.kind !== "video")) {
+        return null;
+    }
+    const d = (scene.domain ?? "").toLowerCase();
+    let source: SaveToStashRequest["source"] = "reddit";
+    if (d === "x.com" || d === "twitter.com") source = "x";
+    else if (d.includes("redgifs")) source = "redgifs";
+    let handle: string | undefined;
+    let id: string | undefined;
+    const xm = scene.permalink.match(/x\.com\/([A-Za-z0-9_]+)\/status\/(\d+)/i);
+    if (xm) {
+        handle = xm[1];
+        id = xm[2];
+    }
+    return {
+        performerStashId: performerId,
+        source,
+        handle,
+        id,
+        mediaUrl: scene.mediaUrl,
+        kind: scene.kind,
+        sourceUrl: scene.permalink,
+        text: scene.title ?? undefined,
+        createdUtc: scene.createdUtc,
+    };
+}
+
 function redditBadgeLabel(scene: RedditStoryScene): string {
     const d = (scene.domain ?? "").toLowerCase();
     // X media is folded onto the reddit scene shape (same image/video
