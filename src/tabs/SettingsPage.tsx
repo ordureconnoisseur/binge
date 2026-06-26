@@ -10,6 +10,7 @@ import {
     setForageUrl,
     setForageWatchTarget,
     setIncludeReddit,
+    setIncludeX,
     setIncludeStashDB,
     setIncludeStashDBInProfile,
     setLookbackDays,
@@ -24,6 +25,7 @@ import {
     useForageUrl,
     useForageWatchTarget,
     useIncludeReddit,
+    useIncludeX,
     useIncludeStashDB,
     useIncludeStashDBInProfile,
     useLookbackDays,
@@ -78,6 +80,7 @@ export function SettingsPage() {
                 <StashDBRow />
                 <StashDBProfileRow />
                 <RedditRow />
+                <XRow />
                 <BingeServerRow />
                 <BingeServerConfigCard />
                 <ForageUrlRow />
@@ -325,6 +328,22 @@ function RedditRow() {
     );
 }
 
+function XRow() {
+    const value = useIncludeX();
+    return (
+        <SettingRow
+            title="Include X (Twitter) media on profiles"
+            description="Adds an X tab to performer profiles whose profile has a twitter.com / x.com URL, fetched on demand. Requires binge-server running (URL below) with X cookies configured. Daemon-off or no cookies cleanly no-ops."
+        >
+            <SwitchToggle
+                checked={value}
+                onChange={(v) => setIncludeX(v)}
+                label="X"
+            />
+        </SettingRow>
+    );
+}
+
 function BingeServerRow() {
     const stored = useBingeServerUrl();
     // Local edit buffer so typing doesn't trigger pubsub on every
@@ -421,6 +440,13 @@ function BingeServerConfigCard() {
     const [cookieError, setCookieError] = useState<string | null>(null);
     const [cookieSaved, setCookieSaved] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
+    // X (Twitter) cookies — two values, saved together.
+    const [xAuthInput, setXAuthInput] = useState("");
+    const [xCt0Input, setXCt0Input] = useState("");
+    const [xBusy, setXBusy] = useState(false);
+    const [xError, setXError] = useState<string | null>(null);
+    const [xSaved, setXSaved] = useState(false);
+    const [showXHelp, setShowXHelp] = useState(false);
 
     // Poll health + config on mount + URL change.
     useEffect(() => {
@@ -493,6 +519,29 @@ function BingeServerConfigCard() {
         setCookieBusy(false);
     };
 
+    const handleSaveXCookies = async () => {
+        const auth = xAuthInput.trim();
+        const ct0 = xCt0Input.trim();
+        if (!auth || !ct0) return;
+        setXBusy(true);
+        setXError(null);
+        setXSaved(false);
+        const result = await setBingeServerConfig({
+            xAuthToken: auth,
+            xCt0: ct0,
+        });
+        if (result.ok) {
+            setXSaved(true);
+            setXAuthInput("");
+            setXCt0Input("");
+            const refreshed = await getBingeServerConfig();
+            setConfig(refreshed);
+        } else {
+            setXError(result.error);
+        }
+        setXBusy(false);
+    };
+
     if (health === "pending") {
         return (
             <div className="binge-settings-card">
@@ -542,6 +591,7 @@ function BingeServerConfigCard() {
         ? "✓ Auto-detected"
         : "Setting up…";
     const cookieIsSet = !!config?.redditCookieSet;
+    const xCookiesSet = !!config?.xCookiesSet;
 
     return (
         <div className="binge-settings-card">
@@ -643,6 +693,89 @@ function BingeServerConfigCard() {
                         <li>
                             Cookies expire every few months. When
                             stories stop updating, repeat steps 1–3.
+                        </li>
+                    </ol>
+                )}
+            </div>
+
+            <div className="binge-settings-card-field is-stacked">
+                <span className="binge-settings-card-field-label">
+                    X (Twitter) cookies
+                </span>
+                <div className="binge-server-config-cookie-row">
+                    <input
+                        type="password"
+                        className="binge-settings-input"
+                        value={xAuthInput}
+                        onChange={(e) => {
+                            setXAuthInput(e.target.value);
+                            setXSaved(false);
+                            setXError(null);
+                        }}
+                        placeholder={
+                            xCookiesSet
+                                ? "✓ Set · paste auth_token to rotate"
+                                : "auth_token"
+                        }
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        disabled={xBusy}
+                    />
+                    <input
+                        type="password"
+                        className="binge-settings-input"
+                        value={xCt0Input}
+                        onChange={(e) => {
+                            setXCt0Input(e.target.value);
+                            setXSaved(false);
+                            setXError(null);
+                        }}
+                        placeholder={xCookiesSet ? "ct0" : "ct0"}
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        disabled={xBusy}
+                    />
+                    <button
+                        type="button"
+                        className="binge-server-config-cookie-save"
+                        onClick={() => void handleSaveXCookies()}
+                        disabled={
+                            xBusy || !xAuthInput.trim() || !xCt0Input.trim()
+                        }
+                    >
+                        {xBusy ? "Saving…" : "Save"}
+                    </button>
+                </div>
+                {xError && (
+                    <p className="binge-server-config-error">{xError}</p>
+                )}
+                {xSaved && <p className="binge-server-config-ok">Saved ✓</p>}
+                <button
+                    type="button"
+                    className="binge-server-config-help-toggle"
+                    onClick={() => setShowXHelp((v) => !v)}
+                >
+                    {showXHelp ? "▾" : "▸"} How to find your X cookies
+                </button>
+                {showXHelp && (
+                    <ol className="binge-server-config-help">
+                        <li>In a regular browser tab, log into x.com.</li>
+                        <li>
+                            Open DevTools (F12) → Application → Cookies →
+                            https://x.com
+                        </li>
+                        <li>
+                            Copy the Value of both <code>auth_token</code>{" "}
+                            and <code>ct0</code> into the fields above, then
+                            Save.
+                        </li>
+                        <li>
+                            Use a secondary X account if you can — automated
+                            access is against X's terms. Cookies expire
+                            periodically; re-paste when X media stops
+                            loading.
                         </li>
                     </ol>
                 )}

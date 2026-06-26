@@ -9,13 +9,16 @@ import { PerformerStatsRow } from "./PerformerStatsRow";
 import { PerformerBio } from "./PerformerBio";
 import { PerformerSceneGrid } from "./PerformerSceneGrid";
 import { PerformerImageGrid } from "./PerformerImageGrid";
+import { PerformerXGrid } from "./PerformerXGrid";
 import { CriterionRatingModal } from "../components/CriterionRatingModal";
 import { PerformerMoreSheet } from "./PerformerMoreSheet";
 import { useSharedStories } from "../home/StoriesContext";
 import { useStoryViewer } from "../home/StoryViewerContext";
+import { useIncludeX } from "../home/pluginSettings";
+import { xHandleFromUrls } from "../api/bingeServer";
 import { BingeLoading } from "../components/BingeLoading";
 
-type ProfileTab = "scenes" | "photos";
+type ProfileTab = "scenes" | "photos" | "x";
 
 type LoadState =
     | { kind: "idle" }
@@ -57,6 +60,7 @@ function LocalPerformerProfile({ localId }: { localId: string }) {
     const [busy, setBusy] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [tab, setTab] = useState<ProfileTab>("scenes");
+    const includeX = useIncludeX();
     const [ratingOpen, setRatingOpen] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
     // Bumped by the refresh action in the ⋯ menu — forces the fetch
@@ -308,14 +312,33 @@ function LocalPerformerProfile({ localId }: { localId: string }) {
                             >
                                 Photos
                             </button>
+                            {includeX &&
+                                xHandleFromUrls(state.performer.urls) && (
+                                    <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={tab === "x"}
+                                        className={
+                                            "binge-profile-tab" +
+                                            (tab === "x" ? " is-active" : "")
+                                        }
+                                        onClick={() => setTab("x")}
+                                    >
+                                        X
+                                    </button>
+                                )}
                         </div>
-                        {tab === "scenes" ? (
+                        {tab === "scenes" && (
                             <PerformerSceneGrid
                                 performer={state.performer}
                                 onClose={close}
                             />
-                        ) : (
+                        )}
+                        {tab === "photos" && (
                             <PerformerImageGrid performer={state.performer} />
+                        )}
+                        {tab === "x" && (
+                            <PerformerXGrid performer={state.performer} />
                         )}
                     </>
                 )}

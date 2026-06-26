@@ -7180,6 +7180,31 @@ body,
     display: block;
 }
 
+/* X (Twitter) media cell — the card is an <a> (opens the tweet), so it
+   needs block layout + no underline. Video cells get a centered play
+   badge over the first-frame poster. */
+.binge-x-cell {
+    display: block;
+    text-decoration: none;
+}
+.binge-x-play-badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 13px;
+    padding-left: 2px;
+    pointer-events: none;
+}
+
 /* Lightbox — full-screen image viewer over the profile (z:90) and any
    sheets. Backdrop dimmed; image centered with object-fit: contain so
    portrait images breathe. Prev/next chevrons are large hit targets on

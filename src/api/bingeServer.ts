@@ -50,12 +50,41 @@ export interface BingeServerConfigState {
     // daemon never returns the secret values themselves.
     stashApiKeySet: boolean;
     redditCookieSet: boolean;
+    // X (Twitter) auth_token + ct0 pair — true once both are stored.
+    xCookiesSet?: boolean;
 }
 
 export interface BingeServerConfigPayload {
     stashUrl?: string;
     stashApiKey?: string;
     redditSessionCookie?: string;
+    // X cookies must be sent together (auth_token is useless without ct0).
+    xAuthToken?: string;
+    xCt0?: string;
+}
+
+// One media file from a performer's X media tab. Mirrors
+// internal/twitter/client.go's Media. Discriminated by `kind`.
+export interface XMedia {
+    tweetId: string;
+    tweetUrl: string;
+    kind: "image" | "video";
+    mediaUrl: string;
+    text?: string;
+    authorHandle?: string;
+    authorNick?: string;
+    width?: number;
+    height?: number;
+    sensitive: boolean;
+    favoriteCount?: number;
+    viewCount?: number;
+    createdUtc: number;
+}
+
+export interface XFeedResponse {
+    handle: string;
+    count: number;
+    media: XMedia[];
 }
 
 // Whether it's safe to transmit credentials (Stash API key / Reddit
@@ -98,6 +127,23 @@ export function isTrustedDaemonUrl(raw: string): boolean {
     }
     // Dotted public hostname → untrusted for cleartext credentials.
     return false;
+}
+
+// xHandleFromUrls mirrors binge-server's HandleFromURLs — pulls the
+// first twitter.com / x.com handle out of a performer's urls[], skipping
+// reserved path segments. Used client-side only to decide whether to
+// show the X tab (the actual fetch resolves the handle server-side).
+const X_RESERVED = new Set([
+    "home", "search", "explore", "notifications", "messages", "i",
+    "intent", "share", "hashtag", "settings", "compose",
+]);
+export function xHandleFromUrls(urls: string[] | null | undefined): string | null {
+    if (!urls) return null;
+    for (const u of urls) {
+        const m = u.match(/(?:twitter|x)\.com\/([A-Za-z0-9_]{1,15})(?:[/?#]|$)/i);
+        if (m && !X_RESERVED.has(m[1].toLowerCase())) return m[1];
+    }
+    return null;
 }
 
 async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T | null> {
@@ -143,6 +189,17 @@ export async function getRedditFeed(
     return fetchJSON<RedditPost[]>(
         `/reddit/feed/${stashId}?limit=${limit}`
     );
+}
+
+// getXFeed pulls a performer's X media tab on demand. Returns null on a
+// daemon/fetch failure (same graceful-degrade contract as the reddit
+// calls); a reachable daemon with no handle / no media returns an empty
+// media array. `limit` caps how deep gallery-dl scrolls.
+export async function getXFeed(
+    stashId: number,
+    limit = 40
+): Promise<XFeedResponse | null> {
+    return fetchJSON<XFeedResponse>(`/x/feed/${stashId}?limit=${limit}`);
 }
 
 export async function getBingeServerHealth(): Promise<BingeServerHealth | null> {
