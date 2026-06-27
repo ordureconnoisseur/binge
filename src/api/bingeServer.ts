@@ -65,7 +65,7 @@ export interface BingeServerConfigState {
 // internal/social/saver.go SaveRequest.
 export interface SaveToStashRequest {
     performerStashId: string;
-    source: "x" | "reddit" | "redgifs" | "instagram";
+    source: "x" | "reddit" | "redgifs" | "instagram" | "pornhub";
     handle?: string;
     id?: string;
     mediaUrl: string;
@@ -177,6 +177,13 @@ export function xHandleFromUrls(urls: string[] | null | undefined): string | nul
     return null;
 }
 
+// True when a performer's urls[] links a pornhub.com pornstar/model page
+// — gates the on-demand PornHub feed fetch on their profile.
+export function hasPornhubUrl(urls: string[] | null | undefined): boolean {
+    if (!urls) return false;
+    return urls.some((u) => /pornhub\.com\/(pornstar|model)\//i.test(u));
+}
+
 async function fetchJSON<T>(
     path: string,
     init?: RequestInit,
@@ -280,6 +287,60 @@ export async function saveToStash(
             error: err instanceof Error ? err.message : String(err),
         };
     }
+}
+
+// ── PornHub pillar ──────────────────────────────────────────────────
+
+// One cached PornHub video (metadata only; media is fetched via the
+// stream/preview proxies on demand). Mirrors internal/api/pornhub.go.
+export interface PornhubVideo {
+    id: string; // viewkey
+    title: string | null;
+    sourceUrl: string; // pornhub watch page
+    thumbUrl: string | null; // raw phncdn (rewrite via pornhubThumbUrl)
+    duration: number;
+    viewCount: number;
+    uploadDate: string | null;
+    createdUtc: number;
+}
+
+export interface PornhubStoryDigest {
+    performerStashId: number;
+    performerName: string;
+    performerImagePath: string;
+    performerFavorite: boolean;
+    latestCreatedUtc: number;
+    videoCount: number;
+    videos: PornhubVideo[];
+}
+
+export async function getPornhubFeed(
+    stashId: number,
+    limit = 60
+): Promise<PornhubVideo[] | null> {
+    return fetchJSON<PornhubVideo[]>(`/pornhub/feed/${stashId}?limit=${limit}`);
+}
+
+export async function getPornhubStories(
+    sinceUtc: number
+): Promise<PornhubStoryDigest[] | null> {
+    return fetchJSON<PornhubStoryDigest[]>(
+        `/pornhub/stories?sinceUtc=${sinceUtc}`
+    );
+}
+
+// Proxy-URL builders. PornHub stream/preview/thumbnail URLs are time/IP-
+// locked and on adult CDNs (UK-blocked), so they all route through
+// binge-server, which extracts + relays them from its Mullvad exit.
+export function pornhubStreamUrl(videoId: string): string {
+    return `${readBingeServerUrl()}/pornhub/stream/${encodeURIComponent(videoId)}`;
+}
+export function pornhubPreviewUrl(videoId: string): string {
+    return `${readBingeServerUrl()}/pornhub/preview/${encodeURIComponent(videoId)}`;
+}
+export function pornhubThumbUrl(raw: string | null): string | null {
+    if (!raw) return raw;
+    return `${readBingeServerUrl()}/pornhub/thumb?url=${encodeURIComponent(raw)}`;
 }
 
 export async function getBingeServerHealth(): Promise<BingeServerHealth | null> {

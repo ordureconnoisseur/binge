@@ -18,6 +18,7 @@ const INCLUDE_STASHDB_KEY = "binge.includeStashDB";
 const INCLUDE_STASHDB_IN_PROFILE_KEY = "binge.includeStashDBInProfile";
 const INCLUDE_REDDIT_KEY = "binge.includeReddit";
 const INCLUDE_X_KEY = "binge.includeX";
+const INCLUDE_PORNHUB_KEY = "binge.includePornhub";
 const AUTO_SCROLL_KEY = "binge.autoScroll";
 const REFRACT_INTEGRATION_KEY = "binge.refractIntegration";
 const SHOWCASE_BLUR_KEY = "binge.showcaseBlur";
@@ -438,6 +439,12 @@ export function useIncludeX(): boolean {
     return useStoredBool(INCLUDE_X_KEY, true);
 }
 
+// PornHub integration. On by default; folds a performer's PornHub videos
+// into their scenes grid + stories. Off / daemon-down cleanly no-ops.
+export function useIncludePornhub(): boolean {
+    return useStoredBool(INCLUDE_PORNHUB_KEY, true);
+}
+
 // Auto-scroll the reel — when on, the active video plays once (loop
 // off) and the slide advances to the next scene on its `ended` event.
 // User can still manually swipe at any time.
@@ -640,6 +647,9 @@ export function setIncludeReddit(value: boolean): void {
 }
 export function setIncludeX(value: boolean): void {
     writeBool(INCLUDE_X_KEY, value);
+}
+export function setIncludePornhub(value: boolean): void {
+    writeBool(INCLUDE_PORNHUB_KEY, value);
 }
 export function setBingeServerUrl(value: string): void {
     // Strip trailing slash so concatenations are predictable.

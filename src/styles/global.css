@@ -6303,6 +6303,94 @@ body,
     border-color: rgba(80, 200, 120, 0.4);
 }
 
+/* PornHub source badge on a discovery tile (its brand orange). */
+.binge-profile-scene-source-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    padding: 0.14rem 0.4rem;
+    border-radius: 5px;
+    background: #ff9000;
+    color: #000;
+    z-index: 2;
+}
+
+/* PornHub inline stream player overlay. */
+.binge-ph-player-root {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: binge-lightbox-fade 0.18s ease-out;
+}
+.binge-ph-player-stage {
+    width: min(100%, 1100px);
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.binge-ph-player-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.8rem;
+}
+.binge-ph-player-title {
+    flex: 1;
+    color: #fff;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.binge-ph-player-save {
+    background: rgba(255, 255, 255, 0.16);
+    border: none;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.34rem 0.7rem;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.binge-ph-player-save:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.28);
+}
+.binge-ph-player-save.is-saved {
+    background: rgba(52, 199, 89, 0.32);
+    color: #d6ffe0;
+    cursor: default;
+}
+.binge-ph-player-save.is-error {
+    background: rgba(255, 69, 58, 0.32);
+    color: #ffd9d6;
+}
+.binge-ph-player-close {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.2rem 0.45rem;
+    border-radius: 6px;
+}
+.binge-ph-player-close:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+.binge-ph-player-video {
+    width: 100%;
+    max-height: 80vh;
+    background: #000;
+    border-radius: 8px;
+}
+
 .binge-profile-avatar {
     flex: 0 0 auto;
     width: 96px;

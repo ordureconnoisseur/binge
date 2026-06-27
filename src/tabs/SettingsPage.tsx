@@ -11,6 +11,7 @@ import {
     setForageWatchTarget,
     setIncludeReddit,
     setIncludeX,
+    setIncludePornhub,
     setIncludeStashDB,
     setIncludeStashDBInProfile,
     setLookbackDays,
@@ -26,6 +27,7 @@ import {
     useForageWatchTarget,
     useIncludeReddit,
     useIncludeX,
+    useIncludePornhub,
     useIncludeStashDB,
     useIncludeStashDBInProfile,
     useLookbackDays,
@@ -81,6 +83,7 @@ export function SettingsPage() {
                 <StashDBProfileRow />
                 <RedditRow />
                 <XRow />
+                <PornhubRow />
                 <BingeServerRow />
                 <BingeServerConfigCard />
                 <ForageUrlRow />
@@ -339,6 +342,22 @@ function XRow() {
                 checked={value}
                 onChange={(v) => setIncludeX(v)}
                 label="X"
+            />
+        </SettingRow>
+    );
+}
+
+function PornhubRow() {
+    const value = useIncludePornhub();
+    return (
+        <SettingRow
+            title="Include PornHub videos"
+            description="Folds a performer's PornHub videos into their scenes grid (and new uploads into stories) for performers with a pornhub.com pornstar/model URL. Hover plays the preview; tap streams it; Save downloads into Stash. Requires binge-server. Daemon-off cleanly no-ops."
+        >
+            <SwitchToggle
+                checked={value}
+                onChange={(v) => setIncludePornhub(v)}
+                label="PornHub"
             />
         </SettingRow>
     );

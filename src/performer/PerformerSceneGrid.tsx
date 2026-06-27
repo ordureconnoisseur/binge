@@ -17,9 +17,18 @@ import {
 import {
     setIncludeStashDBInProfile,
     useIncludeStashDBInProfile,
+    useIncludePornhub,
     useDemoMode,
 } from "../home/pluginSettings";
+import {
+    getPornhubFeed,
+    hasPornhubUrl,
+    pornhubThumbUrl,
+    pornhubPreviewUrl,
+    type PornhubVideo,
+} from "../api/bingeServer";
 import { AddSceneModal } from "../home/AddSceneModal";
+import { PornhubPlayer } from "./PornhubPlayer";
 import { BingeLoading } from "../components/BingeLoading";
 
 interface PerformerSceneGridProps {
@@ -36,7 +45,8 @@ type GridCell =
           date: string;
           scene: StashDBScene;
           stashBoxIndex: number;
-      };
+      }
+    | { kind: "pornhub"; date: string; video: PornhubVideo };
 
 const STASHDB_ENDPOINT = "https://stashdb.org/graphql";
 
@@ -77,6 +87,27 @@ export function PerformerSceneGrid({
         cover: string | null;
         stashboxUrl: string;
     } | null>(null);
+
+    // PornHub mixin — the performer's cached PornHub videos, folded into
+    // the grid as tiles. Fetched once on profile open (gated on a pornhub
+    // url). Tapping a tile opens the inline stream player.
+    const includePornhub = useIncludePornhub() && !useDemoMode();
+    const [pornhubVideos, setPornhubVideos] = useState<PornhubVideo[]>([]);
+    const [pornhubPlayFor, setPornhubPlayFor] = useState<PornhubVideo | null>(
+        null
+    );
+    useEffect(() => {
+        setPornhubVideos([]);
+        if (!includePornhub || !hasPornhubUrl(performer.urls)) return;
+        let alive = true;
+        getPornhubFeed(Number(performer.id)).then((vids) => {
+            if (alive && vids) setPornhubVideos(vids);
+        });
+        return () => {
+            alive = false;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [performer.id, includePornhub]);
 
     // True when this performer is actually linked to a stashdb
     // entry — gates the toggle pill in the heading. No link →
@@ -269,22 +300,39 @@ export function PerformerSceneGrid({
             {scenes.length === 0 && !loading && !error && (
                 <div className="binge-status">no scenes</div>
             )}
-            {(scenes.length > 0 || effectiveStashDBScenes.length > 0) && (
+            {(scenes.length > 0 ||
+                effectiveStashDBScenes.length > 0 ||
+                pornhubVideos.length > 0) && (
                 <ul className="binge-profile-scene-grid">
                     {buildCells(
                         scenes,
                         effectiveStashDBScenes,
+                        pornhubVideos,
                         stashBoxIndex,
                         sort
-                    ).map((cell) =>
-                        cell.kind === "library" ? (
-                            <SceneTile
-                                key={`l:${cell.scene.id}`}
-                                scene={cell.scene}
-                                sort={sort}
-                                onPick={() => handlePick(cell.scene.id)}
-                            />
-                        ) : (
+                    ).map((cell) => {
+                        if (cell.kind === "library") {
+                            return (
+                                <SceneTile
+                                    key={`l:${cell.scene.id}`}
+                                    scene={cell.scene}
+                                    sort={sort}
+                                    onPick={() => handlePick(cell.scene.id)}
+                                />
+                            );
+                        }
+                        if (cell.kind === "pornhub") {
+                            return (
+                                <PornhubTile
+                                    key={`p:${cell.video.id}`}
+                                    video={cell.video}
+                                    onPick={() =>
+                                        setPornhubPlayFor(cell.video)
+                                    }
+                                />
+                            );
+                        }
+                        return (
                             <StashDBTile
                                 key={`s:${cell.scene.id}`}
                                 scene={cell.scene}
@@ -297,9 +345,16 @@ export function PerformerSceneGrid({
                                     })
                                 }
                             />
-                        )
-                    )}
+                        );
+                    })}
                 </ul>
+            )}
+            {pornhubPlayFor && (
+                <PornhubPlayer
+                    video={pornhubPlayFor}
+                    performerId={performer.id}
+                    onClose={() => setPornhubPlayFor(null)}
+                />
             )}
             <div ref={sentinelRef} aria-hidden="true" />
             {loading && scenes.length > 0 && (
@@ -343,6 +398,7 @@ export function PerformerSceneGrid({
 function buildCells(
     library: PerformerSceneCard[],
     stashDB: StashDBScene[],
+    pornhub: PornhubVideo[],
     stashBoxIndex: number | null,
     sort: PerformerSceneSort
 ): GridCell[] {
@@ -364,13 +420,25 @@ function buildCells(
                   })
               )
             : [];
+    const phCells: GridCell[] = pornhub.map(
+        (v): GridCell => ({
+            kind: "pornhub",
+            date:
+                v.createdUtc > 0
+                    ? new Date(v.createdUtc * 1000).toISOString()
+                    : "",
+            video: v,
+        })
+    );
 
     if (sort === "recent") {
-        return [...libCells, ...sdbCells].sort((a, b) =>
+        return [...libCells, ...sdbCells, ...phCells].sort((a, b) =>
             b.date.localeCompare(a.date)
         );
     }
-    return [...libCells, ...sdbCells];
+    // Non-date sorts only apply to library scenes — append the discovery
+    // tiles (stashdb + pornhub) at the end rather than mis-sorting them.
+    return [...libCells, ...sdbCells, ...phCells];
 }
 
 // StashDB-only tile: cover + release date + "StashDB" badge, tap
@@ -542,6 +610,90 @@ function SceneTile({
                     {sceneTitle && (
                         <span className="binge-profile-scene-title">
                             {sceneTitle}
+                        </span>
+                    )}
+                </span>
+            </button>
+        </li>
+    );
+}
+
+// PornHub discovery tile — proxied thumbnail + hover-preview (the
+// mediabook webm, looped like a Stash preview); tap opens the inline
+// stream player. Same layout as SceneTile with a "PH" source badge.
+function PornhubTile({
+    video,
+    onPick,
+}: {
+    video: PornhubVideo;
+    onPick: () => void;
+}) {
+    const poster = pornhubThumbUrl(video.thumbUrl);
+    const previewUrl = pornhubPreviewUrl(video.id);
+    const title = video.title?.trim() || "";
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const srcArmedRef = useRef(false);
+
+    const handleEnter = () => {
+        const v = videoRef.current;
+        if (!v) return;
+        if (!srcArmedRef.current) {
+            v.src = previewUrl;
+            srcArmedRef.current = true;
+        }
+        v.currentTime = 0;
+        void v.play().catch(() => {});
+    };
+    const handleLeave = () => {
+        const v = videoRef.current;
+        if (!v) return;
+        v.pause();
+        v.currentTime = 0;
+    };
+
+    return (
+        <li className="binge-profile-scene-cell">
+            <button
+                type="button"
+                className="binge-profile-scene-card"
+                onClick={onPick}
+                onMouseEnter={handleEnter}
+                onMouseLeave={handleLeave}
+                onFocus={handleEnter}
+                onBlur={handleLeave}
+                title={title || `PornHub ${video.id}`}
+            >
+                {poster && (
+                    <span
+                        className="binge-profile-scene-poster"
+                        style={{ backgroundImage: `url(${poster})` }}
+                    />
+                )}
+                <video
+                    ref={videoRef}
+                    className="binge-profile-scene-preview"
+                    muted
+                    loop
+                    playsInline
+                    preload="none"
+                    aria-hidden="true"
+                />
+                <span className="binge-profile-scene-source-badge">PH</span>
+                <span className="binge-profile-scene-hover">
+                    <span className="binge-profile-scene-hover-stats">
+                        {video.duration > 0 && (
+                            <span className="binge-profile-scene-stat">
+                                {formatDuration(video.duration)}
+                            </span>
+                        )}
+                        <span className="binge-profile-scene-stat">
+                            <ViewIcon />
+                            {compactCount(video.viewCount)}
+                        </span>
+                    </span>
+                    {title && (
+                        <span className="binge-profile-scene-title">
+                            {title}
                         </span>
                     )}
                 </span>
