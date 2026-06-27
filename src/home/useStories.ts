@@ -20,10 +20,16 @@ import {
     getCachedRedditStories,
     invalidateRedditCaches,
 } from "./redditCache";
-import { rewriteStashAssetUrl } from "../api/bingeServer";
+import {
+    rewriteStashAssetUrl,
+    getPornhubStories,
+    pornhubPreviewUrl,
+    pornhubThumbUrl,
+} from "../api/bingeServer";
 import {
     useIncludeReddit,
     useIncludeStashDB,
+    useIncludePornhub,
     useLookbackDays,
     useDemoMode,
 } from "./pluginSettings";
@@ -120,6 +126,7 @@ export function useStories(): StoriesResult {
     const demoMode = useDemoMode();
     const includeStashDB = useIncludeStashDB() && !demoMode;
     const includeReddit = useIncludeReddit() && !demoMode;
+    const includePornhub = useIncludePornhub() && !demoMode;
     const lookbackDays = useLookbackDays();
     // Bumped by refresh() to force the effect below to re-run after
     // all in-memory/localStorage caches have been invalidated.
@@ -231,6 +238,16 @@ export function useStories(): StoriesResult {
                     if (!alive) return;
                 }
 
+                // ── PornHub merge (toggled by plugin setting) ─────
+                if (includePornhub) {
+                    const sinceUtc = Math.floor(
+                        (Date.now() - lookbackDays * 24 * 3600 * 1000) /
+                            1000
+                    );
+                    await mergePornhubVideos(byPerformer, sinceUtc);
+                    if (!alive) return;
+                }
+
                 // Build final story list. Library scenes always come
                 // first within a performer (so playable items sit at
                 // the head of the progress strip); StashDB scenes
@@ -301,7 +318,14 @@ export function useStories(): StoriesResult {
         return () => {
             alive = false;
         };
-    }, [includeStashDB, includeReddit, lookbackDays, refreshTick, demoMode]);
+    }, [
+        includeStashDB,
+        includeReddit,
+        includePornhub,
+        lookbackDays,
+        refreshTick,
+        demoMode,
+    ]);
 
     return {
         state,
@@ -463,6 +487,59 @@ async function mergeRedditPosts(
                 effectiveAt: new Date(
                     post.createdUtc * 1000
                 ).toISOString(),
+            });
+        }
+    }
+}
+
+// Fetch new-PornHub-upload digests from binge-server and attach them to
+// the per-performer buckets as story items. Mapped onto the reddit-shaped
+// scene so the viewer renders them with zero new branches: kind "video"
+// with mediaUrl = the looping preview proxy (plays like a Stash preview),
+// domain "pornhub.com" (drives the badge/CTA), permalink = the watch page.
+async function mergePornhubVideos(
+    byPerformer: Map<string, PerformerBucket>,
+    sinceUtc: number
+): Promise<void> {
+    const digests = await getPornhubStories(sinceUtc);
+    if (!digests) return; // daemon down / disabled
+    for (const d of digests) {
+        const localId = String(d.performerStashId);
+        let bucket = byPerformer.get(localId);
+        if (!bucket) {
+            bucket = {
+                story: {
+                    performerId: localId,
+                    performerName: d.performerName,
+                    performerImagePath:
+                        rewriteStashAssetUrl(d.performerImagePath) || null,
+                    performerFavorite: d.performerFavorite,
+                },
+                librarySceneIds: new Set(),
+                library: [],
+                stashdb: [],
+                reddit: [],
+            };
+            byPerformer.set(localId, bucket);
+        }
+        for (const v of d.videos) {
+            const effectiveAt =
+                v.createdUtc > 0
+                    ? new Date(v.createdUtc * 1000).toISOString()
+                    : new Date().toISOString();
+            bucket.reddit.push({
+                id: `ph:${v.id}`,
+                source: "reddit",
+                kind: "video",
+                title: v.title,
+                body: null,
+                mediaUrl: pornhubPreviewUrl(v.id),
+                linkUrl: null,
+                thumbUrl: pornhubThumbUrl(v.thumbUrl),
+                permalink: v.sourceUrl,
+                domain: "pornhub.com",
+                createdUtc: v.createdUtc,
+                effectiveAt,
             });
         }
     }

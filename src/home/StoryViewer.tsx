@@ -549,7 +549,9 @@ export function StoryViewer() {
                                   ? currentScene.domain === "x.com" ||
                                     currentScene.domain === "twitter.com"
                                       ? "Open on X →"
-                                      : "Open on Reddit →"
+                                      : currentScene.domain === "pornhub.com"
+                                        ? "Open on PornHub →"
+                                        : "Open on Reddit →"
                                   : "Watch full scene →"}
                         </button>
                     </div>
@@ -648,9 +650,10 @@ function buildSaveRequest(
 
 function redditBadgeLabel(scene: RedditStoryScene): string {
     const d = (scene.domain ?? "").toLowerCase();
-    // X media is folded onto the reddit scene shape (same image/video
-    // render path) with domain x.com — label it as X, not reddit.
+    // X and PornHub media are folded onto the reddit scene shape (same
+    // image/video render path) with their own domain — label accordingly.
     if (d === "x.com" || d === "twitter.com") return "X";
+    if (d === "pornhub.com") return "PornHub";
     if (scene.kind === "video") {
         if (d.includes("redgifs")) return "redgifs";
         if (d === "v.redd.it") return "reddit video";
