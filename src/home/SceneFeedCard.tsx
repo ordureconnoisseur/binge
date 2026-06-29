@@ -21,7 +21,8 @@ import {
 import {
     isInMultiviewQueue,
     toggleMultiviewQueueScene,
-    MULTIVIEW_STORAGE_KEY,
+    subscribeMultiviewQueue,
+    startMultiviewSync,
 } from "../api/multiview";
 import {
     GridIcon,
@@ -107,15 +108,13 @@ export function SceneFeedCard({
     const [inMVQueue, setInMVQueue] = useState(false);
     const [inCollections, setInCollections] = useState<Record<string, boolean>>({});
 
-    // Multiview queue membership — same cross-tab sync as SceneSlide.
+    // Multiview queue membership — resynced on every queue change (this
+    // tab, other tabs, and other clients via the config poll).
     useEffect(() => {
+        startMultiviewSync();
         const refresh = () => setInMVQueue(isInMultiviewQueue(item.sceneId));
         refresh();
-        const onStorage = (e: StorageEvent) => {
-            if (e.key === MULTIVIEW_STORAGE_KEY) refresh();
-        };
-        window.addEventListener("storage", onStorage);
-        return () => window.removeEventListener("storage", onStorage);
+        return subscribeMultiviewQueue(refresh);
     }, [item.sceneId]);
 
     // Per-collection membership for the bookmark fill state. Mirrors

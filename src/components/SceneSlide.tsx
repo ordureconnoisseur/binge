@@ -22,7 +22,8 @@ import {
     isInMultiviewQueue,
     toggleMultiviewQueueScene,
     openMultiviewPlayer,
-    MULTIVIEW_STORAGE_KEY,
+    subscribeMultiviewQueue,
+    startMultiviewSync,
 } from "../api/multiview";
 import { HeartBurst } from "./HeartBurst";
 import { SceneDetailsSheet } from "./SceneDetailsSheet";
@@ -184,19 +185,18 @@ export function SceneSlide({
         };
     }, [collectionsOverride, scene.id, scene.tags]);
 
-    // Multiview queue membership — read from localStorage on mount,
-    // resynced via the storage event so queue changes from any tab
-    // reflect in the button's filled state.
+    // Multiview queue membership — read from the local cache, resynced on
+    // every queue change (this tab, other tabs, AND other clients via the
+    // config poll started by startMultiviewSync).
     const [inMVQueue, setInMVQueue] = useState<boolean>(() =>
         isInMultiviewQueue(scene.id)
     );
     useEffect(() => {
-        const onStorage = (e: StorageEvent) => {
-            if (e.key !== MULTIVIEW_STORAGE_KEY) return;
-            setInMVQueue(isInMultiviewQueue(scene.id));
-        };
-        window.addEventListener("storage", onStorage);
-        return () => window.removeEventListener("storage", onStorage);
+        startMultiviewSync();
+        setInMVQueue(isInMultiviewQueue(scene.id));
+        return subscribeMultiviewQueue(() =>
+            setInMVQueue(isInMultiviewQueue(scene.id))
+        );
     }, [scene.id]);
 
     // Mutation guards — ignore concurrent taps while a request is in flight.
