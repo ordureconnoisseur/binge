@@ -55,15 +55,11 @@ export interface FindScenesVariables {
 }
 
 // Tags whose scenes are silently hidden EVERYWHERE in binge (Home feed,
-// stories, For You reel, Explore). The curated trans + scat set carried
-// over from the old showcase exclusion — applied unconditionally, with no
-// toggle and no filter chip. `depth: 0` matches exactly these tag ids.
-export const HIDDEN_TAG_IDS: ReadonlyArray<string> = [
-    "1985", "646", "647", "350", "1994", "645", "1611", "5",
-    "648", "657", "1984", "660", "667", "2404", "1250", "1094",
-    "1610", "1514", "644", "2259", "1933", "1961", "1942", "1956",
-    "1927", "2073",
-];
+// stories, For You reel, Explore) — applied unconditionally, with no toggle
+// and no filter chip. `depth: 0` matches exactly these tag ids. `5` = Scat.
+// (Trans tags were removed 2026-07 so trans surfaces per the gender
+// setting; scat stays hidden.)
+export const HIDDEN_TAG_IDS: ReadonlyArray<string> = ["5"];
 // GraphQL fragment for the inline-string query builders below: drops any
 // scene carrying one of the hidden tags.
 const HIDDEN_TAGS_CLAUSE = `tags: {
