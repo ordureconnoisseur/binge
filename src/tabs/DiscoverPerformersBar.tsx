@@ -7,7 +7,7 @@ import {
 } from "../api/stashdb";
 import { usePerformerProfile } from "../performer/PerformerProfileContext";
 import { PerformerHoverCard } from "../home/PerformerHoverCard";
-import { useAllowedGenders, visibleGenders } from "../home/pluginSettings";
+import { useAllowedGenders, orderedGenders } from "../home/pluginSettings";
 
 // Horizontal scroll-snap row of StashDB performer bubbles, mirroring
 // the homepage stories row. Mounts at the top of Explore. Data comes
@@ -34,7 +34,7 @@ export function DiscoverPerformersBar() {
 
     // Stable cache key so flipping a gender toggle re-runs the
     // effect (the Set reference changes on every render).
-    const genderKey = visibleGenders(allowedGenders).join(",");
+    const genderKey = orderedGenders(allowedGenders).join(",");
     useEffect(() => {
         let alive = true;
         (async () => {
@@ -49,7 +49,7 @@ export function DiscoverPerformersBar() {
                     getTrendingStashDBPerformers(
                         box.api_key,
                         30,
-                        visibleGenders(allowedGenders)
+                        orderedGenders(allowedGenders)
                     ),
                     getLinkedPerformers(),
                 ]);

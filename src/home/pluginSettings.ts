@@ -266,19 +266,12 @@ export const ALL_GENDERS: ReadonlyArray<Gender> = [
 // Settings → Genders to surface to taste.
 const DEFAULT_ALLOWED_GENDERS: ReadonlySet<Gender> = new Set(ALL_GENDERS);
 
-// Genders silently hidden everywhere, paired with the hidden-tag content
-// exclusion (see HIDDEN_TAG_IDS in src/api/queries.ts). Trans performers
-// are dropped from discovery + the stories row regardless of the "Genders
-// to surface" setting — no UI, no pill. (The gender setting's trans
-// toggles therefore have no visible effect while this is in place.)
-export const HIDDEN_GENDERS: ReadonlySet<Gender> = new Set([
-    "TRANSGENDER_FEMALE",
-    "TRANSGENDER_MALE",
-]);
-// allowedGenders with the hidden genders removed, in canonical order —
-// the effective set actually surfaced anywhere.
-export function visibleGenders(genders: ReadonlySet<Gender>): Gender[] {
-    return ALL_GENDERS.filter((g) => genders.has(g) && !HIDDEN_GENDERS.has(g));
+// The user's allowed genders in canonical order. The "Genders to surface"
+// setting is the only gate — no gender is silently hidden. (The tag-based
+// content exclusion in src/api/queries.ts, HIDDEN_TAG_IDS, is separate and
+// still applies.)
+export function orderedGenders(genders: ReadonlySet<Gender>): Gender[] {
+    return ALL_GENDERS.filter((g) => genders.has(g));
 }
 
 function readGenderSet(): Set<Gender> {

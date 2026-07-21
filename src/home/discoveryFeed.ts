@@ -21,7 +21,7 @@ import {
     type StashDBScene,
     type StashDBScenePerformer,
 } from "../api/stashdb";
-import { HIDDEN_GENDERS, readAllowedGenders } from "./pluginSettings";
+import { readAllowedGenders } from "./pluginSettings";
 
 export interface DiscoveryFeedItem {
     key: string;
@@ -74,10 +74,7 @@ export interface DiscoveryFeedItem {
 // fetch without a reload.
 function makeGenderFilter(): (gender: string | null) => boolean {
     const allowed = readAllowedGenders();
-    return (gender) =>
-        !!gender &&
-        allowed.has(gender as never) &&
-        !HIDDEN_GENDERS.has(gender as never);
+    return (gender) => !!gender && allowed.has(gender as never);
 }
 
 // Per-performer cap: an unfollowed performer with many recent
