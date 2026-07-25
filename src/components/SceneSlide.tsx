@@ -250,6 +250,13 @@ export function SceneSlide({
     // 重建带 ?start=N 的转码 seek URL。同时添加调试日志便于排查快进问题。
     const baseStreamUrlRef = useRef<string>("");
     const needsTranscodeSeek = !isWebCompatible(scene);
+    // 转码硬 seek 偏移量：硬 seek 用 ?start=N 重建 src 后，新流的
+    // currentTime 从 0 重新计起，进度条需知道偏移量才能显示真实位置。
+    // 加载新基础流（换场景/重进视口）时重置为 0。
+    const [seekOffset, setSeekOffset] = useState(0);
+    // 上一次硬 seek 注册的事件监听清理函数。新一轮 seek 前先清理上一轮，
+    // 避免快速连续 seek 时监听器堆积；卸载时也调用。
+    const seekCleanupRef = useRef<(() => void) | null>(null);
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -270,6 +277,8 @@ export function SceneSlide({
             );
             video.src = url;
             video.load();
+            // 新基础流从头开始，清除转码 seek 偏移量。
+            setSeekOffset(0);
         }
         // Kick playback for the active slide once src is settled. If
         // the IO fired play() mid-scroll (before src was assigned) it
@@ -317,25 +326,65 @@ export function SceneSlide({
                 "time=" + time,
                 "url=" + seekUrl
             );
+            // 记录偏移量：新流 currentTime 从 0 计起，进度条需加偏移量。
+            setSeekOffset(time);
+            // 先清理上一轮 seek 注册的监听器，避免快速连续 seek 时堆积。
+            seekCleanupRef.current?.();
             // 先暂停当前播放，避免 seek 期间继续解码旧流
             video.pause();
             video.src = seekUrl;
             video.load();
-            // canplay 事件触发后开始播放（ffmpeg 需要时间转码到该时间点）
-            const onCanPlay = () => {
-                video.removeEventListener("canplay", onCanPlay);
+            // 自动播放：wmv/avi 转码流可能在数据尚未真正就绪时就触发
+            // canplay，单次 play() 会以 AbortError 失败。canplay/
+            // loadeddata 每次加载只触发一次，若那次 play() 失败就再无
+            // 重试机会 → 视频停在暂停态（wmv 尤其明显）。修复：除了监听
+            // canplay/loadeddata，还启动 300ms 周期重试，直到 playing
+            // 事件确认播放成功或超时。cleanup 设置 done=true 后重试自动停止。
+            let done = false;
+            let retryTimer: number | null = null;
+            const cleanup = () => {
+                if (done) return;
+                done = true;
+                video.removeEventListener("canplay", onReady);
+                video.removeEventListener("loadeddata", onReady);
+                video.removeEventListener("playing", onPlaying);
+                if (retryTimer !== null) {
+                    window.clearTimeout(retryTimer);
+                    retryTimer = null;
+                }
+                seekCleanupRef.current = null;
+            };
+            const onPlaying = () => {
                 console.debug(
-                    "[binge-reel] transcode seek ready",
-                    "scene=" + scene.id,
-                    "currentTime=" + video.currentTime
+                    "[binge-reel] transcode seek playing",
+                    "scene=" + scene.id
+                );
+                cleanup();
+            };
+            const onReady = () => {
+                if (done || !video.paused) return;
+                console.debug(
+                    "[binge-reel] transcode seek ready, attempting play",
+                    "scene=" + scene.id
                 );
                 playPreferred(video);
             };
-            video.addEventListener("canplay", onCanPlay);
-            // 安全兜底：5 秒后若仍未 canplay，移除监听器避免泄漏
-            window.setTimeout(() => {
-                video.removeEventListener("canplay", onCanPlay);
-            }, 5000);
+            // 周期重试：canplay 触发过早时 play() 以 AbortError 失败，
+            // playPreferred 内部不会重试 AbortError。这里每 300ms 检查
+            // 一次，若仍在暂停就再调 playPreferred，给转码流"追上"的时间。
+            const retryPlay = () => {
+                if (done || !video.paused) return;
+                playPreferred(video);
+                retryTimer = window.setTimeout(retryPlay, 300);
+            };
+            seekCleanupRef.current = cleanup;
+            video.addEventListener("canplay", onReady);
+            video.addEventListener("loadeddata", onReady);
+            video.addEventListener("playing", onPlaying);
+            // 首次延迟 300ms 启动周期重试（让 canplay 先有机会触发）
+            retryTimer = window.setTimeout(retryPlay, 300);
+            // 安全兜底：8 秒后若仍未播放，移除监听器避免泄漏
+            window.setTimeout(cleanup, 8000);
         },
         [needsTranscodeSeek, scene.id]
     );
@@ -347,6 +396,9 @@ export function SceneSlide({
     useEffect(() => {
         const video = videoRef.current;
         return () => {
+            // 清理可能残留的转码 seek 事件监听器。
+            seekCleanupRef.current?.();
+            seekCleanupRef.current = null;
             if (!video) return;
             try {
                 video.pause();
@@ -771,6 +823,7 @@ export function SceneSlide({
                 videoRef={videoRef}
                 duration={stashDuration}
                 onSeekToTime={seekToTime}
+                seekOffset={seekOffset}
             />
         </article>
     );

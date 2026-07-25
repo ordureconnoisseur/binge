@@ -108,7 +108,10 @@ export function PackDetailSheet({
                             style={
                                 scene.screenshot
                                     ? {
-                                          backgroundImage: `url(${scene.screenshot})`,
+                                          // 引号包裹 URL：screenshot 地址含 ?t= 查询参数，
+                                          // 未引号的 url() 在 CSS 规范中非法，部分浏览器
+                                          // 会丢弃整条声明导致封面不显示。
+                                          backgroundImage: `url("${scene.screenshot}")`,
                                       }
                                     : undefined
                             }

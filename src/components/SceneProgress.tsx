@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 interface SceneProgressProps {
     videoRef: RefObject<HTMLVideoElement | null>;
@@ -11,6 +11,11 @@ interface SceneProgressProps {
     //   - 转码容器（avi/wmv/mkv/...）：重建 src 带 ?start=N（硬 seek）
     // 不提供时回退到原生 video.currentTime = N（向后兼容）。
     onSeekToTime?: (time: number) => void;
+    // 转码硬 seek 偏移量。硬 seek 用 ?start=N 重建 src 后，新流的
+    // video.currentTime 从 0 重新计起（ffmpeg 重置时间戳），因此进度条
+    // 需要按 (currentTime + seekOffset) / duration 计算真实进度，否则
+    // seek 后进度条会瞬间跳回 0。原生流/web 兼容容器偏移量为 0。
+    seekOffset?: number;
 }
 
 // Thin Instagram-style progress bar. Pinned to the bottom of the slide,
@@ -21,15 +26,23 @@ export function SceneProgress({
     videoRef,
     duration,
     onSeekToTime,
+    seekOffset = 0,
 }: SceneProgressProps) {
     const [progress, setProgress] = useState(0);
     const [hovering, setHovering] = useState(false);
+    // 用 ref 镜像 seekOffset：事件监听器只绑定一次，每次触发时从 ref
+    // 读取最新值。避免 seekOffset 变化时旧监听器（闭包固定了旧值 0）
+    // 在 React 重新绑定前抢先触发 timeupdate，把进度条瞬间重置为 0。
+    const seekOffsetRef = useRef(seekOffset);
+    seekOffsetRef.current = seekOffset;
 
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
         const handle = () => {
-            const t = video.currentTime;
+            // 转码硬 seek 后新流的 currentTime 从 0 计起，需加上偏移量
+            // 才能得到在整段视频中的真实位置。
+            const t = video.currentTime + seekOffsetRef.current;
             const d =
                 duration && duration > 0
                     ? duration
