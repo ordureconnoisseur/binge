@@ -259,7 +259,14 @@ body,
     cursor: pointer;
     /* Suppress the iOS tap highlight + double-tap zoom */
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
+    /* pan-y, not manipulation: the reel still has to scroll through
+       this element, but the hold-for-speed gesture needs a long press
+       here to mean 2x rather than a text selection or a save-image
+       callout. */
+    touch-action: pan-y;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 .binge-tap-target:focus {
     outline: none;
@@ -892,6 +899,72 @@ body,
     color: #f472b6;
     filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.85))
         drop-shadow(0 0 14px rgba(244, 114, 182, 0.45));
+}
+
+/* -- Speed pill -- the message the hold-for-speed gesture leaves ---- */
+/* Floats over video, so a blur rather than a flat fill: a solid panel
+   reads as a bug on a dark frame and vanishes on a bright one, while a
+   blurred edge holds against both. Never takes a pointer event; the
+   gesture that raised it is still in progress underneath. */
+.binge-speed-pill {
+    position: absolute;
+    top: 96px;
+    left: 50%;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 18px;
+    border-radius: 18px;
+    border: 0.5px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.42);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.28);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    pointer-events: none;
+    /* In fast and small, out soft. Arriving should feel like an answer
+       to the gesture, so it is quick and barely scales; leaving is not
+       news, so it drifts up and thins out instead of being cut. */
+    animation: binge-speed-pill-in 0.16s ease-out both;
+}
+.binge-speed-pill.is-leaving {
+    animation: binge-speed-pill-out 0.28s ease-in-out both;
+}
+.binge-speed-pill-icon {
+    width: 15px;
+    height: 15px;
+    flex: none;
+}
+@keyframes binge-speed-pill-in {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+}
+@keyframes binge-speed-pill-out {
+    from {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-6px);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .binge-speed-pill,
+    .binge-speed-pill.is-leaving {
+        animation-duration: 0.01ms;
+    }
 }
 
 /* ── Heart burst — particles float up from bottom on every tap ─────── */

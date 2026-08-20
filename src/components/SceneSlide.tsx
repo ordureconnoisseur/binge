@@ -31,6 +31,8 @@ import { CriterionRatingModal } from "./CriterionRatingModal";
 import { MoreSheet } from "./MoreSheet";
 import { useAutoScroll, useTranscodeType } from "../home/pluginSettings";
 import { useScribeModal } from "../scribe/ScribeContext";
+import { useHoldForSpeed } from "../hooks/useHoldForSpeed";
+import { SpeedPill } from "./SpeedPill";
 
 interface SceneSlideProps {
     scene: BingeScene;
@@ -109,6 +111,7 @@ export function SceneSlide({
     const transcodeType = useTranscodeType();
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const tapTargetRef = useRef<HTMLButtonElement>(null);
     const [isActive, setIsActive] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [muted, setMuted, setMutedSession] = useMuteState();
@@ -533,7 +536,18 @@ export function SceneSlide({
         }
     };
 
+    // Hold the top-right corner to run at 2x, pull down to latch it.
+    // Lives on the tap target so an ordinary swipe still scrolls the
+    // reel; see the hook for why that is the hard part.
+    const { toast: speedToast, shouldSwallowTap } = useHoldForSpeed(
+        tapTargetRef,
+        videoRef,
+    );
+
     const handleTap = () => {
+        // A hold ends with a click like any other press. Toggling
+        // play/pause on it would punish the gesture.
+        if (shouldSwallowTap()) return;
         if (tapTimerRef.current !== null) {
             // Second tap inside the window → double-tap like.
             window.clearTimeout(tapTimerRef.current);
@@ -592,12 +606,14 @@ export function SceneSlide({
                 overlay/action-stack so taps in the video area toggle
                 play/pause while UI controls remain hot. */}
             <button
+                ref={tapTargetRef}
                 type="button"
                 className="binge-tap-target"
                 onClick={handleTap}
                 aria-label={isPlaying ? "Pause" : "Play"}
                 tabIndex={-1}
             />
+            <SpeedPill toast={speedToast} />
             {bursts.length > 0 && (
                 <div className="binge-heart-burst-layer" aria-hidden="true">
                     {bursts.map((b) => (
