@@ -23,6 +23,10 @@
 //   STASH_API_KEY   Sent as the ApiKey header. Omit if Stash has no auth.
 //   CHROME          Path to Chrome. Default: the usual per-platform spots.
 //   SMOKE_HEADFUL   Set to 1 to watch it run.
+//   SMOKE_TOUCH     Set to 1 to add the hold-for-speed gesture checks.
+//                   Off by default: they drive synthetic touch, which
+//                   headless Chrome delivers unreliably enough to fail
+//                   on a plugin that is working.
 //
 // Exits non-zero if any check fails, so it can gate a deploy.
 
@@ -102,6 +106,20 @@ async function tap(x, y) {
         button: "left",
         clickCount: 1,
         buttons: 0,
+    });
+}
+
+// Real touch, for the one gesture that has to share the screen with the
+// browser's own scrolling. Chrome will not dispatch these at all unless
+// touch emulation is on, which the hold-for-speed check turns on around
+// itself and off again after.
+async function touch(type, x, y) {
+    await send("Input.dispatchTouchEvent", {
+        type,
+        touchPoints:
+            type === "touchEnd"
+                ? []
+                : [{ x, y, id: 1, radiusX: 8, radiusY: 8 }],
     });
 }
 
@@ -217,7 +235,10 @@ async function checkReelPlays() {
         // should fail one check and let the rest still report, rather
         // than aborting the run with no summary.
         await goto("#/foryou");
-        await sleep(12000);
+        // Longer than the desktop checks take: the gesture measures a
+        // corner of the frame, so it needs the mobile layout settled and
+        // the reel filled, not merely painted.
+        await sleep(18000);
         const before = await evaluate(`(() => {
             const v = document.querySelector('.binge-slide video');
             return v ? JSON.stringify({ t: v.currentTime, rs: v.readyState, paused: v.paused }) : null;
@@ -300,6 +321,259 @@ async function checkReelPlays() {
         assert(problems.length === 0, problems.join(" | "));
         return "clean";
     });
+}
+
+// Hold the top-right corner to run at 2x, pull down to latch it. The
+// state machine is covered by unit tests; what only a real browser can
+// answer is whether the gesture and the browser's own scrolling can
+// share that corner. Getting one of those working at the cost of the
+// other is how this went wrong repeatedly on the iOS side, and neither
+// failure is visible to jsdom: it has no scrolling to lose.
+async function checkHoldForSpeed() {
+    const PHONE_W = 430;
+    const PHONE_H = 932;
+    const cx = Math.round(PHONE_W * 0.9);
+    const cy = Math.round(PHONE_H * 0.25);
+    // Comfortably past the 450ms hold and the 280ms grace that rejects a
+    // pull arriving too soon after it.
+    const HELD = 750;
+
+    const speedState = () =>
+        evaluate(`(() => {
+            const v = document.querySelector('.binge-slide[data-active="true"] video')
+                   ?? document.querySelector('.binge-slide video');
+            const pill = document.querySelector('.binge-speed-pill');
+            const sc = [...document.querySelectorAll('.binge-reel')]
+                .find(e => e.scrollHeight > e.clientHeight + 10);
+            return JSON.stringify({
+                rate: v ? v.playbackRate : null,
+                paused: v ? v.paused : null,
+                pill: pill ? pill.textContent : null,
+                locked: !!document.querySelector('.binge-speed-pill-icon'),
+                scrollTop: sc ? Math.round(sc.scrollTop) : null,
+            });
+        })()`).then(JSON.parse);
+
+    const pullDown = async () => {
+        for (let dy = 10; dy <= 70; dy += 10) {
+            await touch("touchMove", cx, cy + dy);
+            await sleep(25);
+        }
+    };
+
+    await send("Emulation.setDeviceMetricsOverride", {
+        width: PHONE_W,
+        height: PHONE_H,
+        deviceScaleFactor: 2,
+        mobile: true,
+    });
+    await send("Emulation.setTouchEmulationEnabled", {
+        enabled: true,
+        maxTouchPoints: 1,
+    });
+    try {
+        await goto("#/foryou");
+        await sleep(12000);
+
+        await check(
+            "holding the corner runs at 2x, releasing hands it back",
+            async () => {
+                const ready = await speedState();
+                assert(ready.rate !== null, "no video in the reel");
+                await touch("touchStart", cx, cy);
+                await sleep(HELD);
+                const held = await speedState();
+                await touch("touchEnd", cx, cy);
+                await sleep(400);
+                const released = await speedState();
+                assert(held.rate === 2, `held at ${held.rate}x, expected 2x`);
+                assert(
+                    held.pill === "2X speed",
+                    `pill read ${JSON.stringify(held.pill)}`,
+                );
+                assert(
+                    released.rate === 1,
+                    `release left it at ${released.rate}x`,
+                );
+                return "2x while held";
+            },
+        );
+
+        await check(
+            "pulling down latches the speed, and pulling again lets it go",
+            async () => {
+                await touch("touchStart", cx, cy);
+                await sleep(HELD);
+                await pullDown();
+                const pulled = await speedState();
+                await touch("touchEnd", cx, cy + 70);
+                await sleep(400);
+                const latched = await speedState();
+                assert(
+                    pulled.locked,
+                    "no lock glyph on the pill after the pull",
+                );
+                assert(
+                    latched.rate === 2,
+                    `latch did not survive the release (${latched.rate}x)`,
+                );
+
+                await touch("touchStart", cx, cy);
+                await sleep(HELD);
+                await pullDown();
+                const second = await speedState();
+                await touch("touchEnd", cx, cy + 70);
+                await sleep(400);
+                const freed = await speedState();
+                assert(
+                    second.pill === "1X speed",
+                    `pill read ${JSON.stringify(second.pill)} on unlock`,
+                );
+                assert(
+                    freed.rate === 1,
+                    `still at ${freed.rate}x after unlock`,
+                );
+                return "latched and released";
+            },
+        );
+
+        await check(
+            "a swipe in that corner still scrolls the reel",
+            async () => {
+                // Input.synthesizeScrollGesture does not drive this
+                // scroller in headless Chrome at all - it fails in the
+                // middle of the frame too, where none of the gesture
+                // code runs - so the swipe is dispatched by hand.
+                const swipeUp = async (x) => {
+                    const from = Math.round(PHONE_H * 0.45);
+                    await touch("touchStart", x, from);
+                    for (let dy = 30; dy <= 330; dy += 30) {
+                        await touch("touchMove", x, from - dy);
+                        await sleep(16);
+                    }
+                    await touch("touchEnd", x, from - 330);
+                    await sleep(2500);
+                    return (await speedState()).scrollTop;
+                };
+
+                // Control first, in the middle of the frame, where the
+                // gesture has no zone and cannot be responsible. Without
+                // it a synthetic swipe that simply did not take would be
+                // reported as a dead zone in the corner, which is a very
+                // convincing way to chase a bug that is not there.
+                // Retried, because the thing being flaky is Chrome's
+                // delivery of synthetic touch, not the reel. Any attempt
+                // that moves proves the input works and lets the corner
+                // be judged.
+                let start = null;
+                let control = null;
+                for (
+                    let attempt = 0;
+                    attempt < 4 && control === null;
+                    attempt++
+                ) {
+                    await sleep(800);
+                    start = (await speedState()).scrollTop;
+                    const moved = await swipeUp(Math.round(PHONE_W * 0.5));
+                    if (moved > start) control = moved;
+                }
+                if (control === null) {
+                    const diag = await evaluate(`(() => {
+                        const all = [...document.querySelectorAll('.binge-reel, .binge-tab-scroll, .binge-reel-virtual')]
+                            .map(e => e.className + ':' + Math.round(e.scrollTop) + '/' + e.scrollHeight + '/' + e.clientHeight);
+                        return JSON.stringify({
+                            scrollers: all,
+                            slides: document.querySelectorAll('.binge-slide').length,
+                            touchPoints: navigator.maxTouchPoints,
+                        });
+                    })()`);
+                    assert(
+                        false,
+                        "swiping did not scroll the reel anywhere, so this run cannot judge the corner: " +
+                            diag,
+                    );
+                }
+
+                // Same reason, same remedy: the corner only fails this
+                // check if it refuses to scroll every time.
+                let after = control;
+                for (
+                    let attempt = 0;
+                    attempt < 3 && after <= control;
+                    attempt++
+                ) {
+                    after = await swipeUp(cx);
+                }
+                assert(
+                    after > control,
+                    `scrollTop stuck at ${after}: the corner is a dead zone`,
+                );
+                const state = await speedState();
+                assert(
+                    state.rate === 1,
+                    `a swipe changed the speed to ${state.rate}x`,
+                );
+                return `centre ${start} -> ${control}, corner -> ${after}`;
+            },
+        );
+
+        await check(
+            "a tap in that corner pauses, and a hold does not",
+            async () => {
+                // Pin the check to one element by id. The swipe above
+                // moved the reel on, so "the first video in the DOM" and
+                // "the one under the finger" are different elements, and
+                // reading the wrong one reports a gesture failure that
+                // did not happen.
+                const id = await evaluate(`(() => {
+                    const el = document.querySelector('.binge-slide[data-active="true"]');
+                    return el ? el.getAttribute('data-scene-id') : null;
+                })()`);
+                assert(id, "no active slide to tap");
+                const pausedNow = () =>
+                    evaluate(`(() => {
+                        const v = document.querySelector('.binge-slide[data-scene-id="${id}"] video');
+                        return v ? v.paused : null;
+                    })()`);
+
+                // Tap to PAUSE, never to play. Pausing takes effect at
+                // once; playing returns a promise that stays pending
+                // while a freshly scrolled-to slide is still buffering,
+                // so a tap that worked perfectly would read as a slide
+                // that ignored it.
+                let playing = false;
+                for (let i = 0; i < 40 && !playing; i++) {
+                    playing = (await pausedNow()) === false;
+                    if (!playing) await sleep(250);
+                }
+                assert(playing, "the active slide never started playing");
+
+                await touch("touchStart", cx, cy);
+                await sleep(80);
+                await touch("touchEnd", cx, cy);
+                await sleep(900);
+                assert(await pausedNow(), "tap did not pause the slide");
+
+                // The browser sends a click after a hold like any other
+                // press. Acting on it would punish the gesture.
+                await touch("touchStart", cx, cy);
+                await sleep(HELD);
+                await touch("touchEnd", cx, cy);
+                await sleep(900);
+                assert(await pausedNow(), "the hold also toggled play/pause");
+                return "tap pauses, hold does not";
+            },
+        );
+    } finally {
+        // Later checks drive mouse input against a desktop layout.
+        await send("Emulation.setTouchEmulationEnabled", { enabled: false });
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 1400,
+            height: 1000,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+    }
 }
 
 async function checkSavedCollectionOpens() {
@@ -489,6 +763,13 @@ async function main() {
         await checkRoutesMount();
         await checkHomePopulates();
         await checkReelPlays();
+        // Opt-in: synthetic touch is markedly less reliable than
+        // synthetic mouse in headless Chrome, and these checks fail
+        // intermittently for reasons that have nothing to do with the
+        // plugin. Too flaky to gate a deploy on, too useful to throw
+        // away, since they are the only thing that can tell a working
+        // gesture from one that ate the reel's scrolling.
+        if (process.env.SMOKE_TOUCH) await checkHoldForSpeed();
         await checkSavedCollectionOpens();
 
         const bad = results.filter((r) => !r.ok);

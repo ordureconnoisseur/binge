@@ -10,7 +10,7 @@ An optional companion daemon, [binge-server](https://github.com/ordureconnoisseu
 
 ## Highlights
 
-- **Vertical reel**: swipe-through scenes, double-tap-to-like, action stack (rating, multiview, scribe, save, ⋯).
+- **Vertical reel**: swipe-through scenes, double-tap-to-like, hold the top-right corner for 2x, action stack (rating, multiview, scribe, save, ⋯).
 - **Home stories + feed**: IG-style stories row of performers with new content (library + StashDB, plus off-site posts when binge-server is running) above a paginated scene feed. Bulk imports collapse into single pack cards.
 - **Performer profiles**: bio, stats, scene grid, image grid, social-link strip with branded icons for Twitter / Instagram / TikTok / Reddit / OnlyFans / Fansly + a 🔗 popup for the rest. Library + StashDB-only variants share the layout.
 - **StashDB discovery**: DISCOVER + TRENDING cards in Home; Follow performers + Add scenes you don't have, both via Stash-style scrape modals.
@@ -27,7 +27,7 @@ An optional companion daemon, [binge-server](https://github.com/ordureconnoisseu
 
 <img align="right" width="440" src="screenshots/reel.webp" alt="Vertical For You reel with the action stack" />
 
-Vertical swipe through scenes. Tap to play/pause, double-tap to like, swipe to advance. Right-side action stack: **Heart · Rate · Multiview · Scribe · Bookmark · ⋯**. Filter chips at top constrain the random feed by performer / tag / studio and persist as you scroll.
+Vertical swipe through scenes. Tap to play/pause, double-tap to like, swipe to advance. Hold the top-right corner to watch at 2x, and pull down while holding to leave it there; hold and pull again to drop back. Right-side action stack: **Heart · Rate · Multiview · Scribe · Bookmark · ⋯**. Filter chips at top constrain the random feed by performer / tag / studio and persist as you scroll.
 
 <br clear="all" />
 
