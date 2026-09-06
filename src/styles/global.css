@@ -7786,18 +7786,32 @@ body,
     display: flex;
     align-items: stretch;
     border-radius: 999px;
-    /* Glass. A tinted, blurred, saturated read of whatever passes
-       behind it, with a specular top edge and a soft drop. The
-       material only works because content runs behind it; a bar
-       that sat under the content would come out plain grey. */
-    background: rgba(255, 255, 255, 0.09);
-    backdrop-filter: blur(22px) saturate(1.7);
-    -webkit-backdrop-filter: blur(22px) saturate(1.7);
+    /* Glass, read as a lens rather than a smear. Three things make
+       the difference over a busy feed: a smoked tint so white icons
+       keep their contrast whatever passes behind them, a blur wide
+       enough that no thumbnail edge survives inside the capsule, and
+       a rim, a real 1px light edge plus a brighter top highlight, so
+       the shape is bounded instead of fading into the content. The
+       first cut was a pale white wash with a strong saturate boost,
+       which lifted every colour behind it and read as a milky patch
+       with no outline. The material still only works because content
+       runs behind it; a bar sitting under the content comes out plain
+       grey. */
+    background:
+        linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.1) 0%,
+            rgba(255, 255, 255, 0.03) 55%,
+            rgba(255, 255, 255, 0) 100%
+        ),
+        rgba(22, 22, 24, 0.42);
+    backdrop-filter: blur(30px) saturate(1.2);
+    -webkit-backdrop-filter: blur(30px) saturate(1.2);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.28),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.09),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.18),
-        0 12px 32px rgba(0, 0, 0, 0.38);
+        inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.22),
+        0 14px 36px rgba(0, 0, 0, 0.45),
+        0 1px 3px rgba(0, 0, 0, 0.35);
     transition:
         left var(--binge-nav-resize),
         right var(--binge-nav-resize),
@@ -7826,11 +7840,12 @@ body,
     border-radius: 999px;
     /* Tinted, not plain. Clear glass on the bar's own glass over a
        dark feed comes out the same colour as the bar, leaving nothing
-       to see. */
-    background: rgba(255, 255, 255, 0.22);
+       to see. A rim of its own so it reads as a raised lens inside
+       the capsule rather than a lighter smudge. */
+    background: rgba(255, 255, 255, 0.17);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.28),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+        inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.24);
     pointer-events: none;
     transition:
         left var(--binge-nav-travel),
@@ -7856,9 +7871,22 @@ body,
 .binge-bottom-nav-item svg {
     width: var(--binge-nav-icon);
     height: var(--binge-nav-icon);
+    /* A hairline of shadow under the glyph, so it stays legible when a
+       bright thumbnail passes behind the glass. */
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
     transition:
         width var(--binge-nav-resize),
         height var(--binge-nav-resize);
+}
+/* Out of the way while anything modal is up. A sheet's rows sit
+   exactly where the capsule floats and its panel is translucent, so
+   without this the icons ghost through the sheet. Modal on iOS covers
+   the nav outright; this is the same outcome. */
+body:has(.binge-sheet-root, .binge-modal-overlay, .binge-story-viewer-root)
+    .binge-bottom-nav {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
 }
 .binge-bottom-nav-item:active {
     transform: scale(0.92);
