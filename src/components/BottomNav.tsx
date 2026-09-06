@@ -1,10 +1,23 @@
+import type { CSSProperties } from "react";
 import { useTab, type Tab } from "../tabs/TabContext";
 
-// 4-slot fixed bottom nav for mobile viewports (≤720px). Mirrors the
-// IG bottom-tab pattern — icons only (no labels), 25%-wide tap
-// targets, active slot gets a filled icon variant. Renders nothing
-// on Saved + Settings since those tabs have their own back-chevron
-// header and a bottom nav over the top would be redundant.
+// Floating bottom nav for mobile viewports (<=720px), in the shape the
+// iOS app settled on: a glass capsule hovering over the content rather
+// than a bar sitting under it, shrinking as you scroll down and coming
+// back on the way up or on a tap. One pill slides to the active slot;
+// the icons themselves are all white, and only Home and For You have a
+// filled variant. The geometry is the iOS build's, measured off a
+// matched pair of reference shots and kept in the CSS as custom
+// properties so the two states are one set of numbers, not two rules.
+//
+// The nav takes no part in layout. Content runs to the physical bottom
+// and passes behind the glass, which is what gives the material
+// something to refract, and every surface makes its own room for it
+// with --binge-nav-footprint. Nothing measures the nav, so shrinking
+// it cannot reflow a feed.
+//
+// Renders nothing on Saved + Settings since those tabs have their own
+// back-chevron header and a nav over the top would be redundant.
 
 const SLOTS: { id: Tab; label: string }[] = [
     { id: "home", label: "Home" },
@@ -18,12 +31,27 @@ export function BottomNav() {
     const { tab, setTab, tabBarVisible } = useTab();
     if (tab === "saved" || tab === "settings") return null;
 
+    // tabBarVisible is the shared scroll verdict (see useAutoHideTabBar):
+    // on desktop it hides the top strip, here it shrinks the capsule.
+    // Same rules, same constants, the bar just answers differently.
+    const activeIndex = Math.max(
+        0,
+        SLOTS.findIndex((slot) => slot.id === tab),
+    );
+
     return (
         <nav
-            className={"binge-bottom-nav" + (tabBarVisible ? "" : " is-hidden")}
+            className={
+                "binge-bottom-nav" + (tabBarVisible ? "" : " is-contracted")
+            }
             role="tablist"
             aria-label="Sections"
+            style={{ "--binge-nav-index": activeIndex } as CSSProperties}
         >
+            {/* ONE pill that moves, not five that appear and disappear.
+                A pill per slot toggled on and off never travels; a
+                single element whose position changes always does. */}
+            <span className="binge-bottom-nav-pill" aria-hidden="true" />
             {SLOTS.map((slot) => {
                 const active = tab === slot.id;
                 return (

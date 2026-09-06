@@ -1,16 +1,21 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { useTab } from "../tabs/TabContext";
 
-// Shared scroll handler that drives the top tab/header auto-hide on
-// every scrollable tab surface. Behaviour:
+// Shared scroll handler behind the chrome on every scrollable tab
+// surface: the top strip hides on desktop, the floating bottom nav
+// shrinks on mobile. Direction, not activity:
 //
-//   - Within 80px of the top → always shown.
-//   - Scrolled DOWN past 80px → hidden.
+//   - Within 80px of the top → always shown, so a feed you have just
+//     opened never greets you with shrunken chrome.
+//   - Scrolled DOWN past 80px → hidden / contracted, and it stays
+//     that way when the flick settles.
 //   - Scrolled UP at all (past the deadzone) → shown immediately,
 //     wherever in the page you are.
 //
 // 5px deadzone on both directions filters out iOS rubber-band wobble
-// and sub-pixel events that would otherwise flicker the bar.
+// and sub-pixel events that would otherwise flicker the bar. Same
+// rules and constants as the iOS app's NavChrome, so the two clients
+// behave alike.
 
 const NEAR_TOP_PX = 80;
 const DELTA_DEADZONE_PX = 5;

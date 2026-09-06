@@ -631,7 +631,9 @@ body,
 .binge-sheet-root {
     position: fixed;
     inset: 0;
-    z-index: 80;
+    /* Above the floating bottom nav (z:95): a sheet is modal, and its
+       rows sit exactly where the capsule floats. */
+    z-index: 96;
 }
 
 .binge-sheet-backdrop {
@@ -7722,63 +7724,186 @@ body,
    Active at viewport ≤720px. Same breakpoint as useIsMobile() so the
    React-side hide-TopHeader switch and the CSS-side padding shifts
    flip together; no middle zone where one is mobile but the other
-   isn't. */
+   isn't.
+
+   A floating glass capsule, not a bar. Geometry is the iOS build's,
+   measured off a matched pair of Instagram reference shots (3px per
+   point on a 393pt screen):
+
+                    expanded   contracted
+     side inset        23          44
+     height            58          49
+     bottom gap        23          28
+     pill              74x50       63x41
+     row inset          9           8
+     icon              26          22
+
+   The shrink is gentler than it looks, about 9px of height, and the
+   bar rises 5px rather than staying put, so it pulls in towards its
+   own centre. Every number lives in a custom property on the nav so
+   the contracted state is one rule that changes values, and the
+   transitions run on the real properties those values feed. */
+
+:root {
+    /* Expanded bottom gap + expanded height, deliberately the only
+       size the layout ever hears about: surfaces pad their content by
+       this so the last row clears the capsule, and pinning it to the
+       expanded size means shrinking the bar cannot reflow a feed. */
+    --binge-nav-footprint: 81px;
+    /* Where the reel's scrub bar sits. The footprint alone put it
+       flush against the capsule; the reference leaves air. */
+    --binge-nav-scrub: 96px;
+    /* Springs, as curves. The bar is being pushed around by a finger,
+       and an ease reads as the animation catching up with the gesture
+       rather than belonging to it; a little overshoot reads as
+       weight. Resize is the tighter of the two. The pill covers real
+       distance and is looser, so at the resize's timing it arrives
+       before the eye has followed it. */
+    --binge-nav-resize: 340ms cubic-bezier(0.3, 1.25, 0.55, 1);
+    --binge-nav-travel: 420ms cubic-bezier(0.28, 1.3, 0.5, 1);
+}
 
 .binge-bottom-nav {
+    --binge-nav-side: 23px;
+    --binge-nav-gap: 23px;
+    --binge-nav-pill-w: 74px;
+    --binge-nav-pill-h: 50px;
+    --binge-nav-pad: 9px;
+    --binge-nav-icon: 26px;
+    --binge-nav-slot: calc((100% - var(--binge-nav-pad) * 2) / 5);
+
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 30;
-    height: 3.5rem;
+    left: var(--binge-nav-side);
+    right: var(--binge-nav-side);
+    bottom: var(--binge-nav-gap);
+    /* Above the performer profile (z:90), which it floats over just
+       as it does on iOS; below every sheet and modal (z:96+), which
+       are modal on iOS too. */
+    z-index: 95;
+    box-sizing: border-box;
+    height: calc(var(--binge-nav-pill-h) + 8px);
+    padding: 4px var(--binge-nav-pad);
     display: flex;
     align-items: stretch;
-    background: rgba(10, 10, 10, 0.92);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    /* iOS safe area — phones with home-bar gestures push the nav up
-       so it doesn't sit under the indicator. */
-    padding-bottom: env(safe-area-inset-bottom, 0);
-    /* Auto-hide animation — same easing + duration as the TopHeader's
-       hide so chrome at top and bottom feel like a single layer. */
-    opacity: 1;
-    transform: translateY(0);
+    border-radius: 999px;
+    /* Glass. A tinted, blurred, saturated read of whatever passes
+       behind it, with a specular top edge and a soft drop. The
+       material only works because content runs behind it; a bar
+       that sat under the content would come out plain grey. */
+    background: rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(22px) saturate(1.7);
+    -webkit-backdrop-filter: blur(22px) saturate(1.7);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+        0 12px 32px rgba(0, 0, 0, 0.38);
     transition:
-        opacity 0.28s ease,
-        transform 0.28s ease;
+        left var(--binge-nav-resize),
+        right var(--binge-nav-resize),
+        bottom var(--binge-nav-resize),
+        height var(--binge-nav-resize),
+        padding var(--binge-nav-resize);
 }
-.binge-bottom-nav.is-hidden {
-    opacity: 0;
-    /* Slide DOWN out of view, matching the scroll-down gesture. */
-    transform: translateY(100%);
+.binge-bottom-nav.is-contracted {
+    --binge-nav-side: 44px;
+    --binge-nav-gap: 28px;
+    --binge-nav-pill-w: 63px;
+    --binge-nav-pill-h: 41px;
+    --binge-nav-pad: 8px;
+    --binge-nav-icon: 22px;
+}
+.binge-bottom-nav-pill {
+    position: absolute;
+    top: 4px;
+    left: calc(
+        var(--binge-nav-pad) + var(--binge-nav-slot) *
+            var(--binge-nav-index, 0) +
+            (var(--binge-nav-slot) - var(--binge-nav-pill-w)) / 2
+    );
+    width: var(--binge-nav-pill-w);
+    height: var(--binge-nav-pill-h);
+    border-radius: 999px;
+    /* Tinted, not plain. Clear glass on the bar's own glass over a
+       dark feed comes out the same colour as the bar, leaving nothing
+       to see. */
+    background: rgba(255, 255, 255, 0.22);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
     pointer-events: none;
+    transition:
+        left var(--binge-nav-travel),
+        width var(--binge-nav-resize),
+        height var(--binge-nav-resize);
 }
 .binge-bottom-nav-item {
     appearance: none;
     background: transparent;
     border: none;
+    padding: 0;
     flex: 1 1 0;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.55);
-    cursor: pointer;
-    /* 48px min target keeps the nav passable on a11y for small
-       phones where 3.5rem comes in below that. */
-    min-height: 48px;
-    transition:
-        color 0.15s ease,
-        transform 0.15s ease;
-}
-.binge-bottom-nav-item.is-active {
+    /* All white. The pill behind carries the active state; Home and
+       For You also swap to their filled glyph. */
     color: #fff;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+.binge-bottom-nav-item svg {
+    width: var(--binge-nav-icon);
+    height: var(--binge-nav-icon);
+    transition:
+        width var(--binge-nav-resize),
+        height var(--binge-nav-resize);
 }
 .binge-bottom-nav-item:active {
     transform: scale(0.92);
 }
-.binge-app.refract .binge-bottom-nav-item.is-active {
-    color: rgba(var(--accent-rgb), 1);
+.binge-bottom-nav-item:focus-visible {
+    outline: none;
+}
+.binge-bottom-nav-item:focus-visible::after {
+    content: "";
+    position: absolute;
+    inset: 4px 6px;
+    border-radius: 999px;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+.binge-app.refract .binge-bottom-nav-pill {
+    background: rgba(var(--accent-rgb), 0.38);
+}
+@media (prefers-reduced-motion: reduce) {
+    .binge-bottom-nav,
+    .binge-bottom-nav-pill,
+    .binge-bottom-nav-item svg {
+        transition: none;
+    }
+}
+
+/* Room for the capsule. Each surface pads itself rather than the
+   layout insetting for the nav, so the content keeps running behind
+   the glass and the last row still scrolls clear of it. */
+@media (max-width: 720px) {
+    .binge-tab-scroll {
+        padding-bottom: var(--binge-nav-footprint);
+        box-sizing: border-box;
+    }
+    .binge-profile-body {
+        padding-bottom: calc(2rem + var(--binge-nav-footprint));
+    }
+    /* Reel: the video runs full bleed behind the bar, as the
+       reference does, and the controls sit above the scrub line. */
+    .binge-progress {
+        bottom: var(--binge-nav-scrub);
+    }
+    .binge-overlay {
+        bottom: var(--binge-nav-scrub);
+        padding-bottom: 14px;
+    }
 }
 
 /* Mobile-only floating burger + filter gear. Stacks vertically in
@@ -7835,11 +7960,10 @@ body,
     .binge-discover-bar {
         padding: 1rem 0.6rem 0;
     }
-    /* Reel action stack: lift above the 3.5rem bottom nav. The
-       existing 5rem already gives a bit of breathing room; we just
-       add the nav height on top. */
+    /* Reel action stack: clear the scrub line, which itself clears
+       the floating nav. */
     .binge-actions {
-        bottom: calc(5rem + 3.5rem);
+        bottom: calc(var(--binge-nav-scrub) + 1.5rem);
     }
     /* Settings + Saved have their own back-chevron headers — no
        fixed strip to clear, but the back-button-style header looks
