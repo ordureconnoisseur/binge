@@ -7912,6 +7912,11 @@ body:has(.binge-sheet-root, .binge-modal-overlay, .binge-story-viewer-root)
     }
 }
 
+/* Off outside the phone layout; the mobile block below turns it on. */
+.binge-reel-frost {
+    display: none;
+}
+
 /* Room for the capsule. Each surface pads itself rather than the
    layout insetting for the nav, so the content keeps running behind
    the glass and the last row still scrolls clear of it. */
@@ -7931,6 +7936,35 @@ body:has(.binge-sheet-root, .binge-modal-overlay, .binge-story-viewer-root)
     .binge-overlay {
         bottom: var(--binge-nav-scrub);
         padding-bottom: 14px;
+    }
+    /* One material from the seek line down. Hard top edge on purpose:
+       the seek line is where the chrome begins, and a fade here read
+       as a gradient dying into the picture rather than a surface the
+       nav sits on. Above the video and the tap target, below the
+       caption, action stack and seek line. */
+    .binge-reel-frost {
+        display: block;
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: var(--binge-nav-scrub);
+        z-index: 3;
+        pointer-events: none;
+        background: rgba(8, 8, 10, 0.26);
+        backdrop-filter: blur(28px) saturate(1.15);
+        -webkit-backdrop-filter: blur(28px) saturate(1.15);
+    }
+    /* The reflection that fills the gap under a picture which ends
+       after the seek line but before the screen edge. Positioned by
+       SceneSlide, flipped here. Lives under the frost. */
+    .binge-reel-mirror {
+        position: absolute;
+        left: 0;
+        width: 100%;
+        z-index: 1;
+        pointer-events: none;
+        transform: scaleY(-1);
     }
 }
 
