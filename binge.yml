@@ -1,6 +1,6 @@
 name: Binge
 description: Instagram-shaped social + discovery layer for Stash. Stories, vertical reel, performer profiles, and StashDB-powered Follow/Discover.
-version: 0.13.0
+version: 0.14.0
 url: https://github.com/ordureconnoisseur/binge
 # Runs the binge-server installer on the machine hosting Stash. A browser
 # can't install software, so the Settings button calls runPluginTask and
